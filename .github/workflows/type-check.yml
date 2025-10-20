@@ -8,6 +8,6 @@ jobs:
       - name: Install the latest version of uv and set the python version
         uses: astral-sh/setup-uv@v7
       - name: Install dependencies
-        uses: uv sync
+        run: uv sync
       - name: Run basedpyright
         run: uv run basedpyright
