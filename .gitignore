@@ -2,3 +2,5 @@
 __pycache__/
 .venv/
 .ruff_cache
+
+project_archive/
