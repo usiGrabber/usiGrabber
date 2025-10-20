@@ -12,4 +12,6 @@ select = [
     "SIM",
     # isort
     "I",
+    # https://docs.astral.sh/ruff/rules/missing-newline-at-end-of-file/
+    "W292" 
 ]
