@@ -6,7 +6,6 @@ readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
     "test-package",
-    "test-package-1",
 ]
 
 [project.scripts]
@@ -18,10 +17,13 @@ build-backend = "uv_build"
 
 [tool.uv.workspace]
 members = [
-    "packages/test-package-1",
     "packages/test-package",
 ]
 
 [tool.uv.sources]
-test-package-1 = { workspace = true }
 test-package = { workspace = true }
+
+[dependency-groups]
+dev = [
+    "ruff>=0.14.1",
+]
