@@ -2,6 +2,7 @@
     "recommendations": [
         "charliermarsh.ruff",
         "detachhead.basedpyright",
-        "ms-python.python"
+        "ms-python.python",
+        "github.vscode-github-actions"
     ]
 }

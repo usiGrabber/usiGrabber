@@ -1,3 +1,5 @@
+name: Linting Action
+on: push
 jobs:
   type-check-python:
     runs-on: ubuntu-latest
