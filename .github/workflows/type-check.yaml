@@ -1,0 +1,9 @@
+jobs:
+  type-check-python:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Install the latest version of uv and set the python version
+        uses: astral-sh/setup-uv@v7
+      - name: Run basedpyright
+        run: uv run basedpyright

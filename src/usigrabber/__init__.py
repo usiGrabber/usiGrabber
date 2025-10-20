@@ -1,7 +1,7 @@
 from test_package import main as test_package_main
 
 
-def main() -> None:
+def main(a) -> None:
     print(
         "Hello from usigrabber! Hello from usigrabber!Hello from usigrabber!Hello fromf"
     )

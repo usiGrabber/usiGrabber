@@ -1,5 +1,7 @@
 {
     "recommendations": [
-        "charliermarsh.ruff"
+        "charliermarsh.ruff",
+        "detachhead.basedpyright",
+        "ms-python.python"
     ]
 }

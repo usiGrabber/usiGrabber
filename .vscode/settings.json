@@ -6,6 +6,7 @@
       "editor.codeActionsOnSave": {
         "source.fixAll": "explicit",
         "source.organizeImports": "always",
-      }
+      },
+       "basedpyright.analysis.diagnosticMode": "openFilesOnly"
     },
 }
