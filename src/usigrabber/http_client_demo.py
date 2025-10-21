@@ -8,8 +8,10 @@ async def main():
         html = await client.get("https://example.com")
         print("Got:", len(html), "chars")
 
-        response = await client.post("https://httpbin.org/post", json={"foo": "bar"})
-        print("POST result:", response)
+        # If the API correctly sets the content type to application/json we parse it
+        # automatically. Else set parse_json=True
+        json_data = await client.get("https://jsonplaceholder.typicode.com/todos/1")
+        print("JSON data:", json_data)
 
 
 asyncio.run(main())

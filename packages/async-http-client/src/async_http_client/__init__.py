@@ -58,13 +58,25 @@ class AsyncHttpClient:
         if self._session:
             await self._session.close()
 
-    async def get(self, url: str, **kwargs: Any):
+    async def get_response(self, url: str, **kwargs: Any):
         """Perform a GET request (cached)."""
         if not self._session:
             raise RuntimeError(
                 "Session not initialized — use 'async with' to manage lifecycle."
             )
+
         async with self._session.get(url, **kwargs) as response:
+            return response
+
+    async def get(self, url: str, parse_json: bool = False, **kwargs: Any):
+        """
+        - Parses json automatically (if content type header is set to application/json)
+        - To force json parsing set `parse_json` to True
+        """
+        response = await self.get_response(url, **kwargs)
+        if response.content_type == "application/json" or parse_json:
+            return await response.json()
+        else:
             return await response.text()
 
     async def post(self, url: str, data: Any = None, json: Any = None, **kwargs: Any):
