@@ -7,6 +7,7 @@ requires-python = ">=3.12"
 dependencies = [
     "pre-commit>=4.3.0",
     "test-package",
+    "async-http-client"
 ]
 
 [project.scripts]
@@ -19,10 +20,12 @@ build-backend = "uv_build"
 [tool.uv.workspace]
 members = [
     "packages/test-package",
+    "packages/async-http-client",
 ]
 
 [tool.uv.sources]
 test-package = { workspace = true }
+async-http-client = { workspace = true}
 
 [dependency-groups]
 dev = [

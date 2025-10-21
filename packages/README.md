@@ -13,4 +13,6 @@ if __name__ == "__main__":
     main()
 ```
 
+Add an empty file called `py.typed` file into src/{package_name} folder to get type hints on build
+
 More infos: https://docs.astral.sh/uv/concepts/projects/workspaces/#workspace-sources

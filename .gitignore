@@ -3,8 +3,12 @@ __pycache__/
 .venv/
 .ruff_cache
 
-# gemini-cli settings
-.gemini/
 
 # GitHub App credentials
 gha-creds-*.json
+
+# Local http request cache
+aiohttp-cache.sqlite
+
+# My local dir for data (-Konstantin)
+data

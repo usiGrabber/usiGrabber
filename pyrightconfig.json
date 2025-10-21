@@ -5,5 +5,8 @@
   // Then override specific settings. I don't think this overwrite really works..
   "failOnWarnings": false,
 
-  "reportMissingTypeStubs": "none"
+  "reportMissingTypeStubs": "none",
+  "reportExplicitAny": "none",
+  "reportAny": "none"
+
 }
