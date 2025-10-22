@@ -18,19 +18,19 @@ BASE_URL = "https://www.ebi.ac.uk/pride/ws/archive/v3"
 
 def check_availability(accession: str) -> bool:
     url = f"{BASE_URL}/status/{accession}"
-    with urllib.request.urlopen(url) as response:
-        if response.status == 200:
-            return response.read().decode() == "PUBLIC"
+    with requests.get(url) as response:
+        response.raise_for_status()
+        return response.text == "PUBLIC"
 
 
-def get_search_files(accession: str) -> list[str]:
+def get_files_of_category(accession: str, category: str = "SEARCH") -> list[str]:
     url = f"{BASE_URL}/projects/{accession}/files"
     with requests.get(url) as response:
         if response.status_code == 200:
             files_info = response.json()
             files = []
             for file_info in files_info:
-                if file_info["fileCategory"]["value"] == "SEARCH":
+                if file_info["fileCategory"]["value"] == category:
                     for download_link in file_info["publicFileLocations"]:
                         if download_link["name"] == "FTP Protocol":
                             files.append(download_link["value"])
@@ -42,10 +42,13 @@ def get_search_files(accession: str) -> list[str]:
             raise ValueError(f"Could not retrieve files for accession {accession}")
 
 
-def download_ftp(url: str, o):
+def download_ftp(url: str, out_dir: Path):
+    # create directory
+    out_dir.mkdir(parents=True)
+
     parsed = urllib.parse.urlparse(url)
     filename = os.path.basename(parsed.path) or "downloaded_file"
-    out_path = Path.cwd() / filename
+    out_path = out_dir / filename
 
     def _reporthook(block_num, block_size, total_size):
         if total_size > 0:
@@ -108,7 +111,7 @@ if __name__ == "__main__":
             exit(1)
 
         # get search files
-        search_files = get_search_files(SAMPLE_ACCESSION)
+        search_files = get_files_of_category(SAMPLE_ACCESSION)
         print(f"Search files for accession {SAMPLE_ACCESSION}:")
         for f in search_files:
             print(f" - {f}")
