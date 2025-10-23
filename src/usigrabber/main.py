@@ -3,6 +3,7 @@ from pathlib import Path
 
 import pandas as pd
 
+from usigrabber.parser.base import USIGenerator
 from usigrabber.utils import data_directory_path, logger
 
 
@@ -19,26 +20,36 @@ def maxquant_generate_usis(
         found_invalid_scan_no = False
 
         for index, row in df.iterrows():
-            raw_file: str = row["Raw file"]
+            raw_file: str = str(row["Raw file"])
             try:
                 scan_number: int = int(row["MS/MS scan number"])
             except ValueError:
                 if not found_invalid_scan_no:
                     # TODO: investigate why some scan numbers are NaN
-                    # maybe because this isn't a scan but one of (index, nativeId, trace)?
+                    # maybe because this isn't a scan but one
+                    # of (index, nativeId, trace)?
                     logger.warning(
-                        f"Invalid scan number '{row['MS/MS scan number']}' at row {index}. Skipping."
+                        f"Invalid scan number '{row['MS/MS scan number']}' "
+                        f"at row {index}. Skipping."
                     )
                 found_invalid_scan_no = True
                 continue
             charge: int = int(row["Charge"])
             if row["Modifications"] == "Unmodified":
                 continue
-            mod_seq: str = row["Modified sequence"].replace("_", "")
+            mod_seq: str = str(row["Modified sequence"]).replace("_", "")
 
-            # TODO: this is currently incorrect, as we expect mods to be in UniMod format
+            # TODO: this is currently incorrect, as we expect
+            # mods to be in UniMod format
+            usi = USIGenerator._build_usi(
+                project_accession,
+                raw_file,
+                "scan",
+                str(scan_number),
+                mod_seq,
+                charge,
+            )
 
-            usi = f"mzspec:{project_accession}:{raw_file}:scan:{scan_number}:{mod_seq}/{charge}"
             yield usi
 
 

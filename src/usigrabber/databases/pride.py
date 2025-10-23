@@ -1,4 +1,5 @@
 import csv
+from typing import Any
 
 import requests
 from tqdm import tqdm
@@ -16,7 +17,8 @@ class PRIDE:
     @classmethod
     def all_files_to_json(cls) -> None:
         """
-        Download all files metadata from PRIDE Archive API and save to a JSON file.
+        Download all files metadata from PRIDE Archive
+        API and save to a JSON file.
         """
         if cls.JSON_EXISTS:
             logger.debug(
@@ -52,7 +54,8 @@ class PRIDE:
     @classmethod
     def filter_result_files_to_csv(cls) -> None:
         """
-        Parse PRIDE Archive all files JSON (`PRIDE.all_files`) and create a filtered CSV of RESULT files.
+        Parse PRIDE Archive all files JSON (`PRIDE.all_files`) and create a "
+        "filtered CSV of RESULT files.
         """
 
         with open(cls.RESULT_CSV_PATH, "w", newline="", encoding="utf-8") as csvfile:
@@ -68,7 +71,8 @@ class PRIDE:
                 accession = file_item["accession"]
                 if len(file_item["projectAccessions"]) > 1:
                     logger.warning(
-                        "Multiple project accessions found for file %s, using the first one.",
+                        "Multiple project accessions found for file %s, "
+                        "using the first one.",
                         file_item["accession"],
                     )
 
@@ -99,7 +103,8 @@ class PRIDE:
         """
         if not cls.JSON_EXISTS:
             raise FileNotFoundError(
-                f"JSON file {cls.JSON_PATH} does not exist. Run `PRIDE.all_files_to_json()` first."
+                f"JSON file {cls.JSON_PATH} does not exist. "
+                "Run `PRIDE.all_files_to_json()` first."
             )
 
         logger.debug("Generating histogram of file categories from %s", cls.JSON_PATH)
@@ -122,7 +127,7 @@ class PRIDE:
     def get_files_for_project(
         cls,
         accession: str,
-    ) -> list[dict]:
+    ) -> list[dict[str, Any]]:
         url = f"{cls.BASE_URL}/projects/{accession}/files/all"
         with requests.get(url) as response:
             if response.status_code == 200:
@@ -176,7 +181,10 @@ if __name__ == "__main__":
     # root_path = project_root / "data" / "project_archive"
     # project_path = root_path / SAMPLE_ACCESSION
     # if not project_path.exists():
-    #     result_files = get_files_of_category(SAMPLE_ACCESSION, category="RESULT")
+    #     result_files = get_files_of_category(
+    #       SAMPLE_ACCESSION,
+    #       category="RESULT"
+    #     )
     #     download_ftp(result_files[0], out_dir=project_path)
 
     # extract archive
