@@ -1,4 +1,3 @@
-import logging
 import os
 import tarfile
 import urllib.parse
@@ -9,8 +8,7 @@ from pathlib import Path
 import pandas as pd
 import requests
 
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+from usigrabber.utils import logger
 
 # SAMPLE_ACCESSION = "PXD014174"
 SAMPLE_ACCESSION = "PXD069312"  # yannicks project
