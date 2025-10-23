@@ -27,7 +27,8 @@ class MZID(USIGenerator):
 
         :param mod_name: Modification name to look up.
         :type mod_name: str
-        :returns: Unimod identifier in the format "UNIMOD:<id>" or the original name if not found.
+        :returns: Unimod identifier in the format "UNIMOD:<id>"
+            or the original name if not found.
         :rtype: str
         """
         unimod_db = get_unimod_db()
@@ -48,7 +49,8 @@ class MZID(USIGenerator):
         wrap: Callable[[str], str] = lambda m: f"[{m}]",
     ):
         """
-        Insert each modification string into `seq` AFTER the residue at `location`.
+        Insert each modification string into `seq` AFTER the
+        residue at `location`.
 
         :param seq: Original peptide sequence, e.g. "ABCDEF".
         :type seq: str
@@ -56,16 +58,22 @@ class MZID(USIGenerator):
                  - "location" (int)
                  - "residue" (str or None)
                  - "modification" (str)
-                 Default indexing is 1-based. Special case (1-based only): location == 0 with residue None inserts at the start.
+                 Default indexing is 1-based. Special case (1-based only):
+                 location == 0 with residue None inserts at the start.
         :type mods: list[dict]
-        :param index_base: Indexing base, either 1 (default) or 0. Positions refer to the ORIGINAL sequence.
+        :param index_base: Indexing base, either 1 (default) or 0. Positions
+            refer to the ORIGINAL sequence.
         :type index_base: int
-        :param wrap: Callable that renders a modification (default: lambda m: f"[{m}]").
+        :param wrap: Callable that renders a modification
+            (default: lambda m: f"[{m}]").
         :type wrap: Callable[[str], str]
         :returns: Sequence with modifications spliced in.
         :rtype: str
-        :raises ValueError: if index_base is not 0 or 1, if a 1-based location 0 has a residue, or if a provided residue does not match the sequence.
-        :raises IndexError: if a 0-based location is negative or any location is out of range for the sequence.
+        :raises ValueError: if index_base is not 0 or 1, if a 1-based
+            location 0 has a residue, or if a provided residue does
+            not match the sequence.
+        :raises IndexError: if a 0-based location is negative or any
+            location is out of range for the sequence.
         """
         # Group modifications by normalized 0-based location.
         # Use sentinel -1 for "before the first residue".
@@ -95,13 +103,15 @@ class MZID(USIGenerator):
 
             if not (0 <= loc0 < len(seq)):
                 raise IndexError(
-                    f"location {loc} out of range for sequence of length {len(seq)} (index_base={index_base})"
+                    f"location {loc} out of range for sequence of "
+                    f"length {len(seq)} (index_base={index_base})"
                 )
 
             # Sanity check residue if provided
             if res is not None and res != seq[loc0]:
                 raise ValueError(
-                    f"Residue mismatch at location {loc}: expected '{seq[loc0]}', got '{res}'"
+                    f"Residue mismatch at location {loc}: "
+                    f"expected '{seq[loc0]}', got '{res}'"
                 )
 
             grouped[loc0].append(mod)
@@ -115,7 +125,7 @@ class MZID(USIGenerator):
             # then fall through to normal stitching
 
         # Stitch once over the ORIGINAL sequence, inserting AFTER each residue
-        for loc0 in sorted(k for k in grouped.keys() if k != -1):
+        for loc0 in sorted(k for k in grouped if k != -1):
             out.append(seq[cursor : loc0 + 1])  # include the residue at loc0
             out.extend(wrap(m) for m in grouped[loc0])  # then insert its mods
             cursor = loc0 + 1
@@ -159,7 +169,14 @@ class MZID(USIGenerator):
                     wrap=cls._replace_with_unimod,
                 )
 
-            usi = f"mzspec:{project_accession}:{filename}:scan:{scan_number}:{seq}/{charge}"
+            usi = cls._build_usi(
+                project_accession,
+                filename,
+                "scan",
+                str(scan_number),
+                seq,
+                charge,
+            )
             yield usi
 
 
@@ -171,11 +188,10 @@ if __name__ == "__main__":
 
     filepath = project_path / "OTE0019_York_060813_JH16_F119502.mzid"
 
-    counter = 0
-    for usi in MZID.generate_usis(SAMPLE_ACCESSION, filepath):
-        counter += 1
+    for i, usi in enumerate(MZID.generate_usis(SAMPLE_ACCESSION, filepath)):
         print(usi)
 
         # limit output for testing
-        if counter >= 1:
+        if i >= 1:
             break
+            # asd
