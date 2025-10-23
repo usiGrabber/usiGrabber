@@ -1,14 +1,12 @@
 import os
-import tarfile
 import urllib.parse
-import urllib.request
 from collections.abc import Generator
 from pathlib import Path
 
 import pandas as pd
-import requests
 
-from usigrabber.utils import logger
+from usigrabber.pride import PRIDE
+from usigrabber.utils.file import download_ftp
 
 # SAMPLE_ACCESSION = "PXD014174"
 SAMPLE_ACCESSION = "PXD069312"  # yannicks project
@@ -17,68 +15,7 @@ SAMPLE_ACCESSION = "PXD069312"  # yannicks project
 BASE_URL = "https://www.ebi.ac.uk/pride/ws/archive/v3"
 
 
-def check_availability(accession: str) -> bool:
-    url = f"{BASE_URL}/status/{accession}"
-    with requests.get(url) as response:
-        response.raise_for_status()
-        return response.text == "PUBLIC"
-
-
-def get_files_of_category(accession: str, category: str = "SEARCH") -> list[str]:
-    url = f"{BASE_URL}/projects/{accession}/files"
-    with requests.get(url) as response:
-        if response.status_code == 200:
-            files_info = response.json()
-            files = []
-            for file_info in files_info:
-                if file_info["fileCategory"]["value"] == category:
-                    for download_link in file_info["publicFileLocations"]:
-                        if download_link["name"] == "FTP Protocol":
-                            files.append(download_link["value"])
-                            break
-
-            return files
-        else:
-            logger.error("Error: %s %s", response.status_code, response.reason)
-            return []
-            # raise ValueError(f"Could not retrieve files for accession {accession}")
-
-
-def download_ftp(url: str, out_dir: Path, file_name: str | None = None) -> None:
-    # create directory
-    out_dir.mkdir(parents=True)
-
-    parsed = urllib.parse.urlparse(url)
-    filename = file_name or os.path.basename(parsed.path)
-    out_path = out_dir / filename
-
-    def _reporthook(block_num, block_size, total_size):
-        if total_size > 0:
-            downloaded = block_num * block_size
-            pct = downloaded / total_size * 100
-            downloaded = min(downloaded, total_size)
-            downloaded_mb = downloaded / (1024 * 1024)
-            total_mb = total_size / (1024 * 1024)
-            print(
-                f"\rDownloading {filename}: {pct:5.1f}% ({downloaded_mb:5.1f}MB/{total_mb:5.1f}MB)",
-                end="",
-            )
-        else:
-            downloaded_mb = (block_num * block_size) / (1024 * 1024)
-            print(f"\rDownloading {filename}: {downloaded_mb:5.1f}MB", end="")
-
-    urllib.request.urlretrieve(url, filename=str(out_path), reporthook=_reporthook)
-    print("\n")
-    logger.debug("Saved to %s", out_path)
-
-
-def extract_archive(archive_path: Path, extract_to: Path):
-    with tarfile.open(archive_path, "r:gz") as tar:
-        tar.extractall(path=extract_to)
-    logger.debug("Extracted %s to %s", archive_path, extract_to)
-
-
-def generate_usis(project_path: Path) -> Generator[str, None, None]:
+def maxquant_generate_usis(project_path: Path) -> Generator[str, None, None]:
     evidence_file = project_path / "evidence.txt"
     if not evidence_file.exists():
         raise FileNotFoundError(f"Evidence file {evidence_file} does not exist.")
@@ -110,14 +47,14 @@ if __name__ == "__main__":
         os.mkdir(project_path)
 
         # check availability
-        if check_availability(SAMPLE_ACCESSION):
+        if PRIDE.check_availability(SAMPLE_ACCESSION):
             print(f"Accession {SAMPLE_ACCESSION} is public.")
         else:
             print(f"Accession {SAMPLE_ACCESSION} is not public.")
             exit(1)
 
         # get search files
-        search_files = get_files_of_category(SAMPLE_ACCESSION)
+        search_files = PRIDE.get_files_of_category(SAMPLE_ACCESSION)
         print(f"Search files for accession {SAMPLE_ACCESSION}:")
         for f in search_files:
             print(f" - {f}")

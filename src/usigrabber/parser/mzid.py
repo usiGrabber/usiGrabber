@@ -6,6 +6,7 @@ from typing import Any, TypedDict
 
 from pyteomics import mzid
 
+from usigrabber.parser.base import USIGenerator
 from usigrabber.utils import UNIMOD_LOOKUP, logger, project_root_path
 
 
@@ -18,7 +19,7 @@ class Mod(TypedDict):
 Mods = list[Mod]
 
 
-class MZID:
+class MZID(USIGenerator):
     @classmethod
     def _replace_with_unimod(cls, mod_name: str) -> str:
         """
@@ -122,10 +123,10 @@ class MZID:
         return "".join(out)
 
     @classmethod
-    def parse_usis(
-        cls, project_accession: str, mzid_path: Path
+    def generate_usis(
+        cls, project_accession: str, file_path: Path
     ) -> Generator[str, None, None]:
-        for item in mzid.read(source=str(mzid_path)):
+        for item in mzid.read(source=str(file_path)):
             title: str = item["spectrum title"]
             pattern = re.compile(
                 r'File:"(?P<filename>[^"]+)"[\s\S]*?scan=(?P<scan>\d+)'
