@@ -3,6 +3,7 @@
         "charliermarsh.ruff",
         "detachhead.basedpyright",
         "ms-python.python",
-        "github.vscode-github-actions"
+        "github.vscode-github-actions",
+        "google.gemini-cli-vscode-ide-companion"
     ]
 }
