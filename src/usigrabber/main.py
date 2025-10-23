@@ -1,13 +1,16 @@
+import logging
 import os
-import re
 import tarfile
 import urllib.parse
 import urllib.request
+from collections.abc import Generator
 from pathlib import Path
-from typing import Generator
 
 import pandas as pd
 import requests
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 # SAMPLE_ACCESSION = "PXD014174"
 SAMPLE_ACCESSION = "PXD069312"  # yannicks project
@@ -38,16 +41,17 @@ def get_files_of_category(accession: str, category: str = "SEARCH") -> list[str]
 
             return files
         else:
-            print(f"Error: {response.status_code} {response.reason}")
-            raise ValueError(f"Could not retrieve files for accession {accession}")
+            logger.error("Error: %s %s", response.status_code, response.reason)
+            return []
+            # raise ValueError(f"Could not retrieve files for accession {accession}")
 
 
-def download_ftp(url: str, out_dir: Path):
+def download_ftp(url: str, out_dir: Path, file_name: str | None = None) -> None:
     # create directory
     out_dir.mkdir(parents=True)
 
     parsed = urllib.parse.urlparse(url)
-    filename = os.path.basename(parsed.path) or "downloaded_file"
+    filename = file_name or os.path.basename(parsed.path)
     out_path = out_dir / filename
 
     def _reporthook(block_num, block_size, total_size):
@@ -57,19 +61,23 @@ def download_ftp(url: str, out_dir: Path):
             downloaded = min(downloaded, total_size)
             downloaded_mb = downloaded / (1024 * 1024)
             total_mb = total_size / (1024 * 1024)
-            print(f"\rDownloading {filename}: {pct:5.1f}% ({downloaded_mb:5.1f}MB/{total_mb:5.1f}MB)", end="")
+            print(
+                f"\rDownloading {filename}: {pct:5.1f}% ({downloaded_mb:5.1f}MB/{total_mb:5.1f}MB)",
+                end="",
+            )
         else:
             downloaded_mb = (block_num * block_size) / (1024 * 1024)
             print(f"\rDownloading {filename}: {downloaded_mb:5.1f}MB", end="")
 
     urllib.request.urlretrieve(url, filename=str(out_path), reporthook=_reporthook)
-    print(f"\nSaved to {out_path}")
+    print("\n")
+    logger.debug("Saved to %s", out_path)
 
 
 def extract_archive(archive_path: Path, extract_to: Path):
     with tarfile.open(archive_path, "r:gz") as tar:
         tar.extractall(path=extract_to)
-    print(f"Extracted {archive_path} to {extract_to}")
+    logger.debug("Extracted %s to %s", archive_path, extract_to)
 
 
 def generate_usis(project_path: Path) -> Generator[str, None, None]:
@@ -123,7 +131,6 @@ if __name__ == "__main__":
     print("Generated USIs:")
     count = 0
     for usi in generate_usis(project_path):
-
         if "(" in usi:
             count += 1
             print(usi)
