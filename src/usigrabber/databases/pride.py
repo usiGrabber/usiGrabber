@@ -3,14 +3,14 @@ import csv
 import requests
 from tqdm import tqdm
 
-from usigrabber.utils import iter_json, logger, project_root_path
+from usigrabber.utils import data_directory_path, iter_json, logger
 
 
 class PRIDE:
     BASE_URL = "https://www.ebi.ac.uk/pride/ws/archive/v3"
-    JSON_PATH = project_root_path() / "data" / "files" / "all_files.json"
+    JSON_PATH = data_directory_path() / "files" / "all_files.json"
     JSON_EXISTS = JSON_PATH.exists()
-    RESULT_CSV_PATH = project_root_path() / "data" / "files" / "result_files.csv"
+    RESULT_CSV_PATH = data_directory_path() / "files" / "result_files.csv"
     CSV_EXISTS = RESULT_CSV_PATH.exists()
 
     @classmethod
@@ -119,6 +119,25 @@ class PRIDE:
             return response.text == "PUBLIC"
 
     @classmethod
+    def get_files_for_project(
+        cls,
+        accession: str,
+    ) -> list[dict]:
+        url = f"{cls.BASE_URL}/projects/{accession}/files/all"
+        with requests.get(url) as response:
+            if response.status_code == 200:
+                files_info = response.json()
+                return files_info
+            else:
+                logger.error(
+                    "Could not retrieve files for accession %s: %s %s",
+                    accession,
+                    response.status_code,
+                    response.reason,
+                )
+                return []
+
+    @classmethod
     def get_files_of_category(
         cls, accession: str, category: str = "SEARCH"
     ) -> list[str]:
@@ -146,14 +165,14 @@ class PRIDE:
 
 
 if __name__ == "__main__":
-    PRIDE.all_files_to_json()
-    PRIDE.filter_result_files_to_csv()
+    # PRIDE.all_files_to_json()
+    # PRIDE.filter_result_files_to_csv()
 
     # hist = histogram_of_file_categories(json_path)
     # for category, count in hist.items():
     #     print(f"{category}: {count}")
 
-    # SAMPLE_ACCESSION = "PXD001357"
+    SAMPLE_ACCESSION = "PXD001357"
     # root_path = project_root / "data" / "project_archive"
     # project_path = root_path / SAMPLE_ACCESSION
     # if not project_path.exists():

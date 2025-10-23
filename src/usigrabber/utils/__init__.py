@@ -1,5 +1,6 @@
 import csv
 import logging
+import os
 from collections.abc import Generator
 from pathlib import Path
 
@@ -9,9 +10,16 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-def project_root_path() -> Path:
+def data_directory_path() -> Path:
     """Return the root directory of the project."""
-    return Path(__file__).parent.parent.parent
+    data_dir = os.getenv("UG_DATA_DIR", default=".")
+    if data_dir == ".":
+        logger.warning(
+            "UG_DATA_DIR environment variable not set. Using current directory as root."
+        )
+    if data_dir.startswith("~"):
+        data_dir = os.path.expanduser(data_dir)
+    return Path(data_dir)
 
 
 def iter_json(json_path: Path) -> Generator[dict, None, None]:
@@ -21,59 +29,16 @@ def iter_json(json_path: Path) -> Generator[dict, None, None]:
             yield item
 
 
-def parse_unimod() -> dict[str, int]:
-    """
-    Parse a Unimod CSV file and return a mapping from modification name to unimod_id.
+UNIMOD_DB = None
 
-    :returns: Dictionary mapping modification name (str) to unimod_id (int).
-    """
-    unimod_map = {}
 
-    csv_path = project_root_path() / "data" / "files" / "unimod.csv"
+def get_unimod_db():
+    """Lazy load the Unimod database."""
+    global UNIMOD_DB
+    if UNIMOD_DB is None:
+        from pyteomics.mass.unimod import Unimod
 
-    with open(csv_path, encoding="utf-8", newline="") as in_f:
-        reader = csv.DictReader(in_f)
-        if not reader.fieldnames:
-            return unimod_map
-
-        # Find header keys for title and record id in a case-insensitive manner
-        title_key = next(
-            (k for k in reader.fieldnames if k and k.lower() == "title"), None
+        UNIMOD_DB = Unimod(
+            "sqlite:///" + (data_directory_path() / "unimod.db").as_posix()
         )
-        record_id_key = next(
-            (
-                k
-                for k in reader.fieldnames
-                if k
-                and k.lower()
-                in {
-                    "record_id",
-                    "recordid",
-                    "record id",
-                    "id",
-                    "unimod_id",
-                    "unimod id",
-                }
-            ),
-            None,
-        )
-
-        for row in reader:
-            if not row:
-                continue
-            title = row.get(title_key) if title_key else None
-            record_id_val = row.get(record_id_key) if record_id_key else None
-
-            try:
-                unimod_map[title] = int(record_id_val)
-            except (ValueError, TypeError):
-                # skip rows with non-integer record ids
-                logger.warning(
-                    "Skipping Unimod entry with invalid record id: %d", record_id_val
-                )
-                continue
-
-    return unimod_map
-
-
-UNIMOD_LOOKUP = parse_unimod()
+    return UNIMOD_DB

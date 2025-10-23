@@ -7,7 +7,7 @@ from typing import Any, TypedDict
 from pyteomics import mzid
 
 from usigrabber.parser.base import USIGenerator
-from usigrabber.utils import UNIMOD_LOOKUP, logger, project_root_path
+from usigrabber.utils import data_directory_path, get_unimod_db, logger
 
 
 class Mod(TypedDict):
@@ -30,12 +30,13 @@ class MZID(USIGenerator):
         :returns: Unimod identifier in the format "UNIMOD:<id>" or the original name if not found.
         :rtype: str
         """
-        unimod_id = UNIMOD_LOOKUP.get(mod_name, None)
-        if unimod_id is None:
+        unimod_db = get_unimod_db()
+        mod = unimod_db.get(mod_name)
+        if mod is None:
             logger.warning("Unimod ID not found for modification: %s", mod_name)
             return mod_name
 
-        return f"[UNIMOD:{unimod_id}]"
+        return f"[UNIMOD:{mod.id}]"
 
     @classmethod
     def _splice_mods(
@@ -164,17 +165,17 @@ class MZID(USIGenerator):
 
 if __name__ == "__main__":
     SAMPLE_ACCESSION = "PXD001357"
-    usigrabber_root = project_root_path()
-    root_path = usigrabber_root / "data" / "project_archive"
+    usigrabber_root = data_directory_path()
+    root_path = usigrabber_root / "project_archive"
     project_path = root_path / SAMPLE_ACCESSION
 
     filepath = project_path / "OTE0019_York_060813_JH16_F119502.mzid"
 
     counter = 0
-    for usi in MZID.parse_usis(SAMPLE_ACCESSION, filepath):
+    for usi in MZID.generate_usis(SAMPLE_ACCESSION, filepath):
         counter += 1
         print(usi)
 
         # limit output for testing
-        if counter >= 10:
+        if counter >= 1:
             break

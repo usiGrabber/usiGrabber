@@ -7,7 +7,7 @@ from pathlib import Path
 from usigrabber.utils import logger
 
 
-def download_ftp(url: str, out_dir: Path, file_name: str | None = None) -> None:
+def download_ftp(url: str, out_dir: Path, file_name: str | None = None) -> Path:
     # create directory
     out_dir.mkdir(parents=True)
 
@@ -33,9 +33,47 @@ def download_ftp(url: str, out_dir: Path, file_name: str | None = None) -> None:
     urllib.request.urlretrieve(url, filename=str(out_path), reporthook=_reporthook)
     print("\n")
     logger.debug("Saved to %s", out_path)
+    return out_path
 
 
 def extract_archive(archive_path: Path, extract_to: Path):
     with tarfile.open(archive_path, "r:gz") as tar:
         tar.extractall(path=extract_to)
     logger.debug("Extracted %s to %s", archive_path, extract_to)
+
+
+if __name__ == "__main__":
+    import argparse
+
+    parser = argparse.ArgumentParser(
+        description="Download a file from an FTP URL and optionally extract it."
+    )
+    parser.add_argument("url", help="FTP URL to download")
+    parser.add_argument(
+        "-o",
+        "--out-dir",
+        default="downloads",
+        help="Output directory for the downloaded file (default: ./downloads)",
+    )
+    parser.add_argument(
+        "-f",
+        "--filepath",
+        default=None,
+        help="Optional filename to save as (defaults to the name from the URL)",
+    )
+    parser.add_argument(
+        "-x",
+        "--extract",
+        action="store_true",
+        help="If set, automatically extract the downloaded .tar.gz archive to the output directory",
+    )
+
+    args = parser.parse_args()
+
+    out_dir = Path(args.out_dir)
+    file_name = args.filepath
+
+    out_path = download_ftp(args.url, out_dir, file_name)
+
+    if args.extract:
+        extract_archive(out_path, out_dir)
