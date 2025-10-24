@@ -30,7 +30,7 @@ def maxquant_generate_usis(
                     # of (index, nativeId, trace)?
                     logger.warning(
                         f"Invalid scan number '{row['MS/MS scan number']}' "
-                        f"at row {index}. Skipping."
+                        + f"at row {index}. Skipping."
                     )
                 found_invalid_scan_no = True
                 continue
@@ -63,7 +63,9 @@ if __name__ == "__main__":
     # generate USIs
     print("Generated USIs:")
     count = 0
-    for usi in maxquant_generate_usis(SAMPLE_ACCESSION, project_path):
+    for usi in maxquant_generate_usis(
+        project_accession=SAMPLE_ACCESSION, project_path=project_path
+    ):
         if "(" in usi:
             count += 1
             print(usi)

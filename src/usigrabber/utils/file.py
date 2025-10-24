@@ -23,7 +23,8 @@ def download_ftp(url: str, out_dir: Path, file_name: str | None = None) -> Path:
             downloaded_mb = downloaded / (1024 * 1024)
             total_mb = total_size / (1024 * 1024)
             print(
-                f"\rDownloading {filename}: {pct:5.1f}% ({downloaded_mb:5.1f}MB/{total_mb:5.1f}MB)",
+                f"\rDownloading {filename}: {pct:5.1f}% "
+                + f"({downloaded_mb:5.1f}MB/{total_mb:5.1f}MB)",
                 end="",
             )
         else:
@@ -65,7 +66,8 @@ if __name__ == "__main__":
         "-x",
         "--extract",
         action="store_true",
-        help="If set, automatically extract the downloaded .tar.gz archive to the output directory",
+        help="If set, automatically extract the downloaded .tar.gz archive"
+        + " to the output directory",
     )
 
     args = parser.parse_args()
