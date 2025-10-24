@@ -6,7 +6,7 @@ from typing import Any, TypedDict
 
 from pyteomics import mzid
 
-from usigrabber.parser.base import USIGenerator
+from usigrabber.file_parser.base import USIGenerator
 from usigrabber.utils import data_directory_path, get_unimod_db, logger
 
 
@@ -194,4 +194,3 @@ if __name__ == "__main__":
         # limit output for testing
         if i >= 1:
             break
-            # asd

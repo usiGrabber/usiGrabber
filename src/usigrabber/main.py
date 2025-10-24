@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from usigrabber.parser.base import USIGenerator
+from usigrabber.file_parser.base import USIGenerator
 from usigrabber.utils import data_directory_path, logger
 
 
