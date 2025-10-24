@@ -2,14 +2,14 @@ from collections.abc import Generator
 from pathlib import Path
 
 import pandas as pd
+from pyteomics.usi import USI
 
-from usigrabber.file_parser.base import USIGenerator
 from usigrabber.utils import data_directory_path, logger
 
 
 def maxquant_generate_usis(
     project_accession: str, project_path: Path
-) -> Generator[str, None, None]:
+) -> Generator[USI, None, None]:
     evidence_file = project_path / "evidence.txt"
     if not evidence_file.exists():
         raise FileNotFoundError(f"Evidence file {evidence_file} does not exist.")
@@ -41,7 +41,7 @@ def maxquant_generate_usis(
 
             # TODO: this is currently incorrect, as we expect
             # mods to be in UniMod format
-            usi = USIGenerator._build_usi(
+            usi = USI(
                 project_accession,
                 raw_file,
                 "scan",

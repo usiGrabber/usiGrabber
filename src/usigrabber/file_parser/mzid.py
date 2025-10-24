@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Any, TypedDict
 
 from pyteomics import mzid
+from pyteomics.usi import USI
 
 from usigrabber.file_parser.base import USIGenerator
 from usigrabber.utils import data_directory_path, get_unimod_db, logger
@@ -136,7 +137,7 @@ class MZID(USIGenerator):
     @classmethod
     def generate_usis(
         cls, project_accession: str, file_path: Path
-    ) -> Generator[str, None, None]:
+    ) -> Generator[USI, None, None]:
         for item in mzid.read(source=str(file_path)):
             title: str = item["spectrum title"]
             pattern = re.compile(
@@ -169,7 +170,7 @@ class MZID(USIGenerator):
                     wrap=cls._replace_with_unimod,
                 )
 
-            usi = cls._build_usi(
+            usi = USI(
                 project_accession,
                 filename,
                 "scan",
