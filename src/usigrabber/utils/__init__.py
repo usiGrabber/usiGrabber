@@ -5,6 +5,9 @@ from pathlib import Path
 from typing import Any
 
 import ijson
+from dotenv import load_dotenv
+
+load_dotenv()
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -20,6 +23,9 @@ def data_directory_path() -> Path:
     if data_dir.startswith("~"):
         data_dir = os.path.expanduser(data_dir)
     return Path(data_dir)
+
+
+DATA_DIR = data_directory_path()
 
 
 def iter_json(json_path: Path) -> Generator[dict[Any, Any], None, None]:
