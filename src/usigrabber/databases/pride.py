@@ -1,4 +1,5 @@
 import csv
+from pathlib import Path
 from typing import Any
 
 import requests
@@ -8,11 +9,11 @@ from usigrabber.utils import data_directory_path, iter_json, logger
 
 
 class PRIDE:
-    BASE_URL = "https://www.ebi.ac.uk/pride/ws/archive/v3"
-    JSON_PATH = data_directory_path() / "files" / "all_files.json"
-    JSON_EXISTS = JSON_PATH.exists()
-    RESULT_CSV_PATH = data_directory_path() / "files" / "result_files.csv"
-    CSV_EXISTS = RESULT_CSV_PATH.exists()
+    BASE_URL: str = "https://www.ebi.ac.uk/pride/ws/archive/v3"
+    JSON_PATH: Path = data_directory_path() / "files" / "all_files.json"
+    JSON_EXISTS: bool = JSON_PATH.exists()
+    RESULT_CSV_PATH: Path = data_directory_path() / "files" / "result_files.csv"
+    CSV_EXISTS: bool = RESULT_CSV_PATH.exists()
 
     @classmethod
     def all_files_to_json(cls) -> None:
