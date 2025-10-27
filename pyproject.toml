@@ -16,6 +16,8 @@ dependencies = [
     "async-http-client",
     "typer-slim>=0.20.0",
     "python-dotenv>=1.1.1",
+    "pydantic>=2.12.3",
+    "sqlmodel>=0.0.27",
 ]
 
 [project.scripts]

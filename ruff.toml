@@ -15,3 +15,8 @@ select = [
     # https://docs.astral.sh/ruff/rules/missing-newline-at-end-of-file/
     "W292" 
 ]
+
+
+[format]
+# Use tabs instead of 4 space indentation.
+indent-style = "tab"

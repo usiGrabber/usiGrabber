@@ -13,3 +13,4 @@ aiohttp-cache.sqlite
 
 # My local dir for data (-Konstantin)
 data
+database.db
