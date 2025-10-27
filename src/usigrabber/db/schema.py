@@ -8,6 +8,17 @@ class Hero(SQLModel, table=True):
 	age: int | None = None
 
 
+class Project(SQLModel, table=True):
+	__tablename__ = "projects"
+
+	accession: str = Field(primary_key=True)
+	title: str
+	submission_type: str
+	description: str
+	sample_processing_protocol: str
+	data_processing_protocol: str
+
+
 sqlite_file_name = "database.db"
 sqlite_url = f"sqlite:///{sqlite_file_name}"
 
