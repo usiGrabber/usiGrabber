@@ -19,6 +19,7 @@ def load_db_engine(debug_sql: bool = False) -> Engine:
 		sqlite_file_name = CLUSTER_DB_PATH
 	else:
 		sqlite_file_name = LOCAL_DB_PATH
-
+	logger.info(f"Using sqlite db at: {sqlite_file_name}")
 	sqlite_url = f"sqlite:///{sqlite_file_name}"
+
 	return create_engine(sqlite_url, echo=debug_sql)
