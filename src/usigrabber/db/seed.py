@@ -65,13 +65,13 @@ def seed_minimal_data(engine: Engine) -> None:
 		instruments = [
 			CvParam(
 				accession="MS:1001910",
-				cv_label="MS",
+				cvLabel="MS",
 				name="LTQ Orbitrap Elite",
 				param_type="instrument",
 			),
 			CvParam(
 				accession="MS:1001911",
-				cv_label="MS",
+				cvLabel="MS",
 				name="Q Exactive",
 				param_type="instrument",
 			),
@@ -80,13 +80,13 @@ def seed_minimal_data(engine: Engine) -> None:
 		organisms = [
 			CvParam(
 				accession="NEWT:9606",
-				cv_label="NEWT",
+				cvLabel="NEWT",
 				name="Homo sapiens (human)",
 				param_type="organism",
 			),
 			CvParam(
 				accession="NEWT:10090",
-				cv_label="NEWT",
+				cvLabel="NEWT",
 				name="Mus musculus (mouse)",
 				param_type="organism",
 			),
@@ -95,27 +95,33 @@ def seed_minimal_data(engine: Engine) -> None:
 		session.add_all(instruments + organisms)
 		session.flush()
 
+		# Ensure IDs are assigned after flush
+		assert instruments[0].id is not None
+		assert instruments[1].id is not None
+		assert organisms[0].id is not None
+		assert organisms[1].id is not None
+
 		# 3. Create Projects
 		project1 = Project(
 			accession="PXD000001",
 			title="Proteomics Analysis of Human Cancer Cell Lines",
-			project_description="Comprehensive proteomics study of human cancer ...",
-			sample_processing_protocol="Cells lysed, proteins extracted and ...",
-			data_processing_protocol="Data analyzed with MaxQuant and Perseus.",
-			submission_type="COMPLETE",
-			submission_date=date(2023, 1, 15),
-			publication_date=date(2023, 6, 1),
-			total_file_downloads=523,
+			projectDescription="Comprehensive proteomics study of human cancer ...",
+			sampleProcessingProtocol="Cells lysed, proteins extracted and ...",
+			dataProcessingProtocol="Data analyzed with MaxQuant and Perseus.",
+			submissionType="COMPLETE",
+			submissionDate=date(2023, 1, 15),
+			publicationDate=date(2023, 6, 1),
+			totalFileDownloads=523,
 		)
 
 		project2 = Project(
 			accession="PXD000002",
 			title="Mouse Brain Development Proteome",
-			project_description="Temporal proteomics analysis of mouse brain ...",
-			submission_type="PARTIAL",
-			submission_date=date(2023, 3, 10),
-			publication_date=date(2023, 8, 15),
-			total_file_downloads=187,
+			projectDescription="Temporal proteomics analysis of mouse brain ...",
+			submissionType="PARTIAL",
+			submissionDate=date(2023, 3, 10),
+			publicationDate=date(2023, 8, 15),
+			totalFileDownloads=187,
 		)
 
 		session.add_all([project1, project2])
@@ -125,14 +131,14 @@ def seed_minimal_data(engine: Engine) -> None:
 		references = [
 			Reference(
 				project_accession="PXD000001",
-				reference_line="Smith J, et al. Proteomics of cancer cells. Nature.",
-				pubmed_id=12345678,
+				referenceLine="Smith J, et al. Proteomics of cancer cells. Nature.",
+				pubmedID=12345678,
 				doi="10.1038/nature.2023.001",
 			),
 			Reference(
 				project_accession="PXD000002",
-				reference_line="Doe J, et al. Brain development proteome. Cell. 2023",
-				pubmed_id=87654321,
+				referenceLine="Doe J, et al. Brain development proteome. Cell. 2023",
+				pubmedID=87654321,
 				doi="10.1016/cell.2023.002",
 			),
 		]

@@ -93,8 +93,8 @@ def get_or_create_contact(
 		id=contact_id,
 		name=contact_data.get("name", ""),
 		title=contact_data.get("title"),
-		first_name=contact_data.get("firstName"),
-		last_name=contact_data.get("lastName"),
+		firstName=contact_data.get("firstName"),
+		lastName=contact_data.get("lastName"),
 		email=contact_data.get("email"),
 		affiliation=contact_data.get("affiliation"),
 		country=contact_data.get("country"),
@@ -129,19 +129,21 @@ def get_or_create_cvparam(
 	existing = session.exec(statement).first()
 
 	if existing:
+		assert existing.id is not None
 		cv_cache[cache_key] = existing.id
 		return existing.id
 
 	# Create new
 	cv_param = CvParam(
 		accession=accession,
-		cv_label=cv_data.get("cvLabel"),
+		cvLabel=cv_data.get("cvLabel"),
 		name=name,
 		value=cv_data.get("value"),
 		param_type=param_type,
 	)
 	session.add(cv_param)
 	session.flush()
+	assert cv_param.id is not None
 	cv_cache[cache_key] = cv_param.id
 	return cv_param.id
 
@@ -155,17 +157,17 @@ def import_project(
 	project = Project(
 		accession=project_data["accession"],
 		title=project_data["title"],
-		project_description=project_data.get("projectDescription"),
-		sample_processing_protocol=project_data.get("sampleProcessingProtocol"),
-		data_processing_protocol=project_data.get("dataProcessingProtocol"),
+		projectDescription=project_data.get("projectDescription"),
+		sampleProcessingProtocol=project_data.get("sampleProcessingProtocol"),
+		dataProcessingProtocol=project_data.get("dataProcessingProtocol"),
 		doi=project_data.get("doi"),
-		submission_type=project_data["submissionType"],
+		submissionType=project_data["submissionType"],
 		license=project_data.get("license"),
-		submission_date=parse_date(project_data.get("submissionDate")),
-		publication_date=parse_date(project_data.get("publicationDate")),
-		total_file_downloads=project_data.get("totalFileDownloads", 0),
-		sample_attributes=project_data.get("sampleAttributes"),
-		additional_attributes=project_data.get("additionalAttributes"),
+		submissionDate=parse_date(project_data.get("submissionDate")),
+		publicationDate=parse_date(project_data.get("publicationDate")),
+		totalFileDownloads=project_data.get("totalFileDownloads", 0),
+		sampleAttributes=project_data.get("sampleAttributes"),
+		additionalAttributes=project_data.get("additionalAttributes"),
 	)
 	session.add(project)
 
@@ -186,8 +188,8 @@ def import_project(
 	for ref_data in project_data.get("references", []):
 		reference = Reference(
 			project_accession=project.accession,
-			reference_line=ref_data.get("referenceLine"),
-			pubmed_id=ref_data.get("pubmedID"),
+			referenceLine=ref_data.get("referenceLine"),
+			pubmedID=ref_data.get("pubmedID"),
 			doi=ref_data.get("doi"),
 		)
 		session.add(reference)
