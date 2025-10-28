@@ -15,10 +15,15 @@ LOCAL_DB_PATH = "database.db"
 
 
 def load_db_engine(debug_sql: bool = False) -> Engine:
-	if os.path.exists(CLUSTER_DB_PATH) and os.getenv("USE_LOCAL_DB") is None:
+	if os.getenv("USE_LOCAL_DB") is not None:
+		sqlite_file_name = LOCAL_DB_PATH
+		logger.info("USE_LOCAL_DB environment variable is set. Using local database.")
+	elif os.path.exists(CLUSTER_DB_PATH):
 		sqlite_file_name = CLUSTER_DB_PATH
+		logger.info("Using cluster database.")
 	else:
 		sqlite_file_name = LOCAL_DB_PATH
+		logger.warning(f"Cluster DB path '{CLUSTER_DB_PATH}' does not exist. Falling back to local database.")
 	logger.info(f"Using sqlite db at: {sqlite_file_name}")
 	sqlite_url = f"sqlite:///{sqlite_file_name}"
 
