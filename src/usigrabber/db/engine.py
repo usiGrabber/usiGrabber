@@ -22,4 +22,7 @@ def load_db_engine(debug_sql: bool = False) -> Engine:
 	logger.info(f"Using sqlite db at: {sqlite_file_name}")
 	sqlite_url = f"sqlite:///{sqlite_file_name}"
 
-	return create_engine(sqlite_url, echo=debug_sql)
+	# Use DB_ECHO_SQL from environment if not explicitly set
+	echo_sql = debug_sql or os.getenv("DB_ECHO_SQL", "0") == "1"
+
+	return create_engine(sqlite_url, echo=echo_sql)
