@@ -316,6 +316,8 @@ def import_pride_json(json_file: str, batch_size: int = 100):
 						(project_data.get("accession", "unknown"), str(e))
 					)
 					session.rollback()
+					contact_cache.clear()
+					cv_cache.clear()
 
 					# Continue with next project
 					if (i + 1) % batch_size == 0:
