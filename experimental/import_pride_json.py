@@ -13,6 +13,7 @@ Usage:
     python scripts/import_pride_json.py pride_projects_all.json
 """
 
+import hashlib
 import json
 import sys
 from datetime import date, datetime
@@ -76,7 +77,8 @@ def get_or_create_contact(
 		# Generate ID from email or name
 		email = contact_data.get("email", "")
 		name = contact_data.get("name", "")
-		contact_id = f"auto_{hash(email or name)}"
+		hash_input = (email or name).encode("utf-8")
+		contact_id = f"auto_{hashlib.md5(hash_input).hexdigest()}"
 
 	# Check cache
 	if contact_id in contact_cache:
