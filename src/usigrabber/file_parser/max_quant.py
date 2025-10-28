@@ -42,12 +42,12 @@ def maxquant_generate_usis(
             # TODO: this is currently incorrect, as we expect
             # mods to be in UniMod format
             usi = USI(
+                "mzspec",
                 project_accession,
                 raw_file,
                 "scan",
                 str(scan_number),
-                mod_seq,
-                charge,
+                f"{mod_seq}/{charge}",
             )
 
             yield usi

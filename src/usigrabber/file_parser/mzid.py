@@ -171,12 +171,12 @@ class MZID(USIGenerator):
                 )
 
             usi = USI(
+                "mzspec",
                 project_accession,
                 filename,
                 "scan",
                 str(scan_number),
-                seq,
-                charge,
+                f"{seq}/{charge}",
             )
             yield usi
 
