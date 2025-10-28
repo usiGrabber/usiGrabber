@@ -21,3 +21,4 @@ database.db
 *.sqlite3
 test_*.db
 dev_*.db
+.cache
