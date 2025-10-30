@@ -1,5 +1,16 @@
 from abc import ABC, abstractmethod
-from typing import Any
+from typing import Any, TypedDict
+
+
+class FileMetadata(TypedDict):
+    filepath: str
+    file_size: int
+    category: str
+
+
+class Files(TypedDict):
+    search: list[FileMetadata]
+    result: list[FileMetadata]
 
 
 class BaseBackend(ABC):
@@ -25,7 +36,7 @@ class BaseBackend(ABC):
 
     @classmethod
     @abstractmethod
-    def get_files_for_project(cls, project_accession: str) -> list[dict[str, Any]]:
+    def get_files_for_project(cls, project_accession: str) -> Files:
         """
         Retrieve file information for a specific project.
 
@@ -35,11 +46,20 @@ class BaseBackend(ABC):
 
     @classmethod
     @abstractmethod
-    def process_file(cls, file: dict[str, Any], metadata: dict[str, Any]) -> None:
+    def process_result_file(cls, file: FileMetadata) -> None:
         """
-        Process a file with its metadata.
+        Process a result file.
 
         :param file: A dictionary containing file information.
-        :param metadata: A dictionary containing project metadata.
+        """
+        ...
+
+    @classmethod
+    @abstractmethod
+    def process_search_file(cls, file: FileMetadata) -> None:
+        """
+        Process a search file.
+
+        :param file: A dictionary containing file information.
         """
         ...

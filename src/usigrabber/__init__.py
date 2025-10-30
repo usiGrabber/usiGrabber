@@ -53,10 +53,6 @@ def build(
         list[BackendEnum],
         typer.Option(help="Set of backends to fetch data from."),
     ] = [enum for enum in BackendEnum],  # noqa: B006
-    is_test: Annotated[
-        bool,
-        typer.Option(help="Run in test mode with limited data."),
-    ] = False,
 ) -> None:
     """Build USI database."""
     typer.echo("Building USI database...")
@@ -75,7 +71,7 @@ def build(
         backend = backend_enum.value
         typer.echo(f"Fetching data from backend: {backend_enum.name}")
 
-        backend_accessions = backend.get_all_project_accessions(is_test)
+        backend_accessions = backend.get_all_project_accessions()
 
         # filter accessions to only new ones
         new_accessions = []
@@ -85,22 +81,32 @@ def build(
                 new_accessions.append(accession)
 
         typer.echo(
-            f"Found {len(new_accessions)} new accessions from backend \
-			{backend_enum.name}."
+            message=f"Found {len(new_accessions)} new accessions from backend {backend_enum.name}."
         )
 
         for accession in new_accessions:
             # fetch metadata
             metadata: dict[str, Any] = backend.get_metadata_for_project(accession)
+            project_data = metadata
+            project_data["usis"] = []
 
             # download files
-            files: list[dict[str, Any]] = backend.get_files_for_project(accession)
+            files = backend.get_files_for_project(accession)
 
             # process files
-            for file in files:
-                backend.process_file(file, metadata)
+            if files["result"]:
+                for file in files["result"]:
+                    project_data["usis"].append(backend.process_result_file(file))
+            elif files["search"]:
+                for file in files["search"]:
+                    backend.process_search_file(file)
+            else:
+                typer.echo(
+                    message=f"No files found for accession {accession} from backend {backend_enum.name}."
+                )
 
             # dump project to database
+            # db.dump(project_data)
 
 
 def main() -> None:

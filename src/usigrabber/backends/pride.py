@@ -2,7 +2,7 @@ from typing import Any
 
 import requests
 
-from usigrabber.backends.base import BaseBackend
+from usigrabber.backends.base import BaseBackend, FileMetadata, Files
 from usigrabber.utils import DATA_DIR, logger
 
 
@@ -49,12 +49,23 @@ class PrideBackend(BaseBackend):
     def get_files_for_project(
         cls,
         project_accession: str,
-    ) -> list[dict[str, Any]]:
+    ) -> Files:
         url = f"{cls.BASE_URL}/projects/{project_accession}/files/all"
         with requests.get(url) as response:
             if response.status_code == 200:
                 files_info = response.json()
-                return files_info
+                return Files(
+                    search=[
+                        FileMetadata(**file_info)
+                        for file_info in files_info
+                        if file_info["category"] == "SEARCH"
+                    ],
+                    result=[
+                        FileMetadata(**file_info)
+                        for file_info in files_info
+                        if file_info["category"] == "RESULT"
+                    ],
+                )
             else:
                 logger.error(
                     "Could not retrieve files for accession %s: %s %s",
