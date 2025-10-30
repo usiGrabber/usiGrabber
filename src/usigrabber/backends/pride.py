@@ -5,10 +5,11 @@ from typing import Any
 import requests
 from tqdm import tqdm
 
+from usigrabber.backends.base import BaseBackend
 from usigrabber.utils import data_directory_path, iter_json, logger
 
 
-class PRIDE:
+class PrideBackend(BaseBackend):
     BASE_URL: str = "https://www.ebi.ac.uk/pride/ws/archive/v3"
     JSON_PATH: Path = data_directory_path() / "files" / "all_files.json"
     JSON_EXISTS: bool = JSON_PATH.exists()
@@ -27,7 +28,7 @@ class PRIDE:
             )
             return
 
-        url = f"{PRIDE.BASE_URL}/files/all"
+        url = f"{cls.BASE_URL}/files/all"
         logger.debug(
             "Downloading all files metadata from '%s' to '%s'", url, cls.JSON_PATH
         )
@@ -127,9 +128,9 @@ class PRIDE:
     @classmethod
     def get_files_for_project(
         cls,
-        accession: str,
+        project_accession: str,
     ) -> list[dict[str, Any]]:
-        url = f"{cls.BASE_URL}/projects/{accession}/files/all"
+        url = f"{cls.BASE_URL}/projects/{project_accession}/files/all"
         with requests.get(url) as response:
             if response.status_code == 200:
                 files_info = response.json()
@@ -137,7 +138,7 @@ class PRIDE:
             else:
                 logger.error(
                     "Could not retrieve files for accession %s: %s %s",
-                    accession,
+                    project_accession,
                     response.status_code,
                     response.reason,
                 )
