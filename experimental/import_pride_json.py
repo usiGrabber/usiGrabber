@@ -13,7 +13,6 @@ Usage:
     python scripts/import_pride_json.py pride_projects_all.json
 """
 
-import hashlib
 import json
 import sys
 from datetime import date, datetime
@@ -27,7 +26,6 @@ from sqlmodel import Session
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from usigrabber.db import (
-	Contact,
 	CvParam,
 	Project,
 	ProjectCountry,
@@ -43,13 +41,11 @@ from usigrabber.db.schema import (
 	ProjectExperimentType,
 	ProjectIdentifiedPTM,
 	ProjectInstrument,
-	ProjectLabPI,
 	ProjectOrganism,
 	ProjectOrganismPart,
 	ProjectOtherOmicsLink,
 	ProjectQuantificationMethod,
 	ProjectSoftware,
-	ProjectSubmitter,
 )
 
 console = Console()
@@ -67,49 +63,7 @@ def parse_date(date_str: str | None) -> date | None:
 		return None
 
 
-def get_or_create_contact(
-	session: Session, contact_data: dict, contact_cache: dict
-) -> str:
-	"""Get or create a contact, using cache to avoid duplicates."""
-	contact_id = contact_data.get("id") or contact_data.get("identifier")
-
-	if not contact_id:
-		# Generate ID from email or name
-		email = contact_data.get("email", "")
-		name = contact_data.get("name", "")
-		hash_input = (email or name).encode("utf-8")
-		contact_id = f"auto_{hashlib.md5(hash_input).hexdigest()}"
-
-	# Check cache
-	if contact_id in contact_cache:
-		return contact_id
-
-	# Check database
-	existing = session.get(Contact, contact_id)
-	if existing:
-		contact_cache[contact_id] = existing
-		return contact_id
-
-	# Create new contact
-	contact = Contact(
-		id=contact_id,
-		name=contact_data.get("name", ""),
-		title=contact_data.get("title"),
-		firstName=contact_data.get("firstName"),
-		lastName=contact_data.get("lastName"),
-		email=contact_data.get("email"),
-		affiliation=contact_data.get("affiliation"),
-		country=contact_data.get("country"),
-		orcid=contact_data.get("orcid"),
-	)
-	session.add(contact)
-	contact_cache[contact_id] = contact
-	return contact_id
-
-
-def get_or_create_cvparam(
-	session: Session, cv_data: dict, param_type: str, cv_cache: dict
-) -> int:
+def get_or_create_cvparam(session: Session, cv_data: dict, param_type: str, cv_cache: dict) -> int:
 	"""Get or create a CV parameter, using cache to avoid duplicates."""
 	accession = cv_data.get("accession", "")
 	name = cv_data.get("name", "")
@@ -150,9 +104,7 @@ def get_or_create_cvparam(
 	return cv_param.id
 
 
-def import_project(
-	session: Session, project_data: dict, contact_cache: dict, cv_cache: dict
-):
+def import_project(session: Session, project_data: dict, cv_cache: dict):
 	"""Import a single project with all its relationships."""
 
 	# 1. Create Project
@@ -173,20 +125,7 @@ def import_project(
 	)
 	session.add(project)
 
-	# 2. Contacts (submitters and lab PIs)
-	for submitter_data in project_data.get("submitters", []):
-		contact_id = get_or_create_contact(session, submitter_data, contact_cache)
-		session.add(
-			ProjectSubmitter(project_accession=project.accession, contact_id=contact_id)
-		)
-
-	for pi_data in project_data.get("labPIs", []):
-		contact_id = get_or_create_contact(session, pi_data, contact_cache)
-		session.add(
-			ProjectLabPI(project_accession=project.accession, contact_id=contact_id)
-		)
-
-	# 3. References
+	# 2. References
 	for ref_data in project_data.get("references", []):
 		reference = Reference(
 			project_accession=project.accession,
@@ -196,42 +135,34 @@ def import_project(
 		)
 		session.add(reference)
 
-	# 4. Keywords
+	# 3. Keywords
 	for keyword in project_data.get("keywords", []):
 		if keyword:  # Skip empty strings
-			session.add(
-				ProjectKeyword(project_accession=project.accession, keyword=keyword)
-			)
+			session.add(ProjectKeyword(project_accession=project.accession, keyword=keyword))
 
-	# 5. Tags
+	# 4. Tags
 	for tag in project_data.get("projectTags", []):
 		if tag:
 			session.add(ProjectTag(project_accession=project.accession, tag=tag))
 
-	# 6. Countries
+	# 5. Countries
 	for country in project_data.get("countries", []):
 		if country:
-			session.add(
-				ProjectCountry(project_accession=project.accession, country=country)
-			)
+			session.add(ProjectCountry(project_accession=project.accession, country=country))
 
-	# 7. Affiliations
+	# 6. Affiliations
 	for affiliation in project_data.get("affiliations", []):
 		if affiliation:
 			session.add(
-				ProjectAffiliation(
-					project_accession=project.accession, affiliation=affiliation
-				)
+				ProjectAffiliation(project_accession=project.accession, affiliation=affiliation)
 			)
 
-	# 8. Other Omics Links
+	# 7. Other Omics Links
 	for link in project_data.get("otherOmicsLinks", []):
 		if link:
-			session.add(
-				ProjectOtherOmicsLink(project_accession=project.accession, link=link)
-			)
+			session.add(ProjectOtherOmicsLink(project_accession=project.accession, link=link))
 
-	# 9. CV Parameters (instruments, software, organisms, etc.)
+	# 8. CV Parameters (instruments, software, organisms, etc.)
 	cv_mappings = [
 		("instruments", "instrument", ProjectInstrument),
 		("softwares", "software", ProjectSoftware),
@@ -246,9 +177,7 @@ def import_project(
 	for json_key, param_type, junction_class in cv_mappings:
 		for cv_data in project_data.get(json_key, []):
 			cv_id = get_or_create_cvparam(session, cv_data, param_type, cv_cache)
-			session.add(
-				junction_class(project_accession=project.accession, cv_param_id=cv_id)
-			)
+			session.add(junction_class(project_accession=project.accession, cv_param_id=cv_id))
 
 
 def import_pride_json(json_file: str, batch_size: int = 100):
@@ -276,7 +205,6 @@ def import_pride_json(json_file: str, batch_size: int = 100):
 		create_db_and_tables(engine)
 
 	# Caches to avoid duplicates
-	contact_cache = {}
 	cv_cache = {}
 
 	# Import in batches
@@ -289,14 +217,12 @@ def import_pride_json(json_file: str, batch_size: int = 100):
 		TextColumn("[progress.description]{task.description}"),
 		console=console,
 	) as progress:
-		task = progress.add_task(
-			f"Importing projects... 0/{total_projects}", total=total_projects
-		)
+		task = progress.add_task(f"Importing projects... 0/{total_projects}", total=total_projects)
 
 		with Session(engine) as session:
 			for i, project_data in enumerate(projects_data):
 				try:
-					import_project(session, project_data, contact_cache, cv_cache)
+					import_project(session, project_data, cv_cache)
 					imported += 1
 
 					# Commit in batches
@@ -314,11 +240,8 @@ def import_pride_json(json_file: str, batch_size: int = 100):
 
 				except Exception as e:
 					errors += 1
-					error_projects.append(
-						(project_data.get("accession", "unknown"), str(e))
-					)
+					error_projects.append((project_data.get("accession", "unknown"), str(e)))
 					session.rollback()
-					contact_cache.clear()
 					cv_cache.clear()
 
 					# Continue with next project

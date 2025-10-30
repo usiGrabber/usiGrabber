@@ -7,36 +7,12 @@ from sqlmodel import JSON, Column, Field, Relationship, SQLModel
 # ============================================================================
 
 
-class ProjectSubmitter(SQLModel, table=True):
-	"""Junction table for project submitters."""
-
-	__tablename__ = "project_submitters"
-
-	project_accession: str = Field(
-		foreign_key="projects.accession", primary_key=True, index=True
-	)
-	contact_id: str = Field(foreign_key="contacts.id", primary_key=True, index=True)
-
-
-class ProjectLabPI(SQLModel, table=True):
-	"""Junction table for project lab PIs."""
-
-	__tablename__ = "project_lab_pis"
-
-	project_accession: str = Field(
-		foreign_key="projects.accession", primary_key=True, index=True
-	)
-	contact_id: str = Field(foreign_key="contacts.id", primary_key=True, index=True)
-
-
 class ProjectInstrument(SQLModel, table=True):
 	"""Junction table for project instruments."""
 
 	__tablename__ = "project_instruments"
 
-	project_accession: str = Field(
-		foreign_key="projects.accession", primary_key=True, index=True
-	)
+	project_accession: str = Field(foreign_key="projects.accession", primary_key=True, index=True)
 	cv_param_id: int = Field(foreign_key="cv_params.id", primary_key=True, index=True)
 
 
@@ -45,9 +21,7 @@ class ProjectSoftware(SQLModel, table=True):
 
 	__tablename__ = "project_softwares"
 
-	project_accession: str = Field(
-		foreign_key="projects.accession", primary_key=True, index=True
-	)
+	project_accession: str = Field(foreign_key="projects.accession", primary_key=True, index=True)
 	cv_param_id: int = Field(foreign_key="cv_params.id", primary_key=True, index=True)
 
 
@@ -56,9 +30,7 @@ class ProjectExperimentType(SQLModel, table=True):
 
 	__tablename__ = "project_experiment_types"
 
-	project_accession: str = Field(
-		foreign_key="projects.accession", primary_key=True, index=True
-	)
+	project_accession: str = Field(foreign_key="projects.accession", primary_key=True, index=True)
 	cv_param_id: int = Field(foreign_key="cv_params.id", primary_key=True, index=True)
 
 
@@ -67,9 +39,7 @@ class ProjectQuantificationMethod(SQLModel, table=True):
 
 	__tablename__ = "project_quantification_methods"
 
-	project_accession: str = Field(
-		foreign_key="projects.accession", primary_key=True, index=True
-	)
+	project_accession: str = Field(foreign_key="projects.accession", primary_key=True, index=True)
 	cv_param_id: int = Field(foreign_key="cv_params.id", primary_key=True, index=True)
 
 
@@ -78,9 +48,7 @@ class ProjectOrganism(SQLModel, table=True):
 
 	__tablename__ = "project_organisms"
 
-	project_accession: str = Field(
-		foreign_key="projects.accession", primary_key=True, index=True
-	)
+	project_accession: str = Field(foreign_key="projects.accession", primary_key=True, index=True)
 	cv_param_id: int = Field(foreign_key="cv_params.id", primary_key=True, index=True)
 
 
@@ -89,9 +57,7 @@ class ProjectOrganismPart(SQLModel, table=True):
 
 	__tablename__ = "project_organism_parts"
 
-	project_accession: str = Field(
-		foreign_key="projects.accession", primary_key=True, index=True
-	)
+	project_accession: str = Field(foreign_key="projects.accession", primary_key=True, index=True)
 	cv_param_id: int = Field(foreign_key="cv_params.id", primary_key=True, index=True)
 
 
@@ -100,9 +66,7 @@ class ProjectDisease(SQLModel, table=True):
 
 	__tablename__ = "project_diseases"
 
-	project_accession: str = Field(
-		foreign_key="projects.accession", primary_key=True, index=True
-	)
+	project_accession: str = Field(foreign_key="projects.accession", primary_key=True, index=True)
 	cv_param_id: int = Field(foreign_key="cv_params.id", primary_key=True, index=True)
 
 
@@ -111,41 +75,13 @@ class ProjectIdentifiedPTM(SQLModel, table=True):
 
 	__tablename__ = "project_identified_ptms"
 
-	project_accession: str = Field(
-		foreign_key="projects.accession", primary_key=True, index=True
-	)
+	project_accession: str = Field(foreign_key="projects.accession", primary_key=True, index=True)
 	cv_param_id: int = Field(foreign_key="cv_params.id", primary_key=True, index=True)
 
 
 # ============================================================================
 # Core Tables
 # ============================================================================
-
-
-class Contact(SQLModel, table=True):
-	"""Contact information for submitters and lab PIs."""
-
-	__tablename__ = "contacts"
-
-	id: str = Field(primary_key=True)  # identifier from API
-	name: str
-	title: str | None = None
-	first_name: str | None = Field(default=None, alias="firstName")
-	last_name: str | None = Field(default=None, alias="lastName")
-	email: str | None = None
-	affiliation: str | None = None
-	country: str | None = None
-	orcid: str | None = None
-
-	# Relationships
-	projects_as_submitter: list["Project"] = Relationship(
-		back_populates="submitters",
-		link_model=ProjectSubmitter,
-	)
-	projects_as_pi: list["Project"] = Relationship(
-		back_populates="lab_pis",
-		link_model=ProjectLabPI,
-	)
 
 
 class CvParam(SQLModel, table=True):
@@ -158,9 +94,7 @@ class CvParam(SQLModel, table=True):
 	cv_label: str | None = Field(default=None, alias="cvLabel")
 	name: str
 	value: str | None = None
-	param_type: str = Field(
-		index=True
-	)  # 'instrument', 'software', 'organism', 'disease', etc.
+	param_type: str = Field(index=True)  # 'instrument', 'software', 'organism', 'disease', etc.
 
 	# Relationships
 	projects_as_instrument: list["Project"] = Relationship(
@@ -205,12 +139,8 @@ class Project(SQLModel, table=True):
 	accession: str = Field(primary_key=True, index=True)
 	title: str
 	project_description: str | None = Field(default=None, alias="projectDescription")
-	sample_processing_protocol: str | None = Field(
-		default=None, alias="sampleProcessingProtocol"
-	)
-	data_processing_protocol: str | None = Field(
-		default=None, alias="dataProcessingProtocol"
-	)
+	sample_processing_protocol: str | None = Field(default=None, alias="sampleProcessingProtocol")
+	data_processing_protocol: str | None = Field(default=None, alias="dataProcessingProtocol")
 	doi: str | None = None
 	submission_type: str = Field(alias="submissionType")
 	license: str | None = None
@@ -227,22 +157,12 @@ class Project(SQLModel, table=True):
 	)
 
 	# Relationships
-	submitters: list[Contact] = Relationship(
-		back_populates="projects_as_submitter",
-		link_model=ProjectSubmitter,
-	)
-	lab_pis: list[Contact] = Relationship(
-		back_populates="projects_as_pi",
-		link_model=ProjectLabPI,
-	)
 	references: list["Reference"] = Relationship(back_populates="project")
 	keywords: list["ProjectKeyword"] = Relationship(back_populates="project")
 	project_tags: list["ProjectTag"] = Relationship(back_populates="project")
 	countries: list["ProjectCountry"] = Relationship(back_populates="project")
 	affiliations: list["ProjectAffiliation"] = Relationship(back_populates="project")
-	other_omics_links: list["ProjectOtherOmicsLink"] = Relationship(
-		back_populates="project"
-	)
+	other_omics_links: list["ProjectOtherOmicsLink"] = Relationship(back_populates="project")
 
 	# Many-to-many relationships with CvParam
 	instruments: list[CvParam] = Relationship(
