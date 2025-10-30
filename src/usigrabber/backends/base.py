@@ -3,8 +3,8 @@ from typing import Any
 
 
 class BaseBackend(ABC):
-    @abstractmethod
     @classmethod
+    @abstractmethod
     def get_all_project_accessions(cls) -> list[str]:
         """
         Retrieve all project accessions from the backend.
@@ -13,8 +13,8 @@ class BaseBackend(ABC):
         """
         ...
 
-    @abstractmethod
     @classmethod
+    @abstractmethod
     def get_metadata_for_project(cls, project_accession: str) -> dict[str, Any]:
         """
         Retrieve metadata for a specific project.
@@ -23,8 +23,8 @@ class BaseBackend(ABC):
         """
         ...
 
-    @abstractmethod
     @classmethod
+    @abstractmethod
     def get_files_for_project(cls, project_accession: str) -> list[dict[str, Any]]:
         """
         Retrieve file information for a specific project.

@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 
 def data_directory_path() -> Path:
     """Return the root directory of the project."""
-    data_dir = os.getenv("UG_DATA_DIR", default=".")
+    data_dir = os.getenv("UG_DATA_DIR", default="./data")
     if data_dir == ".":
         logger.warning(
             "UG_DATA_DIR environment variable not set. Using current directory as root."
