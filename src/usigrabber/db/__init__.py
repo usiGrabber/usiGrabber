@@ -2,7 +2,6 @@
 
 from usigrabber.db.engine import load_db_engine
 from usigrabber.db.schema import (
-	Contact,
 	CvParam,
 	Project,
 	ProjectCountry,
@@ -19,7 +18,6 @@ __all__ = [
 	# Schema
 	"create_db_and_tables",
 	"Project",
-	"Contact",
 	"CvParam",
 	"Reference",
 	"ProjectKeyword",

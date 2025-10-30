@@ -6,14 +6,12 @@ from sqlalchemy.engine.base import Engine
 from sqlmodel import Session
 
 from usigrabber.db.schema import (
-	Contact,
 	CvParam,
 	Project,
 	ProjectCountry,
 	ProjectInstrument,
 	ProjectKeyword,
 	ProjectOrganism,
-	ProjectSubmitter,
 	ProjectTag,
 	Reference,
 )
@@ -24,7 +22,6 @@ def seed_minimal_data(engine: Engine) -> None:
 	Seed database with minimal sample PRIDE project data.
 
 	Creates:
-	- 3 contacts (submitters/PIs)
 	- 2 projects with relationships
 	- 2 references
 	- CV parameters (instruments, organisms)
@@ -32,36 +29,7 @@ def seed_minimal_data(engine: Engine) -> None:
 	"""
 
 	with Session(engine) as session:
-		# 1. Create Contacts
-		contacts = [
-			Contact(
-				id="100001",
-				name="Dr. Jane Smith",
-				email="jane.smith@university.edu",
-				affiliation="University of Proteomics",
-				country="United States",
-				orcid="0000-0001-2345-6789",
-			),
-			Contact(
-				id="100002",
-				name="Prof. John Doe",
-				email="john.doe@research.org",
-				affiliation="Institute of Mass Spectrometry",
-				country="United Kingdom",
-			),
-			Contact(
-				id="100003",
-				name="Dr. Maria Garcia",
-				email="m.garcia@lab.es",
-				affiliation="Barcelona Proteomics Lab",
-				country="Spain",
-				orcid="0000-0003-4567-8901",
-			),
-		]
-		session.add_all(contacts)
-		session.flush()
-
-		# 2. Create CV Parameters
+		# 1. Create CV Parameters
 		instruments = [
 			CvParam(
 				accession="MS:1001910",
@@ -101,7 +69,7 @@ def seed_minimal_data(engine: Engine) -> None:
 		assert organisms[0].id is not None
 		assert organisms[1].id is not None
 
-		# 3. Create Projects
+		# 2. Create Projects
 		project1 = Project(
 			accession="PXD000001",
 			title="Proteomics Analysis of Human Cancer Cell Lines",
@@ -127,7 +95,7 @@ def seed_minimal_data(engine: Engine) -> None:
 		session.add_all([project1, project2])
 		session.flush()
 
-		# 4. Create References
+		# 3. Create References
 		references = [
 			Reference(
 				project_accession="PXD000001",
@@ -144,7 +112,7 @@ def seed_minimal_data(engine: Engine) -> None:
 		]
 		session.add_all(references)
 
-		# 5. Create Keywords
+		# 4. Create Keywords
 		keywords = [
 			ProjectKeyword(project_accession="PXD000001", keyword="cancer"),
 			ProjectKeyword(project_accession="PXD000001", keyword="proteomics"),
@@ -155,7 +123,7 @@ def seed_minimal_data(engine: Engine) -> None:
 		]
 		session.add_all(keywords)
 
-		# 6. Create Tags
+		# 5. Create Tags
 		tags = [
 			ProjectTag(project_accession="PXD000001", tag="Biological"),
 			ProjectTag(project_accession="PXD000001", tag="Medical"),
@@ -163,7 +131,7 @@ def seed_minimal_data(engine: Engine) -> None:
 		]
 		session.add_all(tags)
 
-		# 7. Create Countries
+		# 6. Create Countries
 		countries = [
 			ProjectCountry(project_accession="PXD000001", country="United States"),
 			ProjectCountry(project_accession="PXD000001", country="United Kingdom"),
@@ -172,37 +140,15 @@ def seed_minimal_data(engine: Engine) -> None:
 		]
 		session.add_all(countries)
 
-		# 8. Create Relationships (Junction tables)
-		# Project 1: submitter, instruments, organism
-		session.add(
-			ProjectSubmitter(project_accession="PXD000001", contact_id="100001")
-		)
-		session.add(
-			ProjectInstrument(
-				project_accession="PXD000001", cv_param_id=instruments[0].id
-			)
-		)
-		session.add(
-			ProjectInstrument(
-				project_accession="PXD000001", cv_param_id=instruments[1].id
-			)
-		)
-		session.add(
-			ProjectOrganism(project_accession="PXD000001", cv_param_id=organisms[0].id)
-		)
+		# 7. Create Relationships (Junction tables)
+		# Project 1: instruments, organism
+		session.add(ProjectInstrument(project_accession="PXD000001", cv_param_id=instruments[0].id))
+		session.add(ProjectInstrument(project_accession="PXD000001", cv_param_id=instruments[1].id))
+		session.add(ProjectOrganism(project_accession="PXD000001", cv_param_id=organisms[0].id))
 
-		# Project 2: submitter, instrument, organism
-		session.add(
-			ProjectSubmitter(project_accession="PXD000002", contact_id="100002")
-		)
-		session.add(
-			ProjectInstrument(
-				project_accession="PXD000002", cv_param_id=instruments[1].id
-			)
-		)
-		session.add(
-			ProjectOrganism(project_accession="PXD000002", cv_param_id=organisms[1].id)
-		)
+		# Project 2: instrument, organism
+		session.add(ProjectInstrument(project_accession="PXD000002", cv_param_id=instruments[1].id))
+		session.add(ProjectOrganism(project_accession="PXD000002", cv_param_id=organisms[1].id))
 
 		session.commit()
 
