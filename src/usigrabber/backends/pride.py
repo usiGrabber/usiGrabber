@@ -101,6 +101,15 @@ class PrideBackend(BaseBackend):
             metadata = response.json()
             return metadata
 
+    @classmethod
+    def process_file(cls, file: dict[str, Any], metadata: dict[str, Any]) -> None:
+        # Example processing: just log the file info
+        logger.info(
+            "Processing file %s for project %s",
+            file.get("fileName", "unknown"),
+            metadata.get("accession", "unknown"),
+        )
+
 
 if __name__ == "__main__":
     SAMPLE_ACCESSION = "PXD001357"

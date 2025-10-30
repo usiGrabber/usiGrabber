@@ -53,6 +53,10 @@ def build(
         list[BackendEnum],
         typer.Option(help="Set of backends to fetch data from."),
     ] = [enum for enum in BackendEnum],  # noqa: B006
+    is_test: Annotated[
+        bool,
+        typer.Option(help="Run in test mode with limited data."),
+    ] = False,
 ) -> None:
     """Build USI database."""
     typer.echo("Building USI database...")
@@ -71,7 +75,7 @@ def build(
         backend = backend_enum.value
         typer.echo(f"Fetching data from backend: {backend_enum.name}")
 
-        backend_accessions = backend.get_all_project_accessions()
+        backend_accessions = backend.get_all_project_accessions(is_test)
 
         # filter accessions to only new ones
         new_accessions = []
@@ -81,7 +85,8 @@ def build(
                 new_accessions.append(accession)
 
         typer.echo(
-            f"Found {len(new_accessions)} new accessions from backend {backend_enum.name}."
+            f"Found {len(new_accessions)} new accessions from backend \
+			{backend_enum.name}."
         )
 
         for accession in new_accessions:
@@ -92,6 +97,8 @@ def build(
             files: list[dict[str, Any]] = backend.get_files_for_project(accession)
 
             # process files
+            for file in files:
+                backend.process_file(file, metadata)
 
             # dump project to database
 

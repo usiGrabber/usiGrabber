@@ -5,7 +5,7 @@ from typing import Any
 class BaseBackend(ABC):
     @classmethod
     @abstractmethod
-    def get_all_project_accessions(cls) -> list[str]:
+    def get_all_project_accessions(cls, is_test: bool) -> list[str]:
         """
         Retrieve all project accessions from the backend.
 
@@ -30,5 +30,16 @@ class BaseBackend(ABC):
         Retrieve file information for a specific project.
 
         :return: A list of dictionaries, each containing file information.
+        """
+        ...
+
+    @classmethod
+    @abstractmethod
+    def process_file(cls, file: dict[str, Any], metadata: dict[str, Any]) -> None:
+        """
+        Process a file with its metadata.
+
+        :param file: A dictionary containing file information.
+        :param metadata: A dictionary containing project metadata.
         """
         ...
