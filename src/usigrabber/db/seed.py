@@ -1,15 +1,22 @@
 """Seed database with minimal sample data for development."""
 
-from datetime import date
+from datetime import date, datetime
 
 from sqlalchemy.engine.base import Engine
 from sqlmodel import Session
 
 from usigrabber.db.schema import (
+	Modification,
+	MzidFile,
+	Peptide,
+	PeptideEvidence,
+	PeptideModification,
+	PeptideSpectrumMatch,
 	Project,
 	ProjectCountry,
 	ProjectKeyword,
 	ProjectTag,
+	Protein,
 	Reference,
 )
 
@@ -95,6 +102,137 @@ def seed_minimal_data(engine: Engine) -> None:
 			ProjectCountry(project_accession="PXD000002", country="Spain"),
 		]
 		session.add_all(countries)
+
+		session.commit()
+		session.flush()
+
+		# =====================================================================
+		# mzID Mock Data - Very minimal for testing
+		# =====================================================================
+
+		# 1. Create a mock mzID file
+		mzid_file = MzidFile(
+			project_accession="PXD000001",
+			file_name="mock_data.mzid",
+			file_path="/mock/path/mock_data.mzid",
+			software_name="MS-GF+",
+			software_version="v2023.01",
+			threshold_type="FDR",
+			threshold_value=0.01,
+			creation_date=datetime(2023, 1, 20),
+			total_psms_count=3,
+			total_peptides_count=3,
+		)
+		session.add(mzid_file)
+		session.flush()
+
+		# 2. Create peptides
+		peptide1 = Peptide(sequence="PEPTIDER", length=8)
+		peptide2 = Peptide(sequence="EXAMPLE", length=7)
+		peptide3 = Peptide(sequence="TESTSEQ", length=7)
+		session.add_all([peptide1, peptide2, peptide3])
+		session.flush()
+
+		# 3. Create proteins
+		protein1 = Protein(accession="P12345", description="Test protein 1", is_decoy=False)
+		protein2 = Protein(accession="P67890", description="Test protein 2", is_decoy=False)
+		session.add_all([protein1, protein2])
+		session.flush()
+
+		# 4. Create modifications
+		oxidation = Modification(
+			name="Oxidation",
+			unimod_accession="UNIMOD:35",
+			mass_delta=15.994915,
+			residues_affected="M",
+		)
+		carbamidomethyl = Modification(
+			name="Carbamidomethyl",
+			unimod_accession="UNIMOD:4",
+			mass_delta=57.021464,
+			residues_affected="C",
+		)
+		session.add_all([oxidation, carbamidomethyl])
+		session.flush()
+
+		# 5. Create PSMs
+		psm1 = PeptideSpectrumMatch(
+			project_accession="PXD000001",
+			mzid_file_id=mzid_file.id,
+			peptide_id=peptide1.id,
+			spectrum_id="scan=1234",
+			charge_state=2,
+			experimental_mz=450.234,
+			calculated_mz=450.235,
+			score_values={"MS-GF:SpecEValue": 1.2e-10, "MS-GF:QValue": 0.001},
+			rank=1,
+			pass_threshold=True,
+			is_decoy=False,
+		)
+		psm2 = PeptideSpectrumMatch(
+			project_accession="PXD000001",
+			mzid_file_id=mzid_file.id,
+			peptide_id=peptide2.id,
+			spectrum_id="scan=5678",
+			charge_state=3,
+			experimental_mz=325.678,
+			calculated_mz=325.679,
+			score_values={"MS-GF:SpecEValue": 5.6e-8, "MS-GF:QValue": 0.005},
+			rank=1,
+			pass_threshold=True,
+			is_decoy=False,
+		)
+		psm3 = PeptideSpectrumMatch(
+			project_accession="PXD000001",
+			mzid_file_id=mzid_file.id,
+			peptide_id=peptide3.id,
+			spectrum_id="scan=9012",
+			charge_state=2,
+			experimental_mz=380.123,
+			calculated_mz=380.124,
+			score_values={"MS-GF:SpecEValue": 2.3e-6, "MS-GF:QValue": 0.008},
+			rank=1,
+			pass_threshold=True,
+			is_decoy=False,
+		)
+		session.add_all([psm1, psm2, psm3])
+		session.flush()
+
+		# 6. Create peptide evidence (peptide-protein mapping)
+		evidence1 = PeptideEvidence(
+			peptide_id=peptide1.id,
+			protein_id=protein1.id,
+			start_position=45,
+			end_position=52,
+			pre_residue="K",
+			post_residue="A",
+		)
+		evidence2 = PeptideEvidence(
+			peptide_id=peptide2.id,
+			protein_id=protein1.id,
+			start_position=120,
+			end_position=126,
+			pre_residue="R",
+			post_residue="G",
+		)
+		evidence3 = PeptideEvidence(
+			peptide_id=peptide3.id,
+			protein_id=protein2.id,
+			start_position=78,
+			end_position=84,
+			pre_residue="K",
+			post_residue="L",
+		)
+		session.add_all([evidence1, evidence2, evidence3])
+
+		# 7. Create peptide modifications (optional - just one example)
+		peptide_mod = PeptideModification(
+			peptide_id=peptide1.id,
+			modification_id=oxidation.id,
+			position=5,
+			modified_residue="M",
+		)
+		session.add(peptide_mod)
 
 		session.commit()
 
