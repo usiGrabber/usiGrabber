@@ -13,11 +13,13 @@ Usage:
     python scripts/import_pride_json.py pride_projects_all.json
 """
 
+import asyncio
 import json
 import sys
 from datetime import date, datetime
 from pathlib import Path
 
+from ontology_resolver.ontology_helper import OntologyHelper
 from rich.console import Console
 from rich.progress import Progress, SpinnerColumn, TextColumn
 from sqlmodel import Session
@@ -35,18 +37,7 @@ from usigrabber.db import (
 	create_db_and_tables,
 	load_db_engine,
 )
-from usigrabber.db.schema import (
-	ProjectAffiliation,
-	ProjectDisease,
-	ProjectExperimentType,
-	ProjectIdentifiedPTM,
-	ProjectInstrument,
-	ProjectOrganism,
-	ProjectOrganismPart,
-	ProjectOtherOmicsLink,
-	ProjectQuantificationMethod,
-	ProjectSoftware,
-)
+from usigrabber.db.schema import ProjectAffiliation, ProjectOtherOmicsLink
 
 console = Console()
 
@@ -63,48 +54,7 @@ def parse_date(date_str: str | None) -> date | None:
 		return None
 
 
-def get_or_create_cvparam(session: Session, cv_data: dict, param_type: str, cv_cache: dict) -> int:
-	"""Get or create a CV parameter, using cache to avoid duplicates."""
-	accession = cv_data.get("accession", "")
-	name = cv_data.get("name", "")
-	cache_key = f"{param_type}:{accession}:{name}"
-
-	# Check cache
-	if cache_key in cv_cache:
-		return cv_cache[cache_key]
-
-	# Check database
-	from sqlmodel import select
-
-	statement = (
-		select(CvParam)
-		.where(CvParam.param_type == param_type)
-		.where(CvParam.accession == accession)
-		.where(CvParam.name == name)
-	)
-	existing = session.exec(statement).first()
-
-	if existing:
-		assert existing.id is not None
-		cv_cache[cache_key] = existing.id
-		return existing.id
-
-	# Create new
-	cv_param = CvParam(
-		accession=accession,
-		cvLabel=cv_data.get("cvLabel"),
-		name=name,
-		value=cv_data.get("value"),
-		param_type=param_type,
-	)
-	session.add(cv_param)
-	session.flush()
-	assert cv_param.id is not None
-	cv_cache[cache_key] = cv_param.id
-	return cv_param.id
-
-
-def import_project(session: Session, project_data: dict, cv_cache: dict):
+async def import_project(session: Session, project_data: dict, cv_cache: dict):
 	"""Import a single project with all its relationships."""
 
 	# 1. Create Project
@@ -162,25 +112,50 @@ def import_project(session: Session, project_data: dict, cv_cache: dict):
 		if link:
 			session.add(ProjectOtherOmicsLink(project_accession=project.accession, link=link))
 
-	# 8. CV Parameters (instruments, software, organisms, etc.)
-	cv_mappings = [
-		("instruments", "instrument", ProjectInstrument),
-		("softwares", "software", ProjectSoftware),
-		("experimentTypes", "experiment_type", ProjectExperimentType),
-		("quantificationMethods", "quantification_method", ProjectQuantificationMethod),
-		("organisms", "organism", ProjectOrganism),
-		("organismParts", "organism_part", ProjectOrganismPart),
-		("diseases", "disease", ProjectDisease),
-		("identifiedPTMStrings", "identified_ptm", ProjectIdentifiedPTM),
+	await process_cv_data(session, project, project_data=project_data)
+
+
+async def process_cv_data(session: Session, project: Project, project_data: dict):
+	cv_data_keys = [
+		"instruments",
+		"softwares",
+		"experimentTypes",
+		"quantificationMethods",
+		"organisms",
+		"organismParts",
+		"diseases",
+		"identifiedPTMStrings",
 	]
 
-	for json_key, param_type, junction_class in cv_mappings:
+	ontology_helper = OntologyHelper()
+	for json_key in cv_data_keys:
 		for cv_data in project_data.get(json_key, []):
-			cv_id = get_or_create_cvparam(session, cv_data, param_type, cv_cache)
-			session.add(junction_class(project_accession=project.accession, cv_param_id=cv_id))
+			cv_term: str | None = None
+			cv_term_value = None
+			supperclass_cv_terms: list[str] = []
+
+			if cv_data.get("@type") == "Tuple":
+				pass
+			elif cv_data.get("@type") == "CvParam":
+				cv_term = cv_data.get("accession")
+				assert isinstance(cv_term, str)
+				superclasses = await ontology_helper.get_superclasses(cv_term)
+				supperclass_cv_terms = [x.id for x in superclasses[1:]]
+				cv_term_value = cv_data.get("value", None)
+
+			if cv_term is not None:
+				cv_row_data: list[CvParam] = [CvParam(name=cv_term, value=cv_term_value)]
+				for x in supperclass_cv_terms:
+					cv_row_data.append(CvParam(name=x))
+
+				for row in cv_row_data:
+					project.cv_params.append(row)
+					session.add(row)
+
+	session.flush()
 
 
-def import_pride_json(json_file: str, batch_size: int = 100):
+async def import_pride_json(json_file: str, batch_size: int = 100):
 	"""Import PRIDE projects from JSON file into database."""
 
 	console.print(f"\n🔬 Importing PRIDE projects from: {json_file}", style="bold blue")
@@ -221,40 +196,20 @@ def import_pride_json(json_file: str, batch_size: int = 100):
 
 		with Session(engine) as session:
 			for i, project_data in enumerate(projects_data):
-				try:
-					import_project(session, project_data, cv_cache)
-					imported += 1
+				await import_project(session, project_data, cv_cache)
+				imported += 1
 
-					# Commit in batches
-					if (i + 1) % batch_size == 0:
-						session.commit()
-						description = (
-							f"Importing projects... {i + 1}/{total_projects} "
-							f"(✓ {imported}, ✗ {errors})"
-						)
-						progress.update(
-							task,
-							advance=batch_size,
-							description=description,
-						)
-
-				except Exception as e:
-					errors += 1
-					error_projects.append((project_data.get("accession", "unknown"), str(e)))
-					session.rollback()
-					cv_cache.clear()
-
-					# Continue with next project
-					if (i + 1) % batch_size == 0:
-						description = (
-							f"Importing projects... {i + 1}/{total_projects} "
-							f"(✓ {imported}, ✗ {errors})"
-						)
-						progress.update(
-							task,
-							advance=batch_size,
-							description=description,
-						)
+				# Commit in batches
+				if (i + 1) % batch_size == 0:
+					session.commit()
+					description = (
+						f"Importing projects... {i + 1}/{total_projects} (✓ {imported}, ✗ {errors})"
+					)
+					progress.update(
+						task,
+						advance=batch_size,
+						description=description,
+					)
 
 			# Final commit
 			session.commit()
@@ -279,4 +234,4 @@ def import_pride_json(json_file: str, batch_size: int = 100):
 
 
 if __name__ == "__main__":
-	import_pride_json("experimental/pride_projects_all.json")
+	asyncio.run(import_pride_json("experimental/pride_projects_all.json"))

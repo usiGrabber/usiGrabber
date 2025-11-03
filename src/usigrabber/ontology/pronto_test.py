@@ -15,13 +15,14 @@ from ontology_resolver.ontology_loader import OntologyLoader
 
 
 async def main():
-	ontology = await OntologyLoader().get_ontology("mod")
-	term = ontology["MS:1001742"]
+	ontology = await OntologyLoader().get_ontology("MS")
+	# term = ontology["MS:1003515"]
 
-	print(ontology)
-	print(term.superclasses().to_set())
-	print(term)
+	# print(ontology)
+	# print(term.superclasses().to_set())
+	# print(term)
+	return ontology
 
 
 if __name__ == "__main__":
-	asyncio.run(main())
+	t = asyncio.run(main())

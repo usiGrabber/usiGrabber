@@ -5,16 +5,7 @@ from datetime import date
 from sqlalchemy.engine.base import Engine
 from sqlmodel import Session
 
-from usigrabber.db.schema import (
-	CvParam,
-	Project,
-	ProjectCountry,
-	ProjectInstrument,
-	ProjectKeyword,
-	ProjectOrganism,
-	ProjectTag,
-	Reference,
-)
+from usigrabber.db.schema import Project, ProjectCountry, ProjectKeyword, ProjectTag, Reference
 
 
 def seed_minimal_data(engine: Engine) -> None:
@@ -30,44 +21,44 @@ def seed_minimal_data(engine: Engine) -> None:
 
 	with Session(engine) as session:
 		# 1. Create CV Parameters
-		instruments = [
-			CvParam(
-				accession="MS:1001910",
-				cvLabel="MS",
-				name="LTQ Orbitrap Elite",
-				param_type="instrument",
-			),
-			CvParam(
-				accession="MS:1001911",
-				cvLabel="MS",
-				name="Q Exactive",
-				param_type="instrument",
-			),
-		]
+		# instruments = [
+		# 	CvParam(
+		# 		accession="MS:1001910",
+		# 		cvLabel="MS",
+		# 		name="LTQ Orbitrap Elite",
+		# 		param_type="instrument",
+		# 	),
+		# 	CvParam(
+		# 		accession="MS:1001911",
+		# 		cvLabel="MS",
+		# 		name="Q Exactive",
+		# 		param_type="instrument",
+		# 	),
+		# ]
 
-		organisms = [
-			CvParam(
-				accession="NEWT:9606",
-				cvLabel="NEWT",
-				name="Homo sapiens (human)",
-				param_type="organism",
-			),
-			CvParam(
-				accession="NEWT:10090",
-				cvLabel="NEWT",
-				name="Mus musculus (mouse)",
-				param_type="organism",
-			),
-		]
+		# organisms = [
+		# 	CvParam(
+		# 		accession="NEWT:9606",
+		# 		cvLabel="NEWT",
+		# 		name="Homo sapiens (human)",
+		# 		param_type="organism",
+		# 	),
+		# 	CvParam(
+		# 		accession="NEWT:10090",
+		# 		cvLabel="NEWT",
+		# 		name="Mus musculus (mouse)",
+		# 		param_type="organism",
+		# 	),
+		# ]
 
-		session.add_all(instruments + organisms)
-		session.flush()
+		# session.add_all(instruments + organisms)
+		# session.flush()
 
-		# Ensure IDs are assigned after flush
-		assert instruments[0].id is not None
-		assert instruments[1].id is not None
-		assert organisms[0].id is not None
-		assert organisms[1].id is not None
+		# # Ensure IDs are assigned after flush
+		# assert instruments[0].id is not None
+		# assert instruments[1].id is not None
+		# assert organisms[0].id is not None
+		# assert organisms[1].id is not None
 
 		# 2. Create Projects
 		project1 = Project(
@@ -140,15 +131,18 @@ def seed_minimal_data(engine: Engine) -> None:
 		]
 		session.add_all(countries)
 
-		# 7. Create Relationships (Junction tables)
-		# Project 1: instruments, organism
-		session.add(ProjectInstrument(project_accession="PXD000001", cv_param_id=instruments[0].id))
-		session.add(ProjectInstrument(project_accession="PXD000001", cv_param_id=instruments[1].id))
-		session.add(ProjectOrganism(project_accession="PXD000001", cv_param_id=organisms[0].id))
+		# # 7. Create Relationships (Junction tables)
+		# # Project 1: instruments, organism
+		# session.
+		# add(ProjectInstrument(project_accession="PXD000001", cv_param_id=instruments[0].id))
+		# session.
+		# add(ProjectInstrument(project_accession="PXD000001", cv_param_id=instruments[1].id))
+		# session.add(ProjectOrganism(project_accession="PXD000001", cv_param_id=organisms[0].id))
 
-		# Project 2: instrument, organism
-		session.add(ProjectInstrument(project_accession="PXD000002", cv_param_id=instruments[1].id))
-		session.add(ProjectOrganism(project_accession="PXD000002", cv_param_id=organisms[1].id))
+		# # Project 2: instrument, organism
+		# session.
+		# add(ProjectInstrument(project_accession="PXD000002", cv_param_id=instruments[1].id))
+		# session.add(ProjectOrganism(project_accession="PXD000002", cv_param_id=organisms[1].id))
 
 		session.commit()
 

@@ -7,76 +7,76 @@ from sqlmodel import JSON, Column, Field, Relationship, SQLModel
 # ============================================================================
 
 
-class ProjectInstrument(SQLModel, table=True):
-	"""Junction table for project instruments."""
+# class ProjectInstrument(SQLModel, table=True):
+# 	"""Junction table for project instruments."""
 
-	__tablename__ = "project_instruments"
+# 	__tablename__ = "project_instruments"
 
-	project_accession: str = Field(foreign_key="projects.accession", primary_key=True, index=True)
-	cv_param_id: int = Field(foreign_key="cv_params.id", primary_key=True, index=True)
-
-
-class ProjectSoftware(SQLModel, table=True):
-	"""Junction table for project software."""
-
-	__tablename__ = "project_softwares"
-
-	project_accession: str = Field(foreign_key="projects.accession", primary_key=True, index=True)
-	cv_param_id: int = Field(foreign_key="cv_params.id", primary_key=True, index=True)
+# 	project_accession: str = Field(foreign_key="projects.accession", primary_key=True, index=True)
+# 	cv_param_id: int = Field(foreign_key="cv_params.id", primary_key=True, index=True)
 
 
-class ProjectExperimentType(SQLModel, table=True):
-	"""Junction table for project experiment types."""
+# class ProjectSoftware(SQLModel, table=True):
+# 	"""Junction table for project software."""
 
-	__tablename__ = "project_experiment_types"
+# 	__tablename__ = "project_softwares"
 
-	project_accession: str = Field(foreign_key="projects.accession", primary_key=True, index=True)
-	cv_param_id: int = Field(foreign_key="cv_params.id", primary_key=True, index=True)
-
-
-class ProjectQuantificationMethod(SQLModel, table=True):
-	"""Junction table for project quantification methods."""
-
-	__tablename__ = "project_quantification_methods"
-
-	project_accession: str = Field(foreign_key="projects.accession", primary_key=True, index=True)
-	cv_param_id: int = Field(foreign_key="cv_params.id", primary_key=True, index=True)
+# 	project_accession: str = Field(foreign_key="projects.accession", primary_key=True, index=True)
+# 	cv_param_id: int = Field(foreign_key="cv_params.id", primary_key=True, index=True)
 
 
-class ProjectOrganism(SQLModel, table=True):
-	"""Junction table for project organisms."""
+# class ProjectExperimentType(SQLModel, table=True):
+# 	"""Junction table for project experiment types."""
 
-	__tablename__ = "project_organisms"
+# 	__tablename__ = "project_experiment_types"
 
-	project_accession: str = Field(foreign_key="projects.accession", primary_key=True, index=True)
-	cv_param_id: int = Field(foreign_key="cv_params.id", primary_key=True, index=True)
-
-
-class ProjectOrganismPart(SQLModel, table=True):
-	"""Junction table for project organism parts."""
-
-	__tablename__ = "project_organism_parts"
-
-	project_accession: str = Field(foreign_key="projects.accession", primary_key=True, index=True)
-	cv_param_id: int = Field(foreign_key="cv_params.id", primary_key=True, index=True)
+# 	project_accession: str = Field(foreign_key="projects.accession", primary_key=True, index=True)
+# 	cv_param_id: int = Field(foreign_key="cv_params.id", primary_key=True, index=True)
 
 
-class ProjectDisease(SQLModel, table=True):
-	"""Junction table for project diseases."""
+# class ProjectQuantificationMethod(SQLModel, table=True):
+# 	"""Junction table for project quantification methods."""
 
-	__tablename__ = "project_diseases"
+# 	__tablename__ = "project_quantification_methods"
 
-	project_accession: str = Field(foreign_key="projects.accession", primary_key=True, index=True)
-	cv_param_id: int = Field(foreign_key="cv_params.id", primary_key=True, index=True)
+# 	project_accession: str = Field(foreign_key="projects.accession", primary_key=True, index=True)
+# 	cv_param_id: int = Field(foreign_key="cv_params.id", primary_key=True, index=True)
 
 
-class ProjectIdentifiedPTM(SQLModel, table=True):
-	"""Junction table for project identified PTMs."""
+# class ProjectOrganism(SQLModel, table=True):
+# 	"""Junction table for project organisms."""
 
-	__tablename__ = "project_identified_ptms"
+# 	__tablename__ = "project_organisms"
 
-	project_accession: str = Field(foreign_key="projects.accession", primary_key=True, index=True)
-	cv_param_id: int = Field(foreign_key="cv_params.id", primary_key=True, index=True)
+# 	project_accession: str = Field(foreign_key="projects.accession", primary_key=True, index=True)
+# 	cv_param_id: int = Field(foreign_key="cv_params.id", primary_key=True, index=True)
+
+
+# class ProjectOrganismPart(SQLModel, table=True):
+# 	"""Junction table for project organism parts."""
+
+# 	__tablename__ = "project_organism_parts"
+
+# 	project_accession: str = Field(foreign_key="projects.accession", primary_key=True, index=True)
+# 	cv_param_id: int = Field(foreign_key="cv_params.id", primary_key=True, index=True)
+
+
+# class ProjectDisease(SQLModel, table=True):
+# 	"""Junction table for project diseases."""
+
+# 	__tablename__ = "project_diseases"
+
+# 	project_accession: str = Field(foreign_key="projects.accession", primary_key=True, index=True)
+# 	cv_param_id: int = Field(foreign_key="cv_params.id", primary_key=True, index=True)
+
+
+# class ProjectIdentifiedPTM(SQLModel, table=True):
+# 	"""Junction table for project identified PTMs."""
+
+# 	__tablename__ = "project_identified_ptms"
+
+# 	project_accession: str = Field(foreign_key="projects.accession", primary_key=True, index=True)
+# 	cv_param_id: int = Field(foreign_key="cv_params.id", primary_key=True, index=True)
 
 
 # ============================================================================
@@ -84,51 +84,68 @@ class ProjectIdentifiedPTM(SQLModel, table=True):
 # ============================================================================
 
 
-class CvParam(SQLModel, table=True):
-	"""Controlled vocabulary parameter (for instruments, organisms, diseases, etc.)."""
+class CvJunctionTable(SQLModel, table=True):
+	__tablename__ = "project_cv_params"
 
+	cv_param_id: int = Field(foreign_key="cv_params.id", primary_key=True, index=True)
+	project_accession: str = Field(foreign_key="projects.accession", primary_key=True, index=True)
+
+
+class CvParam(SQLModel, table=True):
 	__tablename__ = "cv_params"
 
 	id: int | None = Field(default=None, primary_key=True)
-	accession: str = Field(index=True)
-	cv_label: str | None = Field(default=None, alias="cvLabel")
 	name: str
-	value: str | None = None
-	param_type: str = Field(index=True)  # 'instrument', 'software', 'organism', 'disease', etc.
+	value: str | None = Field(default=None)
 
-	# Relationships
-	projects_as_instrument: list["Project"] = Relationship(
-		back_populates="instruments",
-		link_model=ProjectInstrument,
-	)
-	projects_as_software: list["Project"] = Relationship(
-		back_populates="softwares",
-		link_model=ProjectSoftware,
-	)
-	projects_as_experiment_type: list["Project"] = Relationship(
-		back_populates="experiment_types",
-		link_model=ProjectExperimentType,
-	)
-	projects_as_quantification_method: list["Project"] = Relationship(
-		back_populates="quantification_methods",
-		link_model=ProjectQuantificationMethod,
-	)
-	projects_as_organism: list["Project"] = Relationship(
-		back_populates="organisms",
-		link_model=ProjectOrganism,
-	)
-	projects_as_organism_part: list["Project"] = Relationship(
-		back_populates="organism_parts",
-		link_model=ProjectOrganismPart,
-	)
-	projects_as_disease: list["Project"] = Relationship(
-		back_populates="diseases",
-		link_model=ProjectDisease,
-	)
-	projects_as_identified_ptm: list["Project"] = Relationship(
-		back_populates="identified_ptms",
-		link_model=ProjectIdentifiedPTM,
-	)
+	projects: list["Project"] = Relationship(back_populates="cv_params", link_model=CvJunctionTable)
+
+
+# class CvParam(SQLModel, table=True):
+# 	"""Controlled vocabulary parameter (for instruments, organisms, diseases, etc.)."""
+
+# 	__tablename__ = "cv_params"
+
+# 	id: int | None = Field(default=None, primary_key=True)
+# 	accession: str = Field(index=True)
+# 	cv_label: str | None = Field(default=None, alias="cvLabel")
+# 	name: str
+# 	value: str | None = None
+# 	param_type: str = Field(index=True)  # 'instrument', 'software', 'organism', 'disease', etc.
+
+# 	# Relationships
+# 	projects_as_instrument: list["Project"] = Relationship(
+# 		back_populates="instruments",
+# 		link_model=ProjectInstrument,
+# 	)
+# 	projects_as_software: list["Project"] = Relationship(
+# 		back_populates="softwares",
+# 		link_model=ProjectSoftware,
+# 	)
+# 	projects_as_experiment_type: list["Project"] = Relationship(
+# 		back_populates="experiment_types",
+# 		link_model=ProjectExperimentType,
+# 	)
+# 	projects_as_quantification_method: list["Project"] = Relationship(
+# 		back_populates="quantification_methods",
+# 		link_model=ProjectQuantificationMethod,
+# 	)
+# 	projects_as_organism: list["Project"] = Relationship(
+# 		back_populates="organisms",
+# 		link_model=ProjectOrganism,
+# 	)
+# 	projects_as_organism_part: list["Project"] = Relationship(
+# 		back_populates="organism_parts",
+# 		link_model=ProjectOrganismPart,
+# 	)
+# 	projects_as_disease: list["Project"] = Relationship(
+# 		back_populates="diseases",
+# 		link_model=ProjectDisease,
+# 	)
+# 	projects_as_identified_ptm: list["Project"] = Relationship(
+# 		back_populates="identified_ptms",
+# 		link_model=ProjectIdentifiedPTM,
+# 	)
 
 
 class Project(SQLModel, table=True):
@@ -164,39 +181,41 @@ class Project(SQLModel, table=True):
 	affiliations: list["ProjectAffiliation"] = Relationship(back_populates="project")
 	other_omics_links: list["ProjectOtherOmicsLink"] = Relationship(back_populates="project")
 
+	cv_params: list[CvParam] = Relationship(back_populates="projects", link_model=CvJunctionTable)
+
 	# Many-to-many relationships with CvParam
-	instruments: list[CvParam] = Relationship(
-		back_populates="projects_as_instrument",
-		link_model=ProjectInstrument,
-	)
-	softwares: list[CvParam] = Relationship(
-		back_populates="projects_as_software",
-		link_model=ProjectSoftware,
-	)
-	experiment_types: list[CvParam] = Relationship(
-		back_populates="projects_as_experiment_type",
-		link_model=ProjectExperimentType,
-	)
-	quantification_methods: list[CvParam] = Relationship(
-		back_populates="projects_as_quantification_method",
-		link_model=ProjectQuantificationMethod,
-	)
-	organisms: list[CvParam] = Relationship(
-		back_populates="projects_as_organism",
-		link_model=ProjectOrganism,
-	)
-	organism_parts: list[CvParam] = Relationship(
-		back_populates="projects_as_organism_part",
-		link_model=ProjectOrganismPart,
-	)
-	diseases: list[CvParam] = Relationship(
-		back_populates="projects_as_disease",
-		link_model=ProjectDisease,
-	)
-	identified_ptms: list[CvParam] = Relationship(
-		back_populates="projects_as_identified_ptm",
-		link_model=ProjectIdentifiedPTM,
-	)
+	# instruments: list[CvParam] = Relationship(
+	# 	back_populates="projects_as_instrument",
+	# 	link_model=ProjectInstrument,
+	# )
+	# softwares: list[CvParam] = Relationship(
+	# 	back_populates="projects_as_software",
+	# 	link_model=ProjectSoftware,
+	# )
+	# experiment_types: list[CvParam] = Relationship(
+	# 	back_populates="projects_as_experiment_type",
+	# 	link_model=ProjectExperimentType,
+	# )
+	# quantification_methods: list[CvParam] = Relationship(
+	# 	back_populates="projects_as_quantification_method",
+	# 	link_model=ProjectQuantificationMethod,
+	# )
+	# organisms: list[CvParam] = Relationship(
+	# 	back_populates="projects_as_organism",
+	# 	link_model=ProjectOrganism,
+	# )
+	# organism_parts: list[CvParam] = Relationship(
+	# 	back_populates="projects_as_organism_part",
+	# 	link_model=ProjectOrganismPart,
+	# )
+	# diseases: list[CvParam] = Relationship(
+	# 	back_populates="projects_as_disease",
+	# 	link_model=ProjectDisease,
+	# )
+	# identified_ptms: list[CvParam] = Relationship(
+	# 	back_populates="projects_as_identified_ptm",
+	# 	link_model=ProjectIdentifiedPTM,
+	# )
 
 
 class Reference(SQLModel, table=True):

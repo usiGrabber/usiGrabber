@@ -75,6 +75,7 @@ class AsyncHttpClient:
 		url: str,
 		params: dict | None = None,
 		parse_json: bool = False,
+		valid_response_codes: frozenset[int] = frozenset({200}),
 		**kwargs: Any,
 	):
 		"""
@@ -82,6 +83,11 @@ class AsyncHttpClient:
 		- To force json parsing set `parse_json` to True
 		"""
 		response = await self.get_response(url, params=params, **kwargs)
+		if response.status not in valid_response_codes:
+			raise ValueError(
+				f"Response: {response.status} from {url}",
+				"not in valid responses ({valid_response_codes}):",
+			)
 		if response.content_type == "application/json" or parse_json:
 			return await response.json()
 		else:

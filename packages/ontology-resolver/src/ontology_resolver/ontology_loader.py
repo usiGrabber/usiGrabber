@@ -11,35 +11,37 @@ logger = logging.getLogger(__name__)
 
 class OntologyLoader:
 	BASE_URL: str = "https://www.ebi.ac.uk/ols4"
-	OWL_DOWNLOAD_KEY = "http://www.w3.org/2002/07/owl#versionIRI"
+	OWL_DOWNLOAD_KEYS = ["iri", "ontologyPurl"]
 	CACHE_DIR: Path = Path(".cache/ontologies")
 
 	async def download_ontology(self, onto: str) -> None:
 		async with AsyncHttpClient() as session:
 			params = {"lang": "en", "outputOpts": json.dumps({})}
-			print(params)
 			ontology_info = await session.get(
 				self.BASE_URL + f"/api/v2/ontologies/{onto}", params=params
 			)
-
 			assert isinstance(ontology_info, dict), (
 				f"Ontology info for : {onto} is not of instance dict"
 			)
-
-			assert self.OWL_DOWNLOAD_KEY in ontology_info, (
-				f"{self.OWL_DOWNLOAD_KEY} not in ontology data"
-			)
 			os.makedirs(self.CACHE_DIR, exist_ok=True)
 			download_file_name = self.CACHE_DIR / f"{onto}.owl"
-			try:
-				download_link = ontology_info[self.OWL_DOWNLOAD_KEY]
-				await session.stream_file(download_link, download_file_name)
-			except ValueError:
-				logger.warning(
-					f"Failed to fetch {ontology_info[self.OWL_DOWNLOAD_KEY]} falling",
-					" back to {ontology_info['iri']}",
+
+			for download_key in self.OWL_DOWNLOAD_KEYS:
+				if download_key not in ontology_info:
+					logger.warning(f"{download_key} not in ontology data for {onto}")
+					continue
+				download_link = ontology_info[download_key]
+				try:
+					await session.stream_file(download_link, download_file_name)
+				except Exception as e:
+					logger.error(f"Error downloading {onto} from {download_link}: {e}")
+					continue
+				break
+			else:
+				raise ValueError(
+					f"No valid download link found for,"
+					f"{onto}: {self.BASE_URL + f'/api/v2/ontologies/{onto}'}"
 				)
-				await session.stream_file(ontology_info["iri"], download_file_name)
 
 	async def get_ontology(self, onto: str) -> Ontology:
 		file = self.CACHE_DIR / f"{onto}.owl"
