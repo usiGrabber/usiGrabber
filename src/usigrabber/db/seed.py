@@ -104,7 +104,6 @@ def seed_minimal_data(engine: Engine) -> None:
 		session.add_all(countries)
 
 		session.commit()
-		session.flush()
 
 		# =====================================================================
 		# mzID Mock Data - Very minimal for testing
