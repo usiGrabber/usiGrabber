@@ -9,8 +9,6 @@ from sqlalchemy import inspect
 from sqlmodel import Session, select
 
 from usigrabber.db import (
-	Contact,
-	CvParam,
 	Project,
 	ProjectCountry,
 	ProjectKeyword,
@@ -60,9 +58,7 @@ def seed(echo_sql: bool = False):
 	# Check if tables exist
 	inspector = inspect(engine)
 	if len(inspector.get_table_names()) == 0:
-		console.print(
-			"⚠️  No tables found. Run 'init' first or use 'reset'.", style="bold yellow"
-		)
+		console.print("⚠️  No tables found. Run 'init' first or use 'reset'.", style="bold yellow")
 		raise typer.Exit(1)
 
 	seed_minimal_data(engine)
@@ -142,9 +138,7 @@ def info(echo_sql: bool = False):
 	table_names = inspector.get_table_names()
 
 	if len(table_names) == 0:
-		console.print(
-			"\n⚠️  No tables found. Run 'init' to create schema.", style="yellow"
-		)
+		console.print("\n⚠️  No tables found. Run 'init' to create schema.", style="yellow")
 		raise typer.Exit(0)
 
 	console.print(f"\nTotal tables: {len(table_names)}")
@@ -155,20 +149,10 @@ def info(echo_sql: bool = False):
 
 		counts = {
 			"Projects": session.exec(select(func.count()).select_from(Project)).one(),
-			"Contacts": session.exec(select(func.count()).select_from(Contact)).one(),
-			"CV Parameters": session.exec(
-				select(func.count()).select_from(CvParam)
-			).one(),
-			"References": session.exec(
-				select(func.count()).select_from(Reference)
-			).one(),
-			"Keywords": session.exec(
-				select(func.count()).select_from(ProjectKeyword)
-			).one(),
+			"References": session.exec(select(func.count()).select_from(Reference)).one(),
+			"Keywords": session.exec(select(func.count()).select_from(ProjectKeyword)).one(),
 			"Tags": session.exec(select(func.count()).select_from(ProjectTag)).one(),
-			"Countries": session.exec(
-				select(func.count()).select_from(ProjectCountry)
-			).one(),
+			"Countries": session.exec(select(func.count()).select_from(ProjectCountry)).one(),
 		}
 
 	# Create table

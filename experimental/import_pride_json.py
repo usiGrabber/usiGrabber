@@ -26,7 +26,6 @@ from sqlmodel import Session
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from usigrabber.db import (
-	CvParam,
 	Project,
 	ProjectCountry,
 	ProjectKeyword,
@@ -37,15 +36,7 @@ from usigrabber.db import (
 )
 from usigrabber.db.schema import (
 	ProjectAffiliation,
-	ProjectDisease,
-	ProjectExperimentType,
-	ProjectIdentifiedPTM,
-	ProjectInstrument,
-	ProjectOrganism,
-	ProjectOrganismPart,
 	ProjectOtherOmicsLink,
-	ProjectQuantificationMethod,
-	ProjectSoftware,
 )
 
 console = Console()
@@ -63,48 +54,7 @@ def parse_date(date_str: str | None) -> date | None:
 		return None
 
 
-def get_or_create_cvparam(session: Session, cv_data: dict, param_type: str, cv_cache: dict) -> int:
-	"""Get or create a CV parameter, using cache to avoid duplicates."""
-	accession = cv_data.get("accession", "")
-	name = cv_data.get("name", "")
-	cache_key = f"{param_type}:{accession}:{name}"
-
-	# Check cache
-	if cache_key in cv_cache:
-		return cv_cache[cache_key]
-
-	# Check database
-	from sqlmodel import select
-
-	statement = (
-		select(CvParam)
-		.where(CvParam.param_type == param_type)
-		.where(CvParam.accession == accession)
-		.where(CvParam.name == name)
-	)
-	existing = session.exec(statement).first()
-
-	if existing:
-		assert existing.id is not None
-		cv_cache[cache_key] = existing.id
-		return existing.id
-
-	# Create new
-	cv_param = CvParam(
-		accession=accession,
-		cvLabel=cv_data.get("cvLabel"),
-		name=name,
-		value=cv_data.get("value"),
-		param_type=param_type,
-	)
-	session.add(cv_param)
-	session.flush()
-	assert cv_param.id is not None
-	cv_cache[cache_key] = cv_param.id
-	return cv_param.id
-
-
-def import_project(session: Session, project_data: dict, cv_cache: dict):
+def import_project(session: Session, project_data: dict):
 	"""Import a single project with all its relationships."""
 
 	# 1. Create Project
@@ -162,23 +112,6 @@ def import_project(session: Session, project_data: dict, cv_cache: dict):
 		if link:
 			session.add(ProjectOtherOmicsLink(project_accession=project.accession, link=link))
 
-	# 8. CV Parameters (instruments, software, organisms, etc.)
-	cv_mappings = [
-		("instruments", "instrument", ProjectInstrument),
-		("softwares", "software", ProjectSoftware),
-		("experimentTypes", "experiment_type", ProjectExperimentType),
-		("quantificationMethods", "quantification_method", ProjectQuantificationMethod),
-		("organisms", "organism", ProjectOrganism),
-		("organismParts", "organism_part", ProjectOrganismPart),
-		("diseases", "disease", ProjectDisease),
-		("identifiedPTMStrings", "identified_ptm", ProjectIdentifiedPTM),
-	]
-
-	for json_key, param_type, junction_class in cv_mappings:
-		for cv_data in project_data.get(json_key, []):
-			cv_id = get_or_create_cvparam(session, cv_data, param_type, cv_cache)
-			session.add(junction_class(project_accession=project.accession, cv_param_id=cv_id))
-
 
 def import_pride_json(json_file: str, batch_size: int = 100):
 	"""Import PRIDE projects from JSON file into database."""
@@ -204,9 +137,6 @@ def import_pride_json(json_file: str, batch_size: int = 100):
 		console.print("🗄️  Creating database tables...", style="yellow")
 		create_db_and_tables(engine)
 
-	# Caches to avoid duplicates
-	cv_cache = {}
-
 	# Import in batches
 	imported = 0
 	errors = 0
@@ -222,7 +152,7 @@ def import_pride_json(json_file: str, batch_size: int = 100):
 		with Session(engine) as session:
 			for i, project_data in enumerate(projects_data):
 				try:
-					import_project(session, project_data, cv_cache)
+					import_project(session, project_data)
 					imported += 1
 
 					# Commit in batches
@@ -242,7 +172,6 @@ def import_pride_json(json_file: str, batch_size: int = 100):
 					errors += 1
 					error_projects.append((project_data.get("accession", "unknown"), str(e)))
 					session.rollback()
-					cv_cache.clear()
 
 					# Continue with next project
 					if (i + 1) % batch_size == 0:
