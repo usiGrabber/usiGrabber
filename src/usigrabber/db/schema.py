@@ -194,7 +194,9 @@ class Modification(SQLModel, table=True):
 	__tablename__ = "modifications"
 
 	id: int | None = Field(default=None, primary_key=True)
-	name: str = Field(index=True, description="e.g., 'Oxidation', 'Carbamidomethyl'")
+	name: str | None = Field(
+		default=None, index=True, description="e.g., 'Oxidation', 'Carbamidomethyl'"
+	)
 	unimod_accession: str | None = Field(default=None, index=True, description="e.g., 'UNIMOD:35'")
 	mass_delta: float
 	residues_affected: str | None = Field(
