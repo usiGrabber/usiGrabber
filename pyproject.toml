@@ -16,6 +16,11 @@ dependencies = [
     "async-http-client",
     "typer-slim>=0.20.0",
     "python-dotenv>=1.1.1",
+    "pydantic>=2.12.3",
+    "sqlmodel>=0.0.27",
+    "rich>=13.9.4",
+    "pronto>=2.7.1",
+    "ontology-resolver",
 ]
 
 [project.scripts]
@@ -29,11 +34,13 @@ build-backend = "uv_build"
 members = [
     "packages/test-package",
     "packages/async-http-client",
+    "packages/ontology-resolver",
 ]
 
 [tool.uv.sources]
 test-package = { workspace = true }
 async-http-client = { workspace = true}
+ontology-resolver = { workspace = true }
 
 [dependency-groups]
 dev = [

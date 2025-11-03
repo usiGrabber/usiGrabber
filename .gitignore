@@ -13,3 +13,12 @@ aiohttp-cache.sqlite
 
 # My local dir for data (-Konstantin)
 data
+
+# Database files
+database.db
+*.db
+*.sqlite
+*.sqlite3
+test_*.db
+dev_*.db
+.cache
