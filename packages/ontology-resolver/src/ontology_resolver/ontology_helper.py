@@ -29,6 +29,10 @@ class OntologyHelper(metaclass=OntologyHelperSingletonMeta):
 	async def get_ontology(self, onto: str) -> Ontology:
 		if onto in self.ontologies:
 			return self.ontologies[onto]
+
+		# Manually replace wrong/outdated ontology names
+		if onto.lower() == "newt":
+			onto = "NCBITaxon"
 		self.ontologies[onto] = await OntologyLoader().get_ontology(onto)
 		return self.ontologies[onto]
 

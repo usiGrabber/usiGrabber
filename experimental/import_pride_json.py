@@ -15,17 +15,16 @@ Usage:
 
 import asyncio
 import json
+import logging
 import sys
 from datetime import date, datetime
 from pathlib import Path
 
+from attr import dataclass
 from ontology_resolver.ontology_helper import OntologyHelper
 from rich.console import Console
 from rich.progress import Progress, SpinnerColumn, TextColumn
-from sqlmodel import Session
-
-# Add src to path
-sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
+from sqlmodel import Session, and_, or_, select
 
 from usigrabber.db import (
 	CvParam,
@@ -38,6 +37,11 @@ from usigrabber.db import (
 	load_db_engine,
 )
 from usigrabber.db.schema import ProjectAffiliation, ProjectOtherOmicsLink
+
+logger = logging.Logger(__name__)
+# Add src to path
+sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
+
 
 console = Console()
 
@@ -115,6 +119,50 @@ async def import_project(session: Session, project_data: dict, cv_cache: dict):
 	await process_cv_data(session, project, project_data=project_data)
 
 
+@dataclass
+class RawCvParam:
+	name: str
+	value: str | None = None
+
+
+async def add_cv_params_to_project(session: Session, project: Project, cvs: list[RawCvParam]):
+	"""
+	cvs: list of (name, value) tuples
+	"""
+	if not cvs:
+		return
+
+	filters = []
+	for cv in cvs:
+		if cv.value is None:
+			filters.append(and_(CvParam.name == cv.name, CvParam.value.is_(None)))
+		else:
+			filters.append(and_(CvParam.name == cv.name, CvParam.value == cv.value))
+	statement = select(CvParam).where(or_(*filters))
+	existing = session.exec(statement)
+	existing_params = existing.all()
+
+	# Map existing for fast lookup
+	existing_map = {(cv.name, cv.value): cv for cv in existing_params}
+
+	# Step 3: Prepare CvParams to add
+	new_cvs = []
+	for cv in cvs:
+		name, value = cv.name, cv.value
+		key = (name, value)
+		if key not in existing_map:
+			cv_param = CvParam(name=name, value=value)
+			session.add(cv_param)
+			session.flush()  # Assigns ID
+			existing_map[key] = cv_param
+			new_cvs.append(cv_param)
+
+	# Step 4: Attach all CVs to project if not already linked
+	for cv_param in existing_map.values():
+		if cv_param not in project.cv_params:
+			project.cv_params.append(cv_param)
+
+
 async def process_cv_data(session: Session, project: Project, project_data: dict):
 	cv_data_keys = [
 		"instruments",
@@ -139,9 +187,12 @@ async def process_cv_data(session: Session, project: Project, project_data: dict
 			elif cv_data.get("@type") == "CvParam":
 				cv_term = cv_data.get("accession")
 				assert isinstance(cv_term, str)
-				superclasses = await ontology_helper.get_superclasses(cv_term)
-				supperclass_cv_terms = [x.id for x in superclasses[1:]]
-				cv_term_value = cv_data.get("value", None)
+				try:
+					superclasses = await ontology_helper.get_superclasses(cv_term)
+					supperclass_cv_terms = [x.id for x in superclasses[1:]]
+					cv_term_value = cv_data.get("value", None)
+				except Exception as e:
+					logger.error(f"Failed to resolve super classes for term {cv_term}:", e)
 
 			if cv_term is not None:
 				cv_row_data: list[CvParam] = [CvParam(name=cv_term, value=cv_term_value)]
@@ -179,6 +230,9 @@ async def import_pride_json(json_file: str, batch_size: int = 100):
 		console.print("🗄️  Creating database tables...", style="yellow")
 		create_db_and_tables(engine)
 
+	import pdb
+
+	pdb.set_trace()
 	# Caches to avoid duplicates
 	cv_cache = {}
 
