@@ -1,8 +1,12 @@
 import os
 import tarfile
+import tempfile
 import urllib.parse
 import urllib.request
+from collections.abc import Generator
+from contextlib import contextmanager, suppress
 from pathlib import Path
+from typing import Any
 
 import typer
 
@@ -11,7 +15,7 @@ from usigrabber.utils import DATA_DIR, logger
 
 def download_ftp(url: str, out_dir: Path, file_name: str | None = None) -> Path:
     # create directory
-    out_dir.mkdir(parents=True, exist_ok=True)
+    # out_dir.mkdir(parents=True, exist_ok=True)
 
     parsed = urllib.parse.urlparse(url)
     filename = file_name or os.path.basename(parsed.path)
@@ -43,6 +47,19 @@ def extract_archive(archive_path: Path, extract_to: Path):
     with tarfile.open(archive_path, "r:gz") as tar:
         tar.extractall(path=extract_to)
     logger.debug("Extracted %s to %s", archive_path, extract_to)
+
+
+@contextmanager
+def temporary_path(*, suffix="", prefix="tmp", dir=None) -> Generator[Path, Any, None]:
+    with tempfile.NamedTemporaryFile(
+        delete=False, suffix=suffix, prefix=prefix, dir=dir
+    ) as f:
+        path = Path(f.name)
+    try:
+        yield path
+    finally:
+        with suppress(FileNotFoundError):
+            path.unlink()
 
 
 def main(

@@ -1,4 +1,6 @@
 from abc import ABC, abstractmethod
+from collections.abc import Iterable
+from enum import Enum
 from typing import Any, TypedDict
 
 
@@ -11,6 +13,39 @@ class FileMetadata(TypedDict):
 class Files(TypedDict):
     search: list[FileMetadata]
     result: list[FileMetadata]
+
+
+class ScanIdentifierType(str, Enum):
+    SCAN = "scan"
+    INDEX = "index"
+    NATIVEID = "nativeId"
+    TRACE = "trace"
+
+
+class Ref(TypedDict):
+    start: int
+    end: int
+    pre: str
+    post: str
+    is_decoy: bool
+    protein: str
+
+
+class Modification(TypedDict):
+    position: int
+    name: str
+
+
+class PSM(TypedDict):
+    datafile: str
+    scan_identifier_type: ScanIdentifierType
+    scan_identifier: str
+    peptide_sequence: str
+    charge: int
+    experimental_mass_to_charge: float
+    retention_time: float | None
+    refs: list[Ref]
+    modifications: list[Modification]
 
 
 class BaseBackend(ABC):
@@ -46,7 +81,7 @@ class BaseBackend(ABC):
 
     @classmethod
     @abstractmethod
-    def process_result_file(cls, file: FileMetadata) -> None:
+    def process_result_file(cls, file: FileMetadata) -> Iterable[PSM]:
         """
         Process a result file.
 

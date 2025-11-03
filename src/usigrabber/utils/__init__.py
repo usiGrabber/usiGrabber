@@ -9,7 +9,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=os.environ.get("LOGLEVEL", "INFO").upper())
 logger = logging.getLogger(__name__)
 
 
@@ -30,7 +30,10 @@ DATA_DIR = data_directory_path()
 
 def iter_json(json_path: Path) -> Generator[dict[Any, Any], None, None]:
     """Yield items from a JSON file using ijson for efficient parsing."""
-    with open(json_path, encoding="utf-8") as in_f:
+    with open(json_path, "rb") as in_f:
+        # for item in tqdm(
+        # , desc=f"Parsing {json_path.name}", unit="item"
+        # ):
         for item in ijson.items(in_f, "item"):
             yield from item
 

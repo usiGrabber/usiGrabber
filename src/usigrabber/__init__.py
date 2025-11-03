@@ -1,3 +1,4 @@
+import json
 import os
 from pathlib import Path
 from typing import Annotated, Any
@@ -53,12 +54,14 @@ def build(
         list[BackendEnum],
         typer.Option(help="Set of backends to fetch data from."),
     ] = [enum for enum in BackendEnum],  # noqa: B006
+    is_test: Annotated[
+        bool,
+        typer.Option(help="Run in test mode with limited data."),
+    ] = False,
 ) -> None:
     """Build USI database."""
     typer.echo("Building USI database...")
     os.environ["UG_DATA_DIR"] = str(data_dir)
-
-    print([backend.name for backend in backends])
 
     # WORKFLOW
 
@@ -71,7 +74,7 @@ def build(
         backend = backend_enum.value
         typer.echo(f"Fetching data from backend: {backend_enum.name}")
 
-        backend_accessions = backend.get_all_project_accessions()
+        backend_accessions = backend.get_all_project_accessions(is_test=is_test)
 
         # filter accessions to only new ones
         new_accessions = []
@@ -81,14 +84,21 @@ def build(
                 new_accessions.append(accession)
 
         typer.echo(
-            message=f"Found {len(new_accessions)} new accessions from backend {backend_enum.name}."
+            message=f"Found {len(new_accessions)} new "
+            + f"accessions from backend {backend_enum.name}."
         )
 
+        counter = 0
         for accession in new_accessions:
             # fetch metadata
             metadata: dict[str, Any] = backend.get_metadata_for_project(accession)
             project_data = metadata
-            project_data["usis"] = []
+
+            # for now, filter for complete datasets
+            if metadata.get("submissionType", False) != "COMPLETE":
+                continue
+
+            project_data["psms"] = []
 
             # download files
             files = backend.get_files_for_project(accession)
@@ -96,17 +106,25 @@ def build(
             # process files
             if files["result"]:
                 for file in files["result"]:
-                    project_data["usis"].append(backend.process_result_file(file))
+                    project_data["psms"].append(list(backend.process_result_file(file)))
             elif files["search"]:
-                for file in files["search"]:
-                    backend.process_search_file(file)
+                continue  # for now
+                # for file in files["search"]:
+                #     backend.process_search_file(file)
             else:
                 typer.echo(
-                    message=f"No files found for accession {accession} from backend {backend_enum.name}."
+                    message=f"No results/search files found for accession {accession} "
+                    + f"from backend {backend_enum.name}."
                 )
 
             # dump project to database
             # db.dump(project_data)
+
+            print(json.dumps(project_data, indent=2))
+
+            counter += 1
+            if counter > 0:
+                break
 
 
 def main() -> None:
