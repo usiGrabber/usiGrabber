@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, datetime
 
 from sqlmodel import JSON, Column, Field, Relationship, SQLModel
 
@@ -39,6 +39,8 @@ class Project(SQLModel, table=True):
 	countries: list["ProjectCountry"] = Relationship(back_populates="project")
 	affiliations: list["ProjectAffiliation"] = Relationship(back_populates="project")
 	other_omics_links: list["ProjectOtherOmicsLink"] = Relationship(back_populates="project")
+	mzid_files: list["MzidFile"] = Relationship(back_populates="project")
+	peptide_spectrum_matches: list["PeptideSpectrumMatch"] = Relationship(back_populates="project")
 
 
 class Reference(SQLModel, table=True):
@@ -124,6 +126,177 @@ class ProjectOtherOmicsLink(SQLModel, table=True):
 
 	# Relationships
 	project: Project | None = Relationship(back_populates="other_omics_links")
+
+
+# ============================================================================
+# mzID Data Tables
+# ============================================================================
+
+
+class MzidFile(SQLModel, table=True):
+	"""Metadata per mzID file - OPTIONAL table for provenance tracking."""
+
+	__tablename__ = "mzid_files"
+
+	id: int | None = Field(default=None, primary_key=True)
+	project_accession: str = Field(foreign_key="projects.accession", index=True)
+	file_name: str
+	file_path: str | None = None
+	software_name: str | None = None
+	software_version: str | None = None
+	search_database_name: str | None = None
+	search_database_location: str | None = None
+	search_database_size: int | None = None
+	protocol_parameters: dict | None = Field(
+		default=None,
+		sa_column=Column(JSON),
+		description="Enzyme, tolerances, modifications - stored as JSON",
+	)
+	threshold_type: str | None = Field(
+		default=None,
+		index=True,
+		description="Type of threshold used (e.g., 'FDR', 'q-value', 'e-value', 'Mascot:identity')",
+	)
+	threshold_value: float | None = Field(
+		default=None,
+		index=True,
+		description="Threshold value (e.g., 0.01 for 1% FDR)",
+	)
+	creation_date: datetime | None = None
+	total_psms_count: int | None = None
+	total_peptides_count: int | None = None
+
+	# Relationships
+	project: Project | None = Relationship(back_populates="mzid_files")
+	peptide_spectrum_matches: list["PeptideSpectrumMatch"] = Relationship(
+		back_populates="mzid_file"
+	)
+
+
+class Peptide(SQLModel, table=True):
+	"""Unique peptide sequences across all files."""
+
+	__tablename__ = "peptides"
+
+	id: int | None = Field(default=None, primary_key=True)
+	sequence: str = Field(index=True, unique=True, description="Peptide sequence")
+	length: int = Field(description="Computed sequence length")
+
+	# Relationships
+	peptide_spectrum_matches: list["PeptideSpectrumMatch"] = Relationship(back_populates="peptide")
+	peptide_modifications: list["PeptideModification"] = Relationship(back_populates="peptide")
+	peptide_evidences: list["PeptideEvidence"] = Relationship(back_populates="peptide")
+
+
+class Modification(SQLModel, table=True):
+	"""Controlled vocabulary of PTMs/modifications."""
+
+	__tablename__ = "modifications"
+
+	id: int | None = Field(default=None, primary_key=True)
+	name: str = Field(index=True, description="e.g., 'Oxidation', 'Carbamidomethyl'")
+	unimod_accession: str | None = Field(default=None, index=True, description="e.g., 'UNIMOD:35'")
+	mass_delta: float
+	residues_affected: str | None = Field(
+		default=None, description="Amino acids that can have this modification"
+	)
+
+	# Relationships
+	peptide_modifications: list["PeptideModification"] = Relationship(back_populates="modification")
+
+
+class PeptideModification(SQLModel, table=True):
+	"""Junction table: which modifications occur at which positions in each peptide."""
+
+	__tablename__ = "peptide_modifications"
+
+	id: int | None = Field(default=None, primary_key=True)
+	peptide_id: int = Field(foreign_key="peptides.id", index=True)
+	modification_id: int = Field(foreign_key="modifications.id", index=True)
+	position: int = Field(description="Position in the peptide sequence (1-indexed)")
+	modified_residue: str = Field(description="The specific amino acid that was modified")
+
+	# Relationships
+	peptide: Peptide | None = Relationship(back_populates="peptide_modifications")
+	modification: Modification | None = Relationship(back_populates="peptide_modifications")
+
+
+class PeptideSpectrumMatch(SQLModel, table=True):
+	"""Core PSM data. Links to Project, MzidFile, Peptide."""
+
+	__tablename__ = "peptide_spectrum_matches"
+
+	id: int | None = Field(default=None, primary_key=True)
+	project_accession: str = Field(foreign_key="projects.accession", index=True)
+	mzid_file_id: int | None = Field(
+		default=None,
+		foreign_key="mzid_files.id",
+		index=True,
+		description="Optional: can be NULL for non-mzID sources",
+	)
+	peptide_id: int = Field(foreign_key="peptides.id", index=True)
+	spectrum_id: str = Field(index=True, description="Spectrum identifier/index")
+	charge_state: int
+	experimental_mz: float = Field(description="Experimental m/z value")
+	calculated_mz: float = Field(description="Calculated m/z value")
+	score_values: dict | None = Field(
+		default=None,
+		sa_column=Column(JSON),
+		description="MS-GF+ score, FDR, e-value, etc. as JSON",
+	)
+	rank: int | None = Field(default=None, description="Rank of this PSM for the spectrum")
+	pass_threshold: bool = Field(
+		description=(
+			"Whether PSM passes quality threshold. Based on file-level threshold "
+			"(see mzid_file.threshold_type and threshold_value) or per-spectrum "
+			"dynamic thresholds (e.g., Mascot identity/homology). Value comes from "
+			"mzID passThreshold attribute."
+		)
+	)
+	is_decoy: bool = Field(description="Whether this is a decoy match")
+
+	# Relationships
+	project: Project | None = Relationship(back_populates="peptide_spectrum_matches")
+	mzid_file: MzidFile | None = Relationship(back_populates="peptide_spectrum_matches")
+	peptide: Peptide | None = Relationship(back_populates="peptide_spectrum_matches")
+
+
+class Protein(SQLModel, table=True):
+	"""Protein sequences from database (deduplicated)."""
+
+	__tablename__ = "proteins"
+
+	id: int | None = Field(default=None, primary_key=True)
+	accession: str = Field(index=True, unique=True, description="Protein accession")
+	description: str | None = None
+	is_decoy: bool = Field(default=False, description="Whether this is a decoy protein")
+
+	# Relationships
+	peptide_evidences: list["PeptideEvidence"] = Relationship(back_populates="protein")
+
+
+class PeptideEvidence(SQLModel, table=True):
+	"""Peptide-to-protein mappings - where peptides appear in proteins."""
+
+	__tablename__ = "peptide_evidence"
+
+	id: int | None = Field(default=None, primary_key=True)
+	peptide_id: int = Field(foreign_key="peptides.id", index=True)
+	protein_id: int = Field(foreign_key="proteins.id", index=True)
+	start_position: int | None = Field(
+		default=None, description="Start position in protein sequence"
+	)
+	end_position: int | None = Field(default=None, description="End position in protein sequence")
+	pre_residue: str | None = Field(
+		default=None, max_length=1, description="Flanking amino acid before"
+	)
+	post_residue: str | None = Field(
+		default=None, max_length=1, description="Flanking amino acid after"
+	)
+
+	# Relationships
+	peptide: Peptide | None = Relationship(back_populates="peptide_evidences")
+	protein: Protein | None = Relationship(back_populates="peptide_evidences")
 
 
 # ============================================================================
