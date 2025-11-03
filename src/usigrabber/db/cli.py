@@ -9,7 +9,6 @@ from sqlalchemy import inspect
 from sqlmodel import Session, select
 
 from usigrabber.db import (
-	CvParam,
 	Project,
 	ProjectCountry,
 	ProjectKeyword,
@@ -150,7 +149,6 @@ def info(echo_sql: bool = False):
 
 		counts = {
 			"Projects": session.exec(select(func.count()).select_from(Project)).one(),
-			"CV Parameters": session.exec(select(func.count()).select_from(CvParam)).one(),
 			"References": session.exec(select(func.count()).select_from(Reference)).one(),
 			"Keywords": session.exec(select(func.count()).select_from(ProjectKeyword)).one(),
 			"Tags": session.exec(select(func.count()).select_from(ProjectTag)).one(),
