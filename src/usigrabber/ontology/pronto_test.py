@@ -19,7 +19,7 @@ async def main():
 	term = ontology["MS:1001742"]
 
 	print(ontology)
-	print(term.superclasses().to_set())
+	# print(term.superclasses().to_set())
 	print(term)
 
 
