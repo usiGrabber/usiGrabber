@@ -2,8 +2,10 @@ import logging
 import os
 import re
 from pathlib import Path
+from time import time
 from typing import Any
 
+import aiohttp
 from aiohttp_client_cache import FileBackend, SQLiteBackend
 from aiohttp_client_cache.session import CachedSession
 from aiohttp_retry import ExponentialRetry, RetryClient
@@ -105,16 +107,14 @@ class AsyncHttpClient:
 		url: str,
 		download_file_name: Path | None = None,
 		params: dict | None = None,
-		use_cache: bool = False,
 	) -> Path:
 		"""
-		Stream a file from URL to disk.
+		Stream a file from URL to disk. Does not cache or retry
 
 		Args:
 			url: URL to download from
 			download_file_name: Optional path to save the file
 			params: Optional query parameters
-			use_cache: If True, uses cached session; if False (default), bypasses cache
 
 		Returns:
 			Path to the downloaded file
@@ -123,42 +123,44 @@ class AsyncHttpClient:
 			raise RuntimeError("Session not initialized — use 'async with' to manage lifecycle.")
 
 		# Get response - cached or uncached
-		if use_cache:
-			response = await self.get_response(url, params)
-		else:
+		start_time_download = time()
+
+		async with aiohttp.ClientSession() as session:
+			print("Starting request")
 			# Bypass cache by accessing the underlying aiohttp session directly
-			response = await self._session._client.request("GET", url, params=params)
+			response = await session.get(url, params=params)
 
-		VALID_RESPONSE_CODES = [200]
-		if response.status not in VALID_RESPONSE_CODES:
-			raise ValueError(
-				f"Response: {response.status} not in okay responses ({VALID_RESPONSE_CODES})"
-			)
-		total_size = int(response.headers.get("Content-Length", 0))
+			print(f"Got response: {time() - start_time_download}")
+			VALID_RESPONSE_CODES = [200]
+			if response.status not in VALID_RESPONSE_CODES:
+				raise ValueError(
+					f"Response: {response.status} not in okay responses ({VALID_RESPONSE_CODES})"
+				)
+			total_size = int(response.headers.get("Content-Length", 0))
 
-		# Try to get the filename from the headers
-		cd = response.headers.get("Content-Disposition")
-		if cd:
-			match = re.search(r'filename="?(?P<filename>[^"]+)"?', cd)
-			if match:
-				filename = match.group("filename")
-				if not download_file_name:
-					download_file_name = Path(filename)
+			# Try to get the filename from the headers
+			cd = response.headers.get("Content-Disposition")
+			if cd:
+				match = re.search(r'filename="?(?P<filename>[^"]+)"?', cd)
+				if match:
+					filename = match.group("filename")
+					if not download_file_name:
+						download_file_name = Path(filename)
 
-		if not download_file_name:
-			# fallback to something generic
-			download_file_name = Path(url.split("/")[-1] or "downloaded_file")
+			if not download_file_name:
+				# fallback to something generic
+				download_file_name = Path(url.split("/")[-1] or "downloaded_file")
 
-		chunk_size = 4096
+			chunk_size = 4096
 
-		with (
-			open(download_file_name, "wb") as f,
-			tqdm.wrapattr(f, "write", total=total_size) as fobj,
-		):
-			while True:
-				chunk = await response.content.read(chunk_size)
-				if not chunk:
-					break
-				fobj.write(chunk)
+			with (
+				open(download_file_name, "wb") as f,
+				tqdm.wrapattr(f, "write", total=total_size) as fobj,
+			):
+				while True:
+					chunk = await response.content.read(chunk_size)
+					if not chunk:
+						break
+					fobj.write(chunk)
 
-		return download_file_name
+			return download_file_name

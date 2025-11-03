@@ -19,6 +19,7 @@ import logging
 import sys
 from datetime import date, datetime
 from pathlib import Path
+from time import time
 
 from attr import dataclass
 from ontology_resolver.ontology_helper import OntologyHelper
@@ -58,7 +59,7 @@ def parse_date(date_str: str | None) -> date | None:
 		return None
 
 
-async def import_project(session: Session, project_data: dict, cv_cache: dict):
+async def import_project(session: Session, project_data: dict):
 	"""Import a single project with all its relationships."""
 
 	# 1. Create Project
@@ -116,6 +117,7 @@ async def import_project(session: Session, project_data: dict, cv_cache: dict):
 		if link:
 			session.add(ProjectOtherOmicsLink(project_accession=project.accession, link=link))
 
+	session.flush()
 	await process_cv_data(session, project, project_data=project_data)
 
 
@@ -125,13 +127,14 @@ class RawCvParam:
 	value: str | None = None
 
 
-async def add_cv_params_to_project(session: Session, project: Project, cvs: list[RawCvParam]):
+def add_cv_params_to_project(session: Session, project: Project, cvs: list[RawCvParam]):
 	"""
 	cvs: list of (name, value) tuples
 	"""
 	if not cvs:
 		return
 
+	# Disable autoflush to avoid SQLite "database is locked"
 	filters = []
 	for cv in cvs:
 		if cv.value is None:
@@ -140,7 +143,7 @@ async def add_cv_params_to_project(session: Session, project: Project, cvs: list
 			filters.append(and_(CvParam.name == cv.name, CvParam.value == cv.value))
 	statement = select(CvParam).where(or_(*filters))
 	existing = session.exec(statement)
-	existing_params = existing.all()
+	existing_params = list(existing.all())
 
 	# Map existing for fast lookup
 	existing_map = {(cv.name, cv.value): cv for cv in existing_params}
@@ -153,9 +156,10 @@ async def add_cv_params_to_project(session: Session, project: Project, cvs: list
 		if key not in existing_map:
 			cv_param = CvParam(name=name, value=value)
 			session.add(cv_param)
-			session.flush()  # Assigns ID
+
 			existing_map[key] = cv_param
 			new_cvs.append(cv_param)
+	session.flush()  # Assigns ID
 
 	# Step 4: Attach all CVs to project if not already linked
 	for cv_param in existing_map.values():
@@ -176,6 +180,8 @@ async def process_cv_data(session: Session, project: Project, project_data: dict
 	]
 
 	ontology_helper = OntologyHelper()
+	cv_row_data: list[RawCvParam] = []
+	start_time_supper_classes = time()
 	for json_key in cv_data_keys:
 		for cv_data in project_data.get(json_key, []):
 			cv_term: str | None = None
@@ -195,18 +201,18 @@ async def process_cv_data(session: Session, project: Project, project_data: dict
 					logger.error(f"Failed to resolve super classes for term {cv_term}:", e)
 
 			if cv_term is not None:
-				cv_row_data: list[CvParam] = [CvParam(name=cv_term, value=cv_term_value)]
+				cv_row_data.append(RawCvParam(name=cv_term, value=cv_term_value))
 				for x in supperclass_cv_terms:
-					cv_row_data.append(CvParam(name=x))
+					cv_row_data.append(RawCvParam(name=x))
 
-				for row in cv_row_data:
-					project.cv_params.append(row)
-					session.add(row)
-
+	print(f"Resolved supperclasses in {time() - start_time_supper_classes}s")
+	start_time_db = time()
+	add_cv_params_to_project(session, project, cv_row_data)
+	print(f"Wrote to db in {time() - start_time_db}s")
 	session.flush()
 
 
-async def import_pride_json(json_file: str, batch_size: int = 100):
+async def import_pride_json(json_file: str, batch_size: int = 1):
 	"""Import PRIDE projects from JSON file into database."""
 
 	console.print(f"\n🔬 Importing PRIDE projects from: {json_file}", style="bold blue")
@@ -230,12 +236,6 @@ async def import_pride_json(json_file: str, batch_size: int = 100):
 		console.print("🗄️  Creating database tables...", style="yellow")
 		create_db_and_tables(engine)
 
-	import pdb
-
-	pdb.set_trace()
-	# Caches to avoid duplicates
-	cv_cache = {}
-
 	# Import in batches
 	imported = 0
 	errors = 0
@@ -250,7 +250,7 @@ async def import_pride_json(json_file: str, batch_size: int = 100):
 
 		with Session(engine) as session:
 			for i, project_data in enumerate(projects_data):
-				await import_project(session, project_data, cv_cache)
+				await import_project(session, project_data)
 				imported += 1
 
 				# Commit in batches

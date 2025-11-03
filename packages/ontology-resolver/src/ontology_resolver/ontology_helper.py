@@ -1,7 +1,16 @@
+import logging
+import time
+import warnings
+
 from pronto.ontology import Ontology
 from pronto.term import Term
 
 from ontology_resolver.ontology_loader import OntologyLoader
+
+logger = logging.Logger(__name__)
+
+
+warnings.filterwarnings("ignore", module="pronto")
 
 
 class OntologyHelperSingletonMeta(type):
@@ -31,9 +40,12 @@ class OntologyHelper(metaclass=OntologyHelperSingletonMeta):
 			return self.ontologies[onto]
 
 		# Manually replace wrong/outdated ontology names
+
 		if onto.lower() == "newt":
 			onto = "NCBITaxon"
+		start_time = time.time()
 		self.ontologies[onto] = await OntologyLoader().get_ontology(onto)
+		logger.info(f"Loaded {onto} in {time.time() - start_time}s")
 		return self.ontologies[onto]
 
 	async def get_superclasses(self, term: str) -> list[Term]:
