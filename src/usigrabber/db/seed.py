@@ -156,6 +156,11 @@ def seed_minimal_data(engine: Engine) -> None:
 		session.flush()
 
 		# 5. Create PSMs
+		assert mzid_file.id is not None, "MzidFile ID should be set after flush"
+		assert peptide1.id is not None, "Peptide ID should be set after flush"
+		assert peptide2.id is not None, "Peptide ID should be set after flush"
+		assert peptide3.id is not None, "Peptide ID should be set after flush"
+
 		psm1 = PeptideSpectrumMatch(
 			project_accession="PXD000001",
 			mzid_file_id=mzid_file.id,
@@ -199,6 +204,9 @@ def seed_minimal_data(engine: Engine) -> None:
 		session.flush()
 
 		# 6. Create peptide evidence (peptide-protein mapping)
+		assert protein1.id is not None, "Protein ID should be set after flush"
+		assert protein2.id is not None, "Protein ID should be set after flush"
+
 		evidence1 = PeptideEvidence(
 			peptide_id=peptide1.id,
 			protein_id=protein1.id,
@@ -226,6 +234,8 @@ def seed_minimal_data(engine: Engine) -> None:
 		session.add_all([evidence1, evidence2, evidence3])
 
 		# 7. Create peptide modifications (optional - just one example)
+		assert oxidation.id is not None, "Modification ID should be set after flush"
+
 		peptide_mod = PeptideModification(
 			peptide_id=peptide1.id,
 			modification_id=oxidation.id,

@@ -140,12 +140,12 @@ def parse_modifications(psm_item: dict) -> list[dict]:
 def import_mzid(mzid_path: str, project_accession: str):
 	"""Import mzID file - simple version."""
 
-	mzid_path = Path(mzid_path)
-	if not mzid_path.exists():
-		console.print(f"[red]Error: File not found: {mzid_path}[/red]")
+	mzid_path_obj = Path(mzid_path)
+	if not mzid_path_obj.exists():
+		console.print(f"[red]Error: File not found: {mzid_path_obj}[/red]")
 		return
 
-	console.print(f"\n🔬 Importing: {mzid_path.name}")
+	console.print(f"\n🔬 Importing: {mzid_path_obj.name}")
 
 	engine = load_db_engine()
 	create_db_and_tables(engine)
@@ -154,8 +154,8 @@ def import_mzid(mzid_path: str, project_accession: str):
 		# Create MzidFile record
 		mzid_file = MzidFile(
 			project_accession=project_accession,
-			file_name=mzid_path.name,
-			file_path=str(mzid_path.absolute()),
+			file_name=mzid_path_obj.name,
+			file_path=str(mzid_path_obj.absolute()),
 			threshold_type="FDR",
 			threshold_value=0.01,
 			creation_date=datetime.now(),
@@ -173,7 +173,7 @@ def import_mzid(mzid_path: str, project_accession: str):
 
 		console.print("📊 Parsing PSMs...")
 
-		with mzid.read(str(mzid_path)) as reader:
+		with mzid.read(str(mzid_path_obj)) as reader:
 			for spectrum_result in reader:
 				# Get spectrum ID
 				spectrum_id = spectrum_result.get("spectrumID", "")
@@ -194,6 +194,8 @@ def import_mzid(mzid_path: str, project_accession: str):
 					if created:
 						peptide_count += 1
 
+					assert peptide.id is not None, "Peptide ID should be set after flush"
+
 					# Parse and create modifications
 					mods = parse_modifications(psm_item)
 					for mod_data in mods:
@@ -206,6 +208,10 @@ def import_mzid(mzid_path: str, project_accession: str):
 						)
 						if created:
 							modification_count += 1
+
+						assert modification.id is not None, (
+							"Modification ID should be set after flush"
+						)
 
 						# Create peptide-modification link
 						peptide_mod = PeptideModification(
@@ -231,6 +237,8 @@ def import_mzid(mzid_path: str, project_accession: str):
 							)
 							if created:
 								protein_count += 1
+
+							assert protein.id is not None, "Protein ID should be set after flush"
 
 							# Create peptide-protein mapping
 							pep_ev = PeptideEvidence(
