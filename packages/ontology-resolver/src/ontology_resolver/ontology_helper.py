@@ -33,7 +33,12 @@ class OntologyHelper(metaclass=OntologyHelperSingletonMeta):
 
 	def parse_ontology(self, term: str) -> tuple[str, str]:
 		cv, id_number = term.split(":")
+		if cv == "NEWT":
+			cv = "NCBITaxon"
 		return cv, id_number
+
+	def build_term_id(self, cv: str, term: str) -> str:
+		return f"{cv}:{term}"
 
 	async def get_ontology(self, onto: str) -> Ontology:
 		if onto in self.ontologies:
@@ -52,6 +57,7 @@ class OntologyHelper(metaclass=OntologyHelperSingletonMeta):
 		"""
 		Includes the term itself
 		"""
-		cv_accession, _ = self.parse_ontology(term)
+		cv_accession, number = self.parse_ontology(term)
+		term = self.build_term_id(cv_accession, number)
 		ontology = await self.get_ontology(cv_accession)
 		return list(iter(ontology[term].superclasses()))  # pyright: ignore[reportAttributeAccessIssue]

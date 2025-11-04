@@ -2,7 +2,6 @@ import logging
 import os
 import re
 from pathlib import Path
-from time import time
 from typing import Any
 
 import aiohttp
@@ -123,14 +122,8 @@ class AsyncHttpClient:
 			raise RuntimeError("Session not initialized — use 'async with' to manage lifecycle.")
 
 		# Get response - cached or uncached
-		start_time_download = time()
-
 		async with aiohttp.ClientSession() as session:
-			print("Starting request")
-			# Bypass cache by accessing the underlying aiohttp session directly
 			response = await session.get(url, params=params)
-
-			print(f"Got response: {time() - start_time_download}")
 			VALID_RESPONSE_CODES = [200]
 			if response.status not in VALID_RESPONSE_CODES:
 				raise ValueError(
