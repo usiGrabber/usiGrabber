@@ -33,6 +33,7 @@ class OntologyHelper(metaclass=OntologyHelperSingletonMeta):
 
 	def parse_ontology(self, term: str) -> tuple[str, str]:
 		cv, id_number = term.split(":")
+		# Manually replace wrong/outdated ontology names
 		if cv == "NEWT":
 			cv = "NCBITaxon"
 		return cv, id_number
@@ -43,11 +44,6 @@ class OntologyHelper(metaclass=OntologyHelperSingletonMeta):
 	async def get_ontology(self, onto: str) -> Ontology:
 		if onto in self.ontologies:
 			return self.ontologies[onto]
-
-		# Manually replace wrong/outdated ontology names
-
-		if onto.lower() == "newt":
-			onto = "NCBITaxon"
 		start_time = time.time()
 		self.ontologies[onto] = await OntologyLoader().get_ontology(onto)
 		logger.info(f"Loaded {onto} in {time.time() - start_time}s")

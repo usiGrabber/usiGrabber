@@ -7,9 +7,13 @@ from time import time
 from async_http_client import AsyncHttpClient
 from pronto.ontology import Ontology
 
+from ontology_resolver.utils import shrink_owl_file
+
 CLUSTER_CACHE_DIR = "/sc/projects/sci-renard/usi-grabber/.cache/ontologies"
 
 logger = logging.getLogger(__name__)
+
+ONTOLOGIES_TO_SHRINK = ["NCBITaxon"]
 
 
 class OntologyLoader:
@@ -20,7 +24,7 @@ class OntologyLoader:
 	if os.path.isdir(CLUSTER_CACHE_DIR):
 		cache_dir = Path(CLUSTER_CACHE_DIR)
 
-	async def download_ontology(self, onto: str) -> None:
+	async def download_ontology(self, onto: str) -> Path:
 		async with AsyncHttpClient(retry_attempts=0) as session:
 			params = {"lang": "en", "outputOpts": json.dumps({})}
 			start_time = time()
@@ -50,10 +54,18 @@ class OntologyLoader:
 					f"No valid download link found for,"
 					f"{onto}: {self.BASE_URL + f'/api/v2/ontologies/{onto}'}"
 				)
+			return download_file_name
 
 	async def get_ontology(self, onto: str) -> Ontology:
 		file = self.cache_dir / f"{onto}.owl"
-		if not os.path.isfile(file):
-			await self.download_ontology(onto)
+		file_shrunk = self.cache_dir / f"{onto}_shrunk.owl"
 
-		return Ontology(file)
+		if os.path.isfile(file_shrunk):
+			return Ontology(file_shrunk)
+		else:
+			if not os.path.isfile(file):
+				await self.download_ontology(onto)
+			if onto in ONTOLOGIES_TO_SHRINK:
+				shrink_owl_file(file, file_shrunk)
+				return Ontology(file_shrunk)
+			return Ontology(file)
