@@ -22,3 +22,9 @@ database.db
 test_*.db
 dev_*.db
 .cache
+
+# Pytest
+.coverage
+coverage.xml
+pytest.xml
+report.xml

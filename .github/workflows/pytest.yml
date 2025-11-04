@@ -1,0 +1,33 @@
+name: Tests
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    name: Test ${{ matrix.package }}
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        package: [packages/ontology-resolver/, packages/async-http-client/, '']
+      fail-fast: false
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v1
+
+      - name: Install dependencies
+        run: uv sync --frozen
+
+      - name: Run tests for ${{ matrix.package }}
+        working-directory: ${{ matrix.package }}
+        run: |
+          uv run pytest --junitxml=pytest.xml --cov-report=term-missing:skip-covered --cov=src tests/ | tee pytest-coverage.txt
+
+      - name: Pytest coverage comment
+        uses: MishaKav/pytest-coverage-comment@main
+        with:
+          pytest-coverage-path: ./${{ matrix.package }}pytest-coverage.txt
+          junitxml-path: ./${{ matrix.package }}pytest.xml

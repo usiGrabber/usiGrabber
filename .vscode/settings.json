@@ -11,5 +11,10 @@
 	"flake8.enabled": false,
 	"editor.insertSpaces": false,
 	"editor.tabSize": 4,
-	"editor.detectIndentation": false
+	"editor.detectIndentation": false,
+	"python.testing.pytestArgs": [
+		"."
+	],
+	"python.testing.unittestEnabled": false,
+	"python.testing.pytestEnabled": true,
 }
