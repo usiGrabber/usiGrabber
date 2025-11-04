@@ -7,13 +7,18 @@ from time import time
 from async_http_client import AsyncHttpClient
 from pronto.ontology import Ontology
 
+CLUSTER_CACHE_DIR = "/sc/projects/sci-renard/usi-grabber/.cache/ontologies"
+
 logger = logging.getLogger(__name__)
 
 
 class OntologyLoader:
 	BASE_URL: str = "https://www.ebi.ac.uk/ols4"
 	OWL_DOWNLOAD_KEYS = ["iri", "ontologyPurl"]
-	CACHE_DIR: Path = Path(".cache/ontologies")
+	cache_dir = Path(".cache/ontologies")
+
+	if os.path.isdir(CLUSTER_CACHE_DIR):
+		cache_dir = Path(CLUSTER_CACHE_DIR)
 
 	async def download_ontology(self, onto: str) -> None:
 		async with AsyncHttpClient(retry_attempts=0) as session:
@@ -26,8 +31,8 @@ class OntologyLoader:
 			assert isinstance(ontology_info, dict), (
 				f"Ontology info for : {onto} is not of instance dict"
 			)
-			os.makedirs(self.CACHE_DIR, exist_ok=True)
-			download_file_name = self.CACHE_DIR / f"{onto}.owl"
+			os.makedirs(self.cache_dir, exist_ok=True)
+			download_file_name = self.cache_dir / f"{onto}.owl"
 
 			for download_key in self.OWL_DOWNLOAD_KEYS:
 				if download_key not in ontology_info:
@@ -47,7 +52,7 @@ class OntologyLoader:
 				)
 
 	async def get_ontology(self, onto: str) -> Ontology:
-		file = self.CACHE_DIR / f"{onto}.owl"
+		file = self.cache_dir / f"{onto}.owl"
 		if not os.path.isfile(file):
 			await self.download_ontology(onto)
 
