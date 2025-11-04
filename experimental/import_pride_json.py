@@ -127,44 +127,48 @@ class RawCvParam:
 	value: str | None = None
 
 
-def add_cv_params_to_project(session: Session, project: Project, cvs: list[RawCvParam]):
+def add_cv_params_to_project(session: Session, project: Project, all_cvs: list[RawCvParam]):
 	"""
 	cvs: list of (name, value) tuples
 	"""
-	if not cvs:
+	if not all_cvs:
 		return
 
-	# Disable autoflush to avoid SQLite "database is locked"
-	filters = []
-	for cv in cvs:
-		if cv.value is None:
-			filters.append(and_(CvParam.name == cv.name, CvParam.value.is_(None)))
-		else:
-			filters.append(and_(CvParam.name == cv.name, CvParam.value == cv.value))
-	statement = select(CvParam).where(or_(*filters))
-	existing = session.exec(statement)
-	existing_params = list(existing.all())
+	MAX_QUERY_SIZE = 200
+	for i in range(0, len(all_cvs), MAX_QUERY_SIZE):
+		cvs = all_cvs[i * MAX_QUERY_SIZE : (i + 1) * MAX_QUERY_SIZE]
+		# Disable autoflush to avoid SQLite "database is locked"
+		filters = []
+		for cv in cvs:
+			if cv.value is None:
+				filters.append(and_(CvParam.name == cv.name, CvParam.value.is_(None)))  # pyright: ignore[reportAttributeAccessIssue, reportOptionalMemberAccess]
+			else:
+				filters.append(and_(CvParam.name == cv.name, CvParam.value == cv.value))
 
-	# Map existing for fast lookup
-	existing_map = {(cv.name, cv.value): cv for cv in existing_params}
+		statement = select(CvParam).where(or_(*filters))
+		existing = session.exec(statement)
+		existing_params = list(existing.all())
 
-	# Step 3: Prepare CvParams to add
-	new_cvs = []
-	for cv in cvs:
-		name, value = cv.name, cv.value
-		key = (name, value)
-		if key not in existing_map:
-			cv_param = CvParam(name=name, value=value)
-			session.add(cv_param)
+		# Map existing for fast lookup
+		existing_map = {(cv.name, cv.value): cv for cv in existing_params}
 
-			existing_map[key] = cv_param
-			new_cvs.append(cv_param)
-	session.flush()  # Assigns ID
+		# Step 3: Prepare CvParams to add
+		new_cvs = []
+		for cv in cvs:
+			name, value = cv.name, cv.value
+			key = (name, value)
+			if key not in existing_map:
+				cv_param = CvParam(name=name, value=value)
+				session.add(cv_param)
 
-	# Step 4: Attach all CVs to project if not already linked
-	for cv_param in existing_map.values():
-		if cv_param not in project.cv_params:
-			project.cv_params.append(cv_param)
+				existing_map[key] = cv_param
+				new_cvs.append(cv_param)
+		session.flush()  # Assigns ID
+
+		# Step 4: Attach all CVs to project if not already linked
+		for cv_param in existing_map.values():
+			if cv_param not in project.cv_params:
+				project.cv_params.append(cv_param)
 
 
 async def process_cv_data(session: Session, project: Project, project_data: dict):
