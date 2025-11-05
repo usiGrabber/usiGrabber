@@ -1,8 +1,11 @@
+import gzip
 import os
+import shutil
 import tarfile
 import tempfile
 import urllib.parse
 import urllib.request
+import zipfile
 from collections.abc import Generator
 from contextlib import contextmanager, suppress
 from pathlib import Path
@@ -44,9 +47,27 @@ def download_ftp(url: str, out_dir: Path, file_name: str | None = None) -> Path:
 
 
 def extract_archive(archive_path: Path, extract_to: Path):
-    with tarfile.open(archive_path, "r:gz") as tar:
-        tar.extractall(path=extract_to)
-    logger.debug("Extracted %s to %s", archive_path, extract_to)
+    # extracts all files/folders from archive directly to extract_to
+    archive_name, archive_ext = os.path.splitext(str(archive_path))
+
+    if archive_ext == ".zip":
+        with zipfile.ZipFile(archive_path, "r") as zip_ref:
+            zip_ref.extractall(extract_to)
+
+    elif archive_ext in (".tar", ".tar.gz", ".tgz"):
+        with tarfile.open(archive_path, "r:*") as tar_ref:
+            tar_ref.extractall(extract_to)
+
+    elif archive_ext == ".gz":
+        output_file = os.path.join(extract_to, os.path.basename(str(archive_path)[:-3]))
+        with gzip.open(archive_path, "rb") as f_in, open(output_file, "wb") as f_out:
+            shutil.copyfileobj(f_in, f_out)
+
+    else:
+        logger.debug(f"Unsupported archive format: {archive_ext}")
+        return
+
+    logger.debug(f"Extracted {archive_path} to {extract_to}")
 
 
 @contextmanager

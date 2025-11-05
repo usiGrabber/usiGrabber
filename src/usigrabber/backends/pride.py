@@ -103,7 +103,7 @@ class PrideBackend(BaseBackend):
                     response.status_code,
                     response.reason,
                 )
-                return []
+                return Files(search=[], result=[])
 
     @classmethod
     def get_files_of_category(
@@ -154,7 +154,9 @@ class PrideBackend(BaseBackend):
         )
 
         # extract name and extension
-        name, ext = os.path.splitext(filename)
+        file_parts = filename.split(".")
+        filename = file_parts[0]
+        ext = file_parts[-1]
 
         with temporary_path() as tmp_dir:
             # download file
@@ -163,7 +165,7 @@ class PrideBackend(BaseBackend):
             # optional: extract if archived
             if ext in {".gz", ".zip", ".tar"}:
                 extract_archive(path, extract_to=tmp_dir)
-                path = tmp_dir / (name + ".mzid")  # assume mzid inside
+                path = tmp_dir / (filename + ".mzid")  # assume mzid inside
 
             with mzid.read(source=str(path)) as reader:
                 for i, psm in enumerate(reader):
