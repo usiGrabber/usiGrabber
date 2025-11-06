@@ -181,7 +181,6 @@ class Peptide(SQLModel, table=True):
 	# Relationships
 	peptide_spectrum_matches: list["PeptideSpectrumMatch"] = Relationship(back_populates="peptide")
 	peptide_modifications: list["PeptideModification"] = Relationship(back_populates="peptide")
-	peptide_evidences: list["PeptideEvidence"] = Relationship(back_populates="peptide")
 
 
 class PeptideModification(SQLModel, table=True):
@@ -237,6 +236,7 @@ class PeptideSpectrumMatch(SQLModel, table=True):
 	project: Project | None = Relationship(back_populates="peptide_spectrum_matches")
 	mzid_file: MzidFile | None = Relationship(back_populates="peptide_spectrum_matches")
 	peptide: Peptide | None = Relationship(back_populates="peptide_spectrum_matches")
+	psm_peptide_evidences: list["PSMPeptideEvidence"] = Relationship(back_populates="psm")
 
 
 class PeptideEvidence(SQLModel, table=True):
@@ -245,7 +245,6 @@ class PeptideEvidence(SQLModel, table=True):
 	__tablename__ = "peptide_evidence"
 
 	id: int | None = Field(default=None, primary_key=True)
-	peptide_id: int = Field(foreign_key="peptides.id", index=True)
 	protein_accession: str | None = Field(default=None, description="Protein accession.")
 	isDecoy: bool = Field(default=False, description="Whether the protein is a decoy")
 	start_position: int | None = Field(
@@ -260,7 +259,29 @@ class PeptideEvidence(SQLModel, table=True):
 	)
 
 	# Relationships
-	peptide: Peptide | None = Relationship(back_populates="peptide_evidences")
+	psm_peptide_evidences: list["PSMPeptideEvidence"] = Relationship(
+		back_populates="peptide_evidence"
+	)
+
+
+class PSMPeptideEvidence(SQLModel, table=True):
+	"""Junction table linking PSMs to their protein evidence.
+
+	In mzID files, PeptideEvidenceRef elements appear inside SpectrumIdentificationItem
+	(PSM) elements, establishing a many-to-many relationship. This allows:
+	- One PSM to map to multiple proteins (shared peptides)
+	- One protein mapping to be referenced by multiple PSMs
+	"""
+
+	__tablename__ = "psm_peptide_evidence"
+
+	id: int | None = Field(default=None, primary_key=True)
+	psm_id: int = Field(foreign_key="peptide_spectrum_matches.id", index=True)
+	peptide_evidence_id: int = Field(foreign_key="peptide_evidence.id", index=True)
+
+	# Relationships
+	psm: "PeptideSpectrumMatch" = Relationship(back_populates="psm_peptide_evidences")
+	peptide_evidence: "PeptideEvidence" = Relationship(back_populates="psm_peptide_evidences")
 
 
 # ============================================================================
