@@ -1,11 +1,27 @@
-import json
 import os
+from datetime import date, datetime
 from pathlib import Path
 from typing import Annotated, Any
 
 import typer
+from sqlalchemy import inspect
+from sqlmodel import Session as Session
+from sqlmodel import select
 
 from usigrabber.backends import BackendEnum
+from usigrabber.db import (
+    Project,
+    ProjectCountry,
+    ProjectKeyword,
+    ProjectTag,
+    Reference,
+    create_db_and_tables,
+    load_db_engine,
+)
+from usigrabber.db.schema import (
+    ProjectAffiliation,
+    ProjectOtherOmicsLink,
+)
 
 app = typer.Typer()
 
@@ -60,15 +76,24 @@ def build(
     ] = False,
 ) -> None:
     """Build USI database."""
-    typer.echo("Building USI database...")
+    typer.echo("Building database.")
     os.environ["UG_DATA_DIR"] = str(data_dir)
 
     # WORKFLOW
+    # i want to get all accessions from the project table from the database
+    db_engine = load_db_engine()
+    inspector = inspect(db_engine)
+    if len(inspector.get_table_names()) == 0:
+        typer.echo("No preexisting database found. Database will be initialized.")
+        create_db_and_tables(db_engine)
 
     # get all existing project accessions in the database
-    accessions: list[str] = []
-
+    with Session(db_engine) as session:
+        statement = select(Project.accession)
+        accessions = session.exec(statement).all()
     # gather backends to fetch
+
+    typer.echo(f"Found {len(accessions)} existing accessions in the database.")
 
     for backend_enum in backends:
         backend = backend_enum.value
@@ -83,48 +108,137 @@ def build(
                 # if satisfies filter criteria
                 new_accessions.append(accession)
 
+        len_new_accessions = len(new_accessions)
+
         typer.echo(
-            message=f"Found {len(new_accessions)} new "
+            message=f"Found {len_new_accessions} new "
             + f"accessions from backend {backend_enum.name}."
         )
 
-        counter = 0
-        for accession in new_accessions:
-            # fetch metadata
-            metadata: dict[str, Any] = backend.get_metadata_for_project(accession)
-            project_data = metadata
+        from rich.progress import Progress, SpinnerColumn, TextColumn
 
-            # for now, filter for complete datasets
-            if metadata.get("submissionType", False) != "COMPLETE":
-                continue
+        imported = errors = 0
+        completed = imported + errors
+        error_projects = []
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            console=typer.echo(),
+        ) as progress:
+            task = progress.add_task(
+                f"Importing projects... {completed}/{len_new_accessions}",
+                completed=0,
+                total=len_new_accessions,
+            )
+            for accession in new_accessions:
+                with Session(db_engine) as session:
+                    metadata: dict[str, Any] = backend.get_metadata_for_project(accession)
+                    try:
+                        import_project(session, metadata)
+                    except Exception as e:
+                        errors += 1
+                        error_projects.append((metadata.get("accession", "unknown"), str(e)))
+                        session.rollback()
 
-            project_data["psms"] = []
+                    # Now collect all files for the project and parse them into the db
+                    # files = backend.get_files_for_project(accession)
 
-            # download files
-            files = backend.get_files_for_project(accession)
+                    session.commit()
+                    imported += 1
+                    completed = imported + errors
+                    progress.update(
+                        task,
+                        description=f"Importing projects... {completed}/{len_new_accessions}",
+                        completed=imported + errors,
+                    )
 
-            # process files
-            if files["result"]:
-                for file in files["result"]:
-                    project_data["psms"].append(list(backend.process_result_file(file)))
-            elif files["search"]:
-                continue  # for now
-                # for file in files["search"]:
-                #     backend.process_search_file(file)
-            else:
-                typer.echo(
-                    message=f"No results/search files found for accession {accession} "
-                    + f"from backend {backend_enum.name}."
-                )
+        if new_accessions:
+            typer.echo(
+                message=f"Finished importing from backend {backend_enum.name}. "
+                + f"\nSuccessfully imported {imported} projects, "
+                + f"encountered {errors} errors."
+                + f"Success rate: {(imported / len(new_accessions) * 100):.1f}%"
+            )
+            if error_projects:
+                typer.echo("\nFailed Projects:")
+                for accession, error in error_projects[:10]:  # Show first 10
+                    typer.echo(f"  • {accession}: {error[:80]}")
+                if len(error_projects) > 10:
+                    typer.echo(f"  ... and {len(error_projects) - 10} more")
 
-            # dump project to database
-            # db.dump(project_data)
 
-            print(json.dumps(project_data, indent=2))
+# to-do: move this code to a separate module
+### start
+def import_project(session: Session, project_data: dict[str, Any]) -> None:
+    # 1. Create Project
+    project = Project(
+        accession=project_data["accession"],
+        title=project_data["title"],
+        projectDescription=project_data.get("projectDescription"),
+        sampleProcessingProtocol=project_data.get("sampleProcessingProtocol"),
+        dataProcessingProtocol=project_data.get("dataProcessingProtocol"),
+        doi=project_data.get("doi"),
+        submissionType=project_data["submissionType"],
+        license=project_data.get("license"),
+        submissionDate=parse_date(project_data.get("submissionDate")),
+        publicationDate=parse_date(project_data.get("publicationDate")),
+        totalFileDownloads=project_data.get("totalFileDownloads", 0),
+        sampleAttributes=project_data.get("sampleAttributes"),
+        additionalAttributes=project_data.get("additionalAttributes"),
+    )
+    session.add(project)
 
-            counter += 1
-            if counter > 0:
-                break
+    # 2. References
+    for ref_data in project_data.get("references", []):
+        reference = Reference(
+            project_accession=project.accession,
+            referenceLine=ref_data.get("referenceLine"),
+            pubmedID=ref_data.get("pubmedID"),
+            doi=ref_data.get("doi"),
+        )
+        session.add(reference)
+
+    # 3. Keywords
+    for keyword in project_data.get("keywords", []):
+        if keyword:  # Skip empty strings
+            session.add(ProjectKeyword(project_accession=project.accession, keyword=keyword))
+
+    # 4. Tags
+    for tag in project_data.get("projectTags", []):
+        if tag:
+            session.add(ProjectTag(project_accession=project.accession, tag=tag))
+
+    # 5. Countries
+    for country in project_data.get("countries", []):
+        if country:
+            session.add(ProjectCountry(project_accession=project.accession, country=country))
+
+    # 6. Affiliations
+    for affiliation in project_data.get("affiliations", []):
+        if affiliation:
+            session.add(
+                ProjectAffiliation(project_accession=project.accession, affiliation=affiliation)
+            )
+
+    # 7. Other Omics Links
+    for link in project_data.get("otherOmicsLinks", []):
+        if link:
+            session.add(ProjectOtherOmicsLink(project_accession=project.accession, link=link))
+
+
+def parse_date(date_str: str | None) -> date | None:
+    """Parse date string in YYYY-MM-DD format."""
+    if not date_str:
+        return None
+    try:
+        # Handle both date-only and datetime formats
+        dt = datetime.fromisoformat(date_str.replace("Z", "+00:00"))
+        return dt.date()
+    except (ValueError, AttributeError):
+        return None
+
+
+### end
 
 
 def main() -> None:

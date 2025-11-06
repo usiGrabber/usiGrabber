@@ -106,9 +106,7 @@ class PrideBackend(BaseBackend):
                 return Files(search=[], result=[])
 
     @classmethod
-    def get_files_of_category(
-        cls, accession: str, category: str = "SEARCH"
-    ) -> list[str]:
+    def get_files_of_category(cls, accession: str, category: str = "SEARCH") -> list[str]:
         url = f"{cls.BASE_URL}/projects/{accession}/files"
         with requests.get(url) as response:
             if response.status_code == 200:
@@ -149,8 +147,7 @@ class PrideBackend(BaseBackend):
         filename = os.path.basename(file_url)
 
         logger.debug(
-            f"Processing result file {filename} "
-            + f"({file['file_size'] / (1024 * 1024):,.2f} MB)"
+            f"Processing result file {filename} " + f"({file['file_size'] / (1024 * 1024):,.2f} MB)"
         )
 
         # extract name and extension
@@ -189,9 +186,7 @@ class PrideBackend(BaseBackend):
                         scan_identifier="",
                         peptide_sequence=psm.get("PeptideSequence", ""),
                         charge=psm.get("chargeState", ""),
-                        experimental_mass_to_charge=sid.get(
-                            "experimentalMassToCharge", 0
-                        ),
+                        experimental_mass_to_charge=sid.get("experimentalMassToCharge", 0),
                         retention_time=psm.get("retention time(s)", None),
                         refs=[
                             Ref(
