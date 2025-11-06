@@ -4,9 +4,6 @@ __pycache__/
 .venv/
 .ruff_cache
 
-# test files
-test.py
-
 # GitHub App credentials
 gha-creds-*.json
 
