@@ -16,12 +16,12 @@ from sqlmodel import Session, select
 
 from usigrabber.db import create_db_and_tables, load_db_engine
 from usigrabber.db.schema import (
-	Modification,
 	MzidFile,
 	Peptide,
 	PeptideEvidence,
 	PeptideModification,
 	PeptideSpectrumMatch,
+	PSMPeptideEvidence,
 )
 
 console = Console()
@@ -46,31 +46,17 @@ def get_or_create_peptide(session: Session, sequence: str) -> tuple[Peptide, boo
 	return peptide, False
 
 
-def get_or_create_modification(
-	session: Session, name: str | None, unimod_accession: str | None, mass_delta: float
-) -> tuple[Modification, bool]:
-	"""Get existing modification or create new one. Returns (modification, created)."""
-	# Try to find by UNIMOD accession first if available
-	if unimod_accession:
-		stmt = select(Modification).where(Modification.unimod_accession == unimod_accession)
-		modification = session.exec(stmt).first()
-		if modification:
-			return modification, False
-
-	# Otherwise find by name and mass delta
-	if name:
-		stmt = select(Modification).where(
-			Modification.name == name, Modification.mass_delta == mass_delta
-		)
-		modification = session.exec(stmt).first()
-		if modification:
-			return modification, False
-
-	modification = Modification(name=name, unimod_accession=unimod_accession, mass_delta=mass_delta)
-	session.add(modification)
-	session.flush()
-
-	return modification, True
+def extract_unimod_id(unimod_accession: str | None) -> int | None:
+	"""Extract numeric UNIMOD ID from accession string like 'UNIMOD:35'."""
+	if not unimod_accession:
+		return None
+	try:
+		# Handle formats like "UNIMOD:35" or "35"
+		if ":" in unimod_accession:
+			return int(unimod_accession.split(":")[-1])
+		return int(unimod_accession)
+	except (ValueError, IndexError):
+		return None
 
 
 def parse_modifications(psm_item: dict) -> list[dict]:
@@ -184,49 +170,25 @@ def import_mzid(mzid_path: str, project_accession: str):
 					# Parse and create modifications
 					mods = parse_modifications(psm_item)
 					for mod_data in mods:
-						# Get or create the modification
-						modification, created = get_or_create_modification(
-							session,
-							name=mod_data["name"],
-							unimod_accession=mod_data["unimod_accession"],
-							mass_delta=mod_data["mass_delta"],
-						)
-						if created:
-							modification_count += 1
+						# Extract UNIMOD ID from the accession
+						unimod_id = extract_unimod_id(mod_data["unimod_accession"])
 
-						assert modification.id is not None, (
-							"Modification ID should be set after flush"
-						)
+						# Skip modifications without a valid UNIMOD ID
+						if unimod_id is None:
+							continue
 
-						# Create peptide-modification link
+						modification_count += 1
+
+						# Create peptide-modification link with UNIMOD ID
 						peptide_mod = PeptideModification(
 							peptide_id=peptide.id,
-							modification_id=modification.id,
+							unimod_id=unimod_id,
 							position=mod_data["position"],
 							modified_residue=mod_data["residues"] or "",
 						)
 						session.add(peptide_mod)
 
-					# Process proteins from PeptideEvidenceRef
-					evidences = psm_item.get("PeptideEvidenceRef", [])
-					if not isinstance(evidences, list):
-						evidences = [evidences]
-
-					for evidence in evidences:
-						accession = evidence.get("accession", "")
-						if accession:
-							# Create peptide-protein mapping
-							pep_ev = PeptideEvidence(
-								peptide_id=peptide.id,
-								protein_accession=accession,
-								start_position=evidence.get("start"),
-								end_position=evidence.get("end"),
-								pre_residue=evidence.get("pre"),
-								post_residue=evidence.get("post"),
-							)
-							session.add(pep_ev)
-
-					# Create PSM record
+					# Create PSM record first
 					psm_record = PeptideSpectrumMatch(
 						project_accession=project_accession,
 						mzid_file_id=mzid_file.id,
@@ -246,7 +208,37 @@ def import_mzid(mzid_path: str, project_accession: str):
 						is_decoy=False,
 					)
 					session.add(psm_record)
+					session.flush()  # Get PSM ID for junction table
 					psm_count += 1
+
+					# Process proteins from PeptideEvidenceRef and link to PSM
+					evidences = psm_item.get("PeptideEvidenceRef", [])
+					if not isinstance(evidences, list):
+						evidences = [evidences]
+
+					for evidence in evidences:
+						accession = evidence.get("accession", "")
+						is_decoy = evidence.get("isDecoy", False)
+						if accession:
+							# Create peptide evidence (protein mapping)
+							pep_ev = PeptideEvidence(
+								protein_accession=accession,
+								isDecoy=is_decoy,
+								start_position=evidence.get("start"),
+								end_position=evidence.get("end"),
+								pre_residue=evidence.get("pre"),
+								post_residue=evidence.get("post"),
+							)
+							session.add(pep_ev)
+							session.flush()  # Get the ID for junction table
+							protein_count += 1
+
+							# Link PSM to peptide evidence via junction table
+							psm_pep_ev = PSMPeptideEvidence(
+								psm_id=psm_record.id,
+								peptide_evidence_id=pep_ev.id,
+							)
+							session.add(psm_pep_ev)
 
 					# Commit every 100 PSMs
 					if psm_count % 100 == 0:

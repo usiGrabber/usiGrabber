@@ -15,6 +15,7 @@ from usigrabber.db.schema import (
 	ProjectCountry,
 	ProjectKeyword,
 	ProjectTag,
+	PSMPeptideEvidence,
 	Reference,
 )
 
@@ -176,34 +177,42 @@ def seed_minimal_data(engine: Engine) -> None:
 		session.add_all([psm1, psm2, psm3])
 		session.flush()
 
+		# 4. Create peptide evidence (protein mappings)
 		evidence1 = PeptideEvidence(
-			peptide_id=peptide1.id,
 			protein_accession="P12345",
 			start_position=45,
 			end_position=52,
 			pre_residue="K",
 			post_residue="A",
+			isDecoy=False,
 		)
 		evidence2 = PeptideEvidence(
-			peptide_id=peptide2.id,
 			protein_accession="Q67890",
 			start_position=120,
 			end_position=126,
 			pre_residue="R",
 			post_residue="G",
+			isDecoy=False,
 		)
 		evidence3 = PeptideEvidence(
-			peptide_id=peptide3.id,
 			protein_accession="A11111",
 			start_position=78,
 			end_position=84,
 			pre_residue="K",
 			post_residue="L",
+			isDecoy=False,
 		)
 		session.add_all([evidence1, evidence2, evidence3])
+		session.flush()
+
+		# 5. Link PSMs to protein evidence through junction table
+		psm_evidence1 = PSMPeptideEvidence(psm_id=psm1.id, peptide_evidence_id=evidence1.id)
+		psm_evidence2 = PSMPeptideEvidence(psm_id=psm2.id, peptide_evidence_id=evidence2.id)
+		psm_evidence3 = PSMPeptideEvidence(psm_id=psm3.id, peptide_evidence_id=evidence3.id)
+		session.add_all([psm_evidence1, psm_evidence2, psm_evidence3])
 
 		# 6. Create peptide modification (optional - just one example)
-
+		# Using UNIMOD:35 (Oxidation of M)
 		peptide_mod = PeptideModification(
 			peptide_id=peptide1.id,
 			unimod_id=35,

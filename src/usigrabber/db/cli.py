@@ -9,7 +9,6 @@ from sqlalchemy import inspect
 from sqlmodel import Session, select
 
 from usigrabber.db import (
-	Modification,
 	MzidFile,
 	Peptide,
 	PeptideEvidence,
@@ -19,6 +18,7 @@ from usigrabber.db import (
 	ProjectCountry,
 	ProjectKeyword,
 	ProjectTag,
+	PSMPeptideEvidence,
 	Reference,
 	create_db_and_tables,
 	load_db_engine,
@@ -162,12 +162,14 @@ def info(echo_sql: bool = False):
 			"MzID Files": session.exec(select(func.count()).select_from(MzidFile)).one(),
 			"PSMs": session.exec(select(func.count()).select_from(PeptideSpectrumMatch)).one(),
 			"Peptides": session.exec(select(func.count()).select_from(Peptide)).one(),
-			"Modifications": session.exec(select(func.count()).select_from(Modification)).one(),
 			"Peptide Modifications": session.exec(
 				select(func.count()).select_from(PeptideModification)
 			).one(),
 			"Peptide Evidence": session.exec(
 				select(func.count()).select_from(PeptideEvidence)
+			).one(),
+			"PSM-Peptide Evidence Links": session.exec(
+				select(func.count()).select_from(PSMPeptideEvidence)
 			).one(),
 		}
 
