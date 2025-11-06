@@ -4,6 +4,7 @@
         "detachhead.basedpyright",
         "ms-python.python",
         "github.vscode-github-actions",
-        "google.gemini-cli-vscode-ide-companion"
+		"google.gemini-cli-vscode-ide-companion",
+		"qwtel.sqlite-viewer"
     ]
 }

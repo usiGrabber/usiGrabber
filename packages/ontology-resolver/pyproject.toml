@@ -1,5 +1,5 @@
 [project]
-name = "async-http-client"
+name = "ontology-resolver"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
@@ -8,14 +8,16 @@ authors = [
 ]
 requires-python = ">=3.12"
 dependencies = [
-    "aiohttp>=3.13.1",
-    "aiohttp-client-cache>=0.14.1",
-    "aiohttp-retry>=2.9.1",
-    "aiosqlite>=0.21.0",
-    "tqdm>=4.67.1",
+    "async-http-client",
+    "pronto>=2.7.1",
 ]
 
+[project.scripts]
+ontology-resolver = "ontology_resolver:main"
 
 [build-system]
 requires = ["uv_build>=0.8.19,<0.9.0"]
 build-backend = "uv_build"
+
+[tool.uv.sources]
+async-http-client = { workspace = true }
