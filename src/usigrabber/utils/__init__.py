@@ -1,6 +1,7 @@
 import logging
 import os
 from collections.abc import Generator
+from datetime import date, datetime
 from pathlib import Path
 from typing import Any
 
@@ -51,3 +52,15 @@ def get_unimod_db():
 
         unimod_db = Unimod("sqlite:///" + (data_directory_path() / "unimod.db").as_posix())
     return unimod_db
+
+
+def parse_date(date_str: str | None) -> date | None:
+    """Parse date string in YYYY-MM-DD format."""
+    if not date_str:
+        return None
+    try:
+        # Handle both date-only and datetime formats
+        dt = datetime.fromisoformat(date_str.replace("Z", "+00:00"))
+        return dt.date()
+    except (ValueError, AttributeError):
+        return None

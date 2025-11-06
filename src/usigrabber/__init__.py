@@ -1,6 +1,5 @@
 import os
 from collections.abc import Sequence
-from datetime import date, datetime
 from pathlib import Path
 from typing import Annotated, Any
 
@@ -10,16 +9,7 @@ from sqlalchemy import inspect
 from sqlmodel import Session, select
 
 from usigrabber.backends import BackendEnum
-from usigrabber.db import (
-    Project,
-    ProjectCountry,
-    ProjectKeyword,
-    ProjectTag,
-    Reference,
-    create_db_and_tables,
-    load_db_engine,
-)
-from usigrabber.db.schema import ProjectAffiliation, ProjectOtherOmicsLink
+from usigrabber.db import Project, create_db_and_tables, load_db_engine
 from usigrabber.utils import logger
 from usigrabber.utils.file import download_ftp, extract_archive, temporary_path
 
@@ -80,7 +70,8 @@ def build(
     os.environ["UG_DATA_DIR"] = str(data_dir)
 
     # WORKFLOW
-    # i want to get all accessions from the project table from the database
+
+    # set up database connection
     db_engine = load_db_engine()
     inspector = inspect(db_engine)
     if len(inspector.get_table_names()) == 0:
@@ -91,7 +82,6 @@ def build(
     with Session(db_engine) as session:
         statement = select(Project.accession)
         accessions: Sequence[str] = session.exec(statement).all()
-    # gather backends to fetch
 
     typer.echo(f"Found {len(accessions)} existing accessions in the database.")
 
@@ -137,7 +127,7 @@ def build(
                         continue
 
                     try:
-                        import_project(session, metadata)
+                        backend.dump_project_to_db(session, metadata)
                     except Exception as e:
                         errors += 1
                         error_projects.append((metadata.get("accession"), str(e)))
@@ -214,77 +204,6 @@ def build(
                     typer.echo(f"  • {accession}: {error[:80]}")
                 if len(error_projects) > 10:
                     typer.echo(f"  ... and {len(error_projects) - 10} more")
-
-
-# to-do: move this code to a separate module
-### start
-def import_project(session: Session, project_data: dict[str, Any]) -> None:
-    # 1. Create Project
-    project = Project(
-        accession=project_data["accession"],
-        title=project_data["title"],
-        projectDescription=project_data.get("projectDescription"),
-        sampleProcessingProtocol=project_data.get("sampleProcessingProtocol"),
-        dataProcessingProtocol=project_data.get("dataProcessingProtocol"),
-        doi=project_data.get("doi"),
-        submissionType=project_data["submissionType"],
-        license=project_data.get("license"),
-        submissionDate=parse_date(project_data.get("submissionDate")),
-        publicationDate=parse_date(project_data.get("publicationDate")),
-        totalFileDownloads=project_data.get("totalFileDownloads", 0),
-        sampleAttributes=project_data.get("sampleAttributes"),
-        additionalAttributes=project_data.get("additionalAttributes"),
-    )
-    session.add(project)
-
-    # 2. References
-    for ref_data in project_data.get("references", []):
-        reference = Reference(
-            project_accession=project.accession,
-            referenceLine=ref_data.get("referenceLine"),
-            pubmedID=ref_data.get("pubmedID"),
-            doi=ref_data.get("doi"),
-        )
-        session.add(reference)
-
-    # 3. Keywords
-    for keyword in project_data.get("keywords", []):
-        if keyword:  # Skip empty strings
-            session.add(ProjectKeyword(project_accession=project.accession, keyword=keyword))
-
-    # 4. Tags
-    for tag in project_data.get("projectTags", []):
-        if tag:
-            session.add(ProjectTag(project_accession=project.accession, tag=tag))
-
-    # 5. Countries
-    for country in project_data.get("countries", []):
-        if country:
-            session.add(ProjectCountry(project_accession=project.accession, country=country))
-
-    # 6. Affiliations
-    for affiliation in project_data.get("affiliations", []):
-        if affiliation:
-            session.add(
-                ProjectAffiliation(project_accession=project.accession, affiliation=affiliation)
-            )
-
-    # 7. Other Omics Links
-    for link in project_data.get("otherOmicsLinks", []):
-        if link:
-            session.add(ProjectOtherOmicsLink(project_accession=project.accession, link=link))
-
-
-def parse_date(date_str: str | None) -> date | None:
-    """Parse date string in YYYY-MM-DD format."""
-    if not date_str:
-        return None
-    try:
-        # Handle both date-only and datetime formats
-        dt = datetime.fromisoformat(date_str.replace("Z", "+00:00"))
-        return dt.date()
-    except (ValueError, AttributeError):
-        return None
 
 
 if __name__ == "__main__":

@@ -2,9 +2,12 @@ import json
 from typing import Any
 
 import requests
+from sqlmodel import Session
 
 from usigrabber.backends.base import BaseBackend, FileMetadata, Files
-from usigrabber.utils import DATA_DIR, logger
+from usigrabber.db import Project, ProjectCountry, ProjectKeyword, ProjectTag, Reference
+from usigrabber.db.schema import ProjectAffiliation, ProjectOtherOmicsLink
+from usigrabber.utils import DATA_DIR, logger, parse_date
 
 
 class PrideBackend(BaseBackend):
@@ -143,8 +146,64 @@ class PrideBackend(BaseBackend):
         url = f"{cls.BASE_URL}/projects/{project_accession}"
         with requests.get(url) as response:
             response.raise_for_status()
-            metadata = response.json()
-            return metadata
+            return response.json()
+
+    @classmethod
+    def dump_project_to_db(cls, session: Session, project_data: dict[str, Any]) -> None:
+        # 1. Create Project
+        project = Project(
+            accession=project_data["accession"],
+            title=project_data["title"],
+            projectDescription=project_data.get("projectDescription"),
+            sampleProcessingProtocol=project_data.get("sampleProcessingProtocol"),
+            dataProcessingProtocol=project_data.get("dataProcessingProtocol"),
+            doi=project_data.get("doi"),
+            submissionType=project_data["submissionType"],
+            license=project_data.get("license"),
+            submissionDate=parse_date(project_data.get("submissionDate")),
+            publicationDate=parse_date(project_data.get("publicationDate")),
+            totalFileDownloads=project_data.get("totalFileDownloads", 0),
+            sampleAttributes=project_data.get("sampleAttributes"),
+            additionalAttributes=project_data.get("additionalAttributes"),
+        )
+        session.add(project)
+
+        # 2. References
+        for ref_data in project_data.get("references", []):
+            reference = Reference(
+                project_accession=project.accession,
+                referenceLine=ref_data.get("referenceLine"),
+                pubmedID=ref_data.get("pubmedID"),
+                doi=ref_data.get("doi"),
+            )
+            session.add(reference)
+
+        # 3. Keywords
+        for keyword in project_data.get("keywords", []):
+            if keyword:  # Skip empty strings
+                session.add(ProjectKeyword(project_accession=project.accession, keyword=keyword))
+
+        # 4. Tags
+        for tag in project_data.get("projectTags", []):
+            if tag:
+                session.add(ProjectTag(project_accession=project.accession, tag=tag))
+
+        # 5. Countries
+        for country in project_data.get("countries", []):
+            if country:
+                session.add(ProjectCountry(project_accession=project.accession, country=country))
+
+        # 6. Affiliations
+        for affiliation in project_data.get("affiliations", []):
+            if affiliation:
+                session.add(
+                    ProjectAffiliation(project_accession=project.accession, affiliation=affiliation)
+                )
+
+        # 7. Other Omics Links
+        for link in project_data.get("otherOmicsLinks", []):
+            if link:
+                session.add(ProjectOtherOmicsLink(project_accession=project.accession, link=link))
 
 
 if __name__ == "__main__":
