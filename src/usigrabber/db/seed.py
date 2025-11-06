@@ -6,7 +6,6 @@ from sqlalchemy.engine.base import Engine
 from sqlmodel import Session
 
 from usigrabber.db.schema import (
-	Modification,
 	MzidFile,
 	Peptide,
 	PeptideEvidence,
@@ -138,23 +137,7 @@ def seed_minimal_data(engine: Engine) -> None:
 		session.add_all([protein1, protein2])
 		session.flush()
 
-		# 4. Create modifications
-		oxidation = Modification(
-			name="Oxidation",
-			unimod_accession="UNIMOD:35",
-			mass_delta=15.994915,
-			residues_affected="M",
-		)
-		carbamidomethyl = Modification(
-			name="Carbamidomethyl",
-			unimod_accession="UNIMOD:4",
-			mass_delta=57.021464,
-			residues_affected="C",
-		)
-		session.add_all([oxidation, carbamidomethyl])
-		session.flush()
-
-		# 5. Create PSMs
+		# 4. Create PSMs
 		assert mzid_file.id is not None, "MzidFile ID should be set after flush"
 		assert peptide1.id is not None, "Peptide ID should be set after flush"
 		assert peptide2.id is not None, "Peptide ID should be set after flush"
@@ -202,7 +185,7 @@ def seed_minimal_data(engine: Engine) -> None:
 		session.add_all([psm1, psm2, psm3])
 		session.flush()
 
-		# 6. Create peptide evidence (peptide-protein mapping)
+		# 5. Create peptide evidence (peptide-protein mapping)
 		assert protein1.id is not None, "Protein ID should be set after flush"
 		assert protein2.id is not None, "Protein ID should be set after flush"
 
@@ -232,12 +215,11 @@ def seed_minimal_data(engine: Engine) -> None:
 		)
 		session.add_all([evidence1, evidence2, evidence3])
 
-		# 7. Create peptide modifications (optional - just one example)
-		assert oxidation.id is not None, "Modification ID should be set after flush"
+		# 6. Create peptide modification (optional - just one example)
 
 		peptide_mod = PeptideModification(
 			peptide_id=peptide1.id,
-			modification_id=oxidation.id,
+			unimod_id=35,
 			position=5,
 			modified_residue="M",
 		)

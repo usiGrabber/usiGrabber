@@ -188,25 +188,6 @@ class Peptide(SQLModel, table=True):
 	peptide_evidences: list["PeptideEvidence"] = Relationship(back_populates="peptide")
 
 
-class Modification(SQLModel, table=True):
-	"""Controlled vocabulary of PTMs/modifications."""
-
-	__tablename__ = "modifications"
-
-	id: int | None = Field(default=None, primary_key=True)
-	name: str | None = Field(
-		default=None, index=True, description="e.g., 'Oxidation', 'Carbamidomethyl'"
-	)
-	unimod_accession: str | None = Field(default=None, index=True, description="e.g., 'UNIMOD:35'")
-	mass_delta: float
-	residues_affected: str | None = Field(
-		default=None, description="Amino acids that can have this modification"
-	)
-
-	# Relationships
-	peptide_modifications: list["PeptideModification"] = Relationship(back_populates="modification")
-
-
 class PeptideModification(SQLModel, table=True):
 	"""Junction table: which modifications occur at which positions in each peptide."""
 
@@ -214,13 +195,12 @@ class PeptideModification(SQLModel, table=True):
 
 	id: int | None = Field(default=None, primary_key=True)
 	peptide_id: int = Field(foreign_key="peptides.id", index=True)
-	modification_id: int = Field(foreign_key="modifications.id", index=True)
+	unimod_id: int = Field(description="Unimod id, e.g., '35' for 'UNIMOD:35' accession")
 	position: int = Field(description="Position in the peptide sequence (1-indexed)")
 	modified_residue: str = Field(description="The specific amino acid that was modified")
 
 	# Relationships
 	peptide: Peptide | None = Relationship(back_populates="peptide_modifications")
-	modification: Modification | None = Relationship(back_populates="peptide_modifications")
 
 
 class PeptideSpectrumMatch(SQLModel, table=True):
