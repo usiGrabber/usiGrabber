@@ -12,7 +12,6 @@ from usigrabber.db.schema import (
 	ProjectCountry,
 	ProjectKeyword,
 	ProjectTag,
-	Protein,
 	Reference,
 	create_db_and_tables,
 )
@@ -32,7 +31,6 @@ __all__ = [
 	"MzidFile",
 	"PeptideSpectrumMatch",
 	"Peptide",
-	"Protein",
 	"PeptideEvidence",
 	"Modification",
 	"PeptideModification",

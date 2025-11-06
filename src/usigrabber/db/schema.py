@@ -239,20 +239,6 @@ class PeptideSpectrumMatch(SQLModel, table=True):
 	peptide: Peptide | None = Relationship(back_populates="peptide_spectrum_matches")
 
 
-class Protein(SQLModel, table=True):
-	"""Protein sequences from database (deduplicated)."""
-
-	__tablename__ = "proteins"
-
-	id: int | None = Field(default=None, primary_key=True)
-	accession: str = Field(index=True, unique=True, description="Protein accession")
-	description: str | None = None
-	is_decoy: bool = Field(default=False, description="Whether this is a decoy protein")
-
-	# Relationships
-	peptide_evidences: list["PeptideEvidence"] = Relationship(back_populates="protein")
-
-
 class PeptideEvidence(SQLModel, table=True):
 	"""Peptide-to-protein mappings - where peptides appear in proteins."""
 
@@ -260,7 +246,8 @@ class PeptideEvidence(SQLModel, table=True):
 
 	id: int | None = Field(default=None, primary_key=True)
 	peptide_id: int = Field(foreign_key="peptides.id", index=True)
-	protein_id: int = Field(foreign_key="proteins.id", index=True)
+	protein_accession: str | None = Field(default=None, description="Protein accession.")
+	isDecoy: bool = Field(default=False, description="Whether the protein is a decoy")
 	start_position: int | None = Field(
 		default=None, description="Start position in protein sequence"
 	)
@@ -274,7 +261,6 @@ class PeptideEvidence(SQLModel, table=True):
 
 	# Relationships
 	peptide: Peptide | None = Relationship(back_populates="peptide_evidences")
-	protein: Protein | None = Relationship(back_populates="peptide_evidences")
 
 
 # ============================================================================

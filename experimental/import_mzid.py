@@ -22,7 +22,6 @@ from usigrabber.db.schema import (
 	PeptideEvidence,
 	PeptideModification,
 	PeptideSpectrumMatch,
-	Protein,
 )
 
 console = Console()
@@ -45,20 +44,6 @@ def get_or_create_peptide(session: Session, sequence: str) -> tuple[Peptide, boo
 		session.flush()
 		return peptide, True
 	return peptide, False
-
-
-def get_or_create_protein(
-	session: Session, accession: str, is_decoy: bool = False
-) -> tuple[Protein, bool]:
-	"""Get existing protein or create new one. Returns (protein, created)."""
-	stmt = select(Protein).where(Protein.accession == accession)
-	protein = session.exec(stmt).first()
-	if not protein:
-		protein = Protein(accession=accession, is_decoy=is_decoy)
-		session.add(protein)
-		session.flush()
-		return protein, True
-	return protein, False
 
 
 def get_or_create_modification(
@@ -230,20 +215,10 @@ def import_mzid(mzid_path: str, project_accession: str):
 					for evidence in evidences:
 						accession = evidence.get("accession", "")
 						if accession:
-							protein, created = get_or_create_protein(
-								session,
-								accession=accession,
-								is_decoy=evidence.get("isDecoy", False),
-							)
-							if created:
-								protein_count += 1
-
-							assert protein.id is not None, "Protein ID should be set after flush"
-
 							# Create peptide-protein mapping
 							pep_ev = PeptideEvidence(
 								peptide_id=peptide.id,
-								protein_id=protein.id,
+								protein_accession=accession,
 								start_position=evidence.get("start"),
 								end_position=evidence.get("end"),
 								pre_residue=evidence.get("pre"),

@@ -19,7 +19,6 @@ from usigrabber.db import (
 	ProjectCountry,
 	ProjectKeyword,
 	ProjectTag,
-	Protein,
 	Reference,
 	create_db_and_tables,
 	load_db_engine,
@@ -163,7 +162,6 @@ def info(echo_sql: bool = False):
 			"MzID Files": session.exec(select(func.count()).select_from(MzidFile)).one(),
 			"PSMs": session.exec(select(func.count()).select_from(PeptideSpectrumMatch)).one(),
 			"Peptides": session.exec(select(func.count()).select_from(Peptide)).one(),
-			"Proteins": session.exec(select(func.count()).select_from(Protein)).one(),
 			"Modifications": session.exec(select(func.count()).select_from(Modification)).one(),
 			"Peptide Modifications": session.exec(
 				select(func.count()).select_from(PeptideModification)

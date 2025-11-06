@@ -15,7 +15,6 @@ from usigrabber.db.schema import (
 	ProjectCountry,
 	ProjectKeyword,
 	ProjectTag,
-	Protein,
 	Reference,
 )
 
@@ -129,13 +128,7 @@ def seed_minimal_data(engine: Engine) -> None:
 		session.add_all([peptide1, peptide2, peptide3])
 		session.flush()
 
-		# 3. Create proteins
-		protein1 = Protein(accession="P12345", description="Test protein 1", is_decoy=False)
-		protein2 = Protein(accession="P67890", description="Test protein 2", is_decoy=False)
-		session.add_all([protein1, protein2])
-		session.flush()
-
-		# 4. Create PSMs
+		# 3. Create PSMs
 		assert mzid_file.id is not None, "MzidFile ID should be set after flush"
 		assert peptide1.id is not None, "Peptide ID should be set after flush"
 		assert peptide2.id is not None, "Peptide ID should be set after flush"
@@ -183,13 +176,9 @@ def seed_minimal_data(engine: Engine) -> None:
 		session.add_all([psm1, psm2, psm3])
 		session.flush()
 
-		# 5. Create peptide evidence (peptide-protein mapping)
-		assert protein1.id is not None, "Protein ID should be set after flush"
-		assert protein2.id is not None, "Protein ID should be set after flush"
-
 		evidence1 = PeptideEvidence(
 			peptide_id=peptide1.id,
-			protein_id=protein1.id,
+			protein_accession="P12345",
 			start_position=45,
 			end_position=52,
 			pre_residue="K",
@@ -197,7 +186,7 @@ def seed_minimal_data(engine: Engine) -> None:
 		)
 		evidence2 = PeptideEvidence(
 			peptide_id=peptide2.id,
-			protein_id=protein1.id,
+			protein_accession="Q67890",
 			start_position=120,
 			end_position=126,
 			pre_residue="R",
@@ -205,7 +194,7 @@ def seed_minimal_data(engine: Engine) -> None:
 		)
 		evidence3 = PeptideEvidence(
 			peptide_id=peptide3.id,
-			protein_id=protein2.id,
+			protein_accession="A11111",
 			start_position=78,
 			end_position=84,
 			pre_residue="K",
