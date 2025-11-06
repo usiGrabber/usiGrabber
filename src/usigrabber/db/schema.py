@@ -161,8 +161,6 @@ class MzidFile(SQLModel, table=True):
 		description="Threshold value (e.g., 0.01 for 1% FDR)",
 	)
 	creation_date: datetime | None = None
-	total_psms_count: int | None = None
-	total_peptides_count: int | None = None
 
 	# Relationships
 	project: Project | None = Relationship(back_populates="mzid_files")

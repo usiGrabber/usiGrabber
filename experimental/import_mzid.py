@@ -281,11 +281,6 @@ def import_mzid(mzid_path: str, project_accession: str):
 		# Final commit
 		session.commit()
 
-		# Update counts
-		mzid_file.total_psms_count = psm_count
-		mzid_file.total_peptides_count = peptide_count
-		session.commit()
-
 		console.print(
 			f"\n✅ Imported {psm_count:,} PSMs, {peptide_count:,} peptides, "
 			f"{protein_count:,} proteins, {modification_count:,} modifications"

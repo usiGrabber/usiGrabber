@@ -118,8 +118,6 @@ def seed_minimal_data(engine: Engine) -> None:
 			threshold_type="FDR",
 			threshold_value=0.01,
 			creation_date=datetime(2023, 1, 20),
-			total_psms_count=3,
-			total_peptides_count=3,
 		)
 		session.add(mzid_file)
 		session.flush()
