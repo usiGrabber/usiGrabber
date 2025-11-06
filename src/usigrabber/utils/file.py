@@ -7,7 +7,7 @@ import urllib.parse
 import urllib.request
 import zipfile
 from collections.abc import Generator
-from contextlib import contextmanager, suppress
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
 
@@ -48,39 +48,44 @@ def download_ftp(url: str, out_dir: Path, file_name: str | None = None) -> Path:
 
 def extract_archive(archive_path: Path, extract_to: Path):
     # extracts all files/folders from archive directly to extract_to
-    archive_name, archive_ext = os.path.splitext(str(archive_path))
+    archive_str = str(archive_path)
+    members = []
 
-    if archive_ext == ".zip":
+    if not archive_str.endswith((".zip", ".tar", ".tar.gz", ".tgz", ".gz")):
+        logger.debug(f"No extraction needed for path: {archive_path}")
+        return
+    else:
+        os.makedirs(extract_to, exist_ok=True)
+
+    if archive_str.endswith(".zip"):
         with zipfile.ZipFile(archive_path, "r") as zip_ref:
             zip_ref.extractall(extract_to)
-
-    elif archive_ext in (".tar", ".tar.gz", ".tgz"):
+        members = zip_ref.namelist()
+    elif archive_str.endswith((".tar", ".tar.gz", ".tgz")):
         with tarfile.open(archive_path, "r:*") as tar_ref:
+            members = tar_ref.getnames()
             tar_ref.extractall(extract_to)
-
-    elif archive_ext == ".gz":
+    elif archive_str.endswith(".gz"):
         output_file = os.path.join(extract_to, os.path.basename(str(archive_path)[:-3]))
         with gzip.open(archive_path, "rb") as f_in, open(output_file, "wb") as f_out:
             shutil.copyfileobj(f_in, f_out)
-
+        members = [os.path.basename(output_file)]
     else:
-        logger.debug(f"Unsupported archive format: {archive_ext}")
+        logger.debug(f"Unsupported archive format for path: {archive_path}")
         return
+
+    for member in members:
+        extract_archive(
+            extract_to / Path(member), extract_to / os.path.splitext(member)[0]
+        )
 
     logger.debug(f"Extracted {archive_path} to {extract_to}")
 
 
 @contextmanager
 def temporary_path(*, suffix="", prefix="tmp", dir=None) -> Generator[Path, Any, None]:
-    with tempfile.NamedTemporaryFile(
-        delete=False, suffix=suffix, prefix=prefix, dir=dir
-    ) as f:
-        path = Path(f.name)
-    try:
-        yield path
-    finally:
-        with suppress(FileNotFoundError):
-            path.unlink()
+    with tempfile.TemporaryDirectory(suffix=suffix, prefix=prefix, dir=dir) as tmpdir:
+        yield Path(tmpdir)
 
 
 def main(
