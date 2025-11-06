@@ -1,4 +1,5 @@
 import gzip
+import logging
 import os
 import shutil
 import tarfile
@@ -6,53 +7,58 @@ import tempfile
 import urllib.parse
 import urllib.request
 import zipfile
-from collections.abc import Generator
+from collections.abc import Callable, Generator
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
 
 import typer
+from tqdm import tqdm
 
 from usigrabber.utils import DATA_DIR, logger
 
 
 def download_ftp(url: str, out_dir: Path, file_name: str | None = None) -> Path:
-    # create directory
-    # out_dir.mkdir(parents=True, exist_ok=True)
-
     parsed = urllib.parse.urlparse(url)
     filename = file_name or os.path.basename(parsed.path)
     out_path = out_dir / filename
 
-    def _reporthook(block_num, block_size, total_size):
-        if total_size > 0:
-            downloaded = block_num * block_size
-            pct = downloaded / total_size * 100
-            downloaded = min(downloaded, total_size)
-            downloaded_mb = downloaded / (1024 * 1024)
-            total_mb = total_size / (1024 * 1024)
-            print(
-                f"\rDownloading {filename}: {pct:5.1f}% "
-                + f"({downloaded_mb:5.1f}MB/{total_mb:5.1f}MB)",
-                end="",
-            )
-        else:
-            downloaded_mb = (block_num * block_size) / (1024 * 1024)
-            print(f"\rDownloading {filename}: {downloaded_mb:5.1f}MB", end="")
+    if logger.level > logging.DEBUG:
+        urllib.request.urlretrieve(url, filename=str(out_path))
 
-    urllib.request.urlretrieve(url, filename=str(out_path), reporthook=_reporthook)
-    print("\n")
-    logger.debug("Saved to %s", out_path)
+    # Build a reporthook that updates tqdm
+    def _tqdm_hook(t: tqdm) -> Callable[[int, int, int | None], None]:
+        last = [0]
+
+        def inner(blocks: int = 1, block_size: int = 1, total_size: int | None = None) -> None:
+            if total_size is not None and total_size > 0 and t.total is None:
+                t.total = total_size  # set total once we learn it
+            downloaded = blocks * block_size
+            t.update(downloaded - last[0])
+            last[0] = downloaded
+
+        return inner
+
+    with tqdm(
+        total=None,  # will be filled if server reports SIZE
+        unit="B",
+        unit_scale=True,
+        unit_divisor=1024,
+        desc=filename,
+    ) as t:
+        # urlretrieve handles ftp://… and calls our hook periodically
+        urllib.request.urlretrieve(url, filename=str(out_path), reporthook=_tqdm_hook(t))
+
     return out_path
 
 
-def extract_archive(archive_path: Path, extract_to: Path):
+def extract_archive(archive_path: Path, extract_to: Path) -> None:
     # extracts all files/folders from archive directly to extract_to
     archive_str = str(archive_path)
     members = []
 
     if not archive_str.endswith((".zip", ".tar", ".tar.gz", ".tgz", ".gz")):
-        logger.debug(f"No extraction needed for path: {archive_path}")
+        logger.debug("No extraction needed for path: %s", archive_path)
         return
     else:
         os.makedirs(extract_to, exist_ok=True)
@@ -71,15 +77,13 @@ def extract_archive(archive_path: Path, extract_to: Path):
             shutil.copyfileobj(f_in, f_out)
         members = [os.path.basename(output_file)]
     else:
-        logger.debug(f"Unsupported archive format for path: {archive_path}")
+        logger.debug("Unsupported archive format for path: %s", archive_path)
         return
 
     for member in members:
-        extract_archive(
-            extract_to / Path(member), extract_to / os.path.splitext(member)[0]
-        )
+        extract_archive(extract_to / Path(member), extract_to / os.path.splitext(member)[0])
 
-    logger.debug(f"Extracted {archive_path} to {extract_to}")
+    logger.debug("Extracted %s to %s", archive_path, extract_to)
 
 
 @contextmanager

@@ -1,12 +1,13 @@
 import os
+from collections.abc import Sequence
 from datetime import date, datetime
 from pathlib import Path
 from typing import Annotated, Any
 
 import typer
+from rich.progress import Progress, SpinnerColumn, TextColumn
 from sqlalchemy import inspect
-from sqlmodel import Session as Session
-from sqlmodel import select
+from sqlmodel import Session, select
 
 from usigrabber.backends import BackendEnum
 from usigrabber.db import (
@@ -18,10 +19,9 @@ from usigrabber.db import (
     create_db_and_tables,
     load_db_engine,
 )
-from usigrabber.db.schema import (
-    ProjectAffiliation,
-    ProjectOtherOmicsLink,
-)
+from usigrabber.db.schema import ProjectAffiliation, ProjectOtherOmicsLink
+from usigrabber.utils import logger
+from usigrabber.utils.file import download_ftp, extract_archive, temporary_path
 
 app = typer.Typer()
 
@@ -90,7 +90,7 @@ def build(
     # get all existing project accessions in the database
     with Session(db_engine) as session:
         statement = select(Project.accession)
-        accessions = session.exec(statement).all()
+        accessions: Sequence[str] = session.exec(statement).all()
     # gather backends to fetch
 
     typer.echo(f"Found {len(accessions)} existing accessions in the database.")
@@ -102,20 +102,16 @@ def build(
         backend_accessions = backend.get_all_project_accessions(is_test=is_test)
 
         # filter accessions to only new ones
-        new_accessions = []
+        new_accessions: list[str] = []
         for accession in backend_accessions:
             if accession not in accessions:
-                # if satisfies filter criteria
                 new_accessions.append(accession)
 
         len_new_accessions = len(new_accessions)
-
         typer.echo(
             message=f"Found {len_new_accessions} new "
             + f"accessions from backend {backend_enum.name}."
         )
-
-        from rich.progress import Progress, SpinnerColumn, TextColumn
 
         imported = errors = 0
         completed = imported + errors
@@ -130,18 +126,22 @@ def build(
                 completed=0,
                 total=len_new_accessions,
             )
-            for accession in new_accessions:
-                with Session(db_engine) as session:
-                    metadata: dict[str, Any] = backend.get_metadata_for_project(accession)
+            with Session(db_engine) as session:
+                for accession in new_accessions:
+                    metadata: dict[str, Any] = backend.get_metadata_for_project(
+                        accession, is_test=is_test
+                    )
+
+                    # TODO: support other submission types
+                    if metadata.get("submissionType") != "COMPLETE":
+                        continue
+
                     try:
                         import_project(session, metadata)
                     except Exception as e:
                         errors += 1
-                        error_projects.append((metadata.get("accession", "unknown"), str(e)))
+                        error_projects.append((metadata.get("accession"), str(e)))
                         session.rollback()
-
-                    # Now collect all files for the project and parse them into the db
-                    # files = backend.get_files_for_project(accession)
 
                     session.commit()
                     imported += 1
@@ -151,6 +151,55 @@ def build(
                         description=f"Importing projects... {completed}/{len_new_accessions}",
                         completed=imported + errors,
                     )
+
+                    # download files
+                    files = backend.get_files_for_project(accession)
+
+                    # process files
+                    if files["result"]:
+                        for file in files["result"]:
+                            # project_data["psms"].append(list(backend.process_result_file(file)))
+                            # parse filename from file url
+                            file_url = file["filepath"]
+                            filename = os.path.basename(file_url)
+
+                            logger.debug(
+                                f"Processing result file {filename} "
+                                + f"({file['file_size'] / (1024 * 1024):,.2f} MB)"
+                            )
+
+                            # extract name and extension
+                            file_name, ext = filename.split(".", maxsplit=1)
+
+                            with temporary_path() as tmp_dir:
+                                # download file
+                                path = download_ftp(file_url, out_dir=tmp_dir, file_name=filename)
+
+                                # optional: extract if archived
+                                if ext in {".gz", ".zip", ".tar"}:
+                                    extract_archive(path, extract_to=tmp_dir)
+                                    path = tmp_dir / (file_name + ".mzid")  # assume mzid inside
+
+                                assert path.exists(), (
+                                    f"Expected extracted file {path} does not exist."
+                                )
+
+                                # process file
+                                # TODO: implement interface
+                                # mzid_data = mzid_parser.handle(project, path)
+                                # dump_mzid_to_db(session, project.accession, mzid_data)
+
+                    elif files["search"]:
+                        # TODO: support search files
+                        continue
+                    else:
+                        logger.warning(
+                            "No results/search files found for accession %s from backend %s.",
+                            accession,
+                            backend_enum.name,
+                        )
+
+                    # TODO: set "complete" flag for project
 
         if new_accessions:
             typer.echo(
@@ -238,12 +287,5 @@ def parse_date(date_str: str | None) -> date | None:
         return None
 
 
-### end
-
-
-def main() -> None:
-    app()
-
-
 if __name__ == "__main__":
-    main()
+    app()

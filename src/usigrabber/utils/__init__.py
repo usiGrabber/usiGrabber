@@ -12,14 +12,16 @@ load_dotenv()
 logging.basicConfig(level=os.environ.get("LOGLEVEL", "INFO").upper())
 logger = logging.getLogger(__name__)
 
+# Suppress overly verbose logs from dependencies
+for name in ["sqlalchemy", "urllib3"]:
+    logging.getLogger(name).setLevel(logging.WARNING)
+
 
 def data_directory_path() -> Path:
     """Return the root directory of the project."""
     data_dir = os.getenv("UG_DATA_DIR", default="./data")
     if data_dir == ".":
-        logger.warning(
-            "UG_DATA_DIR environment variable not set. Using current directory as root."
-        )
+        logger.warning("UG_DATA_DIR environment variable not set. Using current directory as root.")
     if data_dir.startswith("~"):
         data_dir = os.path.expanduser(data_dir)
     return Path(data_dir)
@@ -47,7 +49,5 @@ def get_unimod_db():
     if unimod_db is None:
         from pyteomics.mass.unimod import Unimod
 
-        unimod_db = Unimod(
-            "sqlite:///" + (data_directory_path() / "unimod.db").as_posix()
-        )
+        unimod_db = Unimod("sqlite:///" + (data_directory_path() / "unimod.db").as_posix())
     return unimod_db

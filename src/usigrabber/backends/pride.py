@@ -1,24 +1,15 @@
-import os
-from collections.abc import Generator
+import json
 from typing import Any
 
 import requests
-from pyteomics import mzid
 
-from usigrabber.backends.base import (
-    PSM,
-    BaseBackend,
-    FileMetadata,
-    Files,
-    Ref,
-    ScanIdentifierType,
-)
+from usigrabber.backends.base import BaseBackend, FileMetadata, Files
 from usigrabber.utils import DATA_DIR, logger
-from usigrabber.utils.file import download_ftp, extract_archive, temporary_path
 
 
 class PrideBackend(BaseBackend):
     BASE_URL: str = "https://www.ebi.ac.uk/pride/ws/archive/v3"
+    SAMPLED_PROJECTS_PATH = DATA_DIR / "files" / "sampled_projects.json"
 
     @classmethod
     def check_availability(cls, accession: str) -> bool:
@@ -29,10 +20,12 @@ class PrideBackend(BaseBackend):
 
     @classmethod
     def get_sample_projects(cls) -> list[str]:
+        if not cls.SAMPLED_PROJECTS_PATH.exists():
+            raise FileNotFoundError(
+                f"Sampled projects file not found at {cls.SAMPLED_PROJECTS_PATH}"
+            )
         # read from DATA_DIR/files/sampled_projects.json
-        with open(DATA_DIR / "files" / "sampled_projects.json", encoding="utf-8") as f:
-            import json
-
+        with open(cls.SAMPLED_PROJECTS_PATH, encoding="utf-8") as f:
             project_metadata = json.load(f)
             accessions = [project["accession"] for project in project_metadata]
             return accessions
@@ -133,77 +126,25 @@ class PrideBackend(BaseBackend):
     def get_metadata_for_project(
         cls,
         project_accession: str,
+        is_test: bool = False,
     ) -> dict[str, Any]:
+        if is_test:
+            if not cls.SAMPLED_PROJECTS_PATH.exists():
+                raise FileNotFoundError(
+                    f"Sampled projects file not found at {cls.SAMPLED_PROJECTS_PATH}"
+                )
+
+            with open(DATA_DIR / "files" / "sampled_projects.json", encoding="utf-8") as f:
+                project_metadata = json.load(f)
+                for project in project_metadata:
+                    if project["accession"] == project_accession:
+                        return project
+
         url = f"{cls.BASE_URL}/projects/{project_accession}"
         with requests.get(url) as response:
             response.raise_for_status()
             metadata = response.json()
             return metadata
-
-    @classmethod
-    def process_result_file(cls, file: FileMetadata) -> Generator[PSM, None, None]:
-        # parse filename from file url
-        file_url = file["filepath"]
-        filename = os.path.basename(file_url)
-
-        logger.debug(
-            f"Processing result file {filename} " + f"({file['file_size'] / (1024 * 1024):,.2f} MB)"
-        )
-
-        # extract name and extension
-        file_parts = filename.split(".")
-        filename = file_parts[0]
-        ext = file_parts[-1]
-
-        with temporary_path() as tmp_dir:
-            # download file
-            path = download_ftp(file_url, out_dir=tmp_dir, file_name=filename)
-
-            # optional: extract if archived
-            if ext in {".gz", ".zip", ".tar"}:
-                extract_archive(path, extract_to=tmp_dir)
-                path = tmp_dir / (filename + ".mzid")  # assume mzid inside
-
-            with mzid.read(source=str(path)) as reader:
-                for i, psm in enumerate(reader):
-                    psm: dict[str, Any]
-                    sids = psm.get("SpectrumIdentificationItem", [])
-                    if len(sids) != 1:
-                        logger.warning(
-                            "PSM %d in file %s has %d SpectrumIdentificationItems, "
-                            + "expected 1. Skipping.",
-                            psm.get("spectrumID", i),
-                            file["filepath"],
-                            len(sids),
-                        )
-                        continue
-
-                    sid: dict[str, Any] = sids[0]
-
-                    yield PSM(
-                        datafile=file["filepath"],
-                        scan_identifier_type=ScanIdentifierType.SCAN,
-                        scan_identifier="",
-                        peptide_sequence=psm.get("PeptideSequence", ""),
-                        charge=psm.get("chargeState", ""),
-                        experimental_mass_to_charge=sid.get("experimentalMassToCharge", 0),
-                        retention_time=psm.get("retention time(s)", None),
-                        refs=[
-                            Ref(
-                                start=ref.get("start", 0),
-                                end=ref.get("end", 0),
-                                pre=ref.get("pre", ""),
-                                post=ref.get("post", ""),
-                                is_decoy=ref.get("isDecoy", False),
-                                protein=ref.get("accession", ""),
-                            )
-                            for ref in sid.get("PeptideEvidenceRef", [])
-                        ],
-                        modifications=[
-                            {"name": mod["name"], "position": mod["location"]}
-                            for mod in psm.get("Modifications", [])
-                        ],
-                    )
 
 
 if __name__ == "__main__":
