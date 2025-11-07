@@ -1,3 +1,4 @@
+import asyncio
 import os
 from collections.abc import Sequence
 from pathlib import Path
@@ -138,7 +139,10 @@ def build(
 
                             with temporary_path() as tmp_dir:
                                 # download file
-                                path = download_ftp(file_url, out_dir=tmp_dir, file_name=filename)
+                                # TODO: make async throughout
+                                path = asyncio.run(
+                                    download_ftp(file_url, out_dir=tmp_dir, file_name=filename)
+                                )
 
                                 # optional: extract if archived
                                 if ext in {".gz", ".zip", ".tar"}:

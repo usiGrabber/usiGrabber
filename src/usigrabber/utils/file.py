@@ -1,5 +1,5 @@
+import asyncio
 import gzip
-import logging
 import os
 import shutil
 import tarfile
@@ -7,47 +7,22 @@ import tempfile
 import urllib.parse
 import urllib.request
 import zipfile
-from collections.abc import Callable, Generator
+from collections.abc import Generator
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
 
 import typer
-from tqdm import tqdm
 
 from usigrabber.utils import DATA_DIR, logger
 
 
-def download_ftp(url: str, out_dir: Path, file_name: str | None = None) -> Path:
+async def download_ftp(url: str, out_dir: Path, file_name: str | None = None) -> Path:
     parsed = urllib.parse.urlparse(url)
     filename = file_name or os.path.basename(parsed.path)
     out_path = out_dir / filename
 
-    if logger.level > logging.DEBUG:
-        urllib.request.urlretrieve(url, filename=str(out_path))
-
-    # Build a reporthook that updates tqdm
-    def _tqdm_hook(t: tqdm) -> Callable[[int, int, int | None], None]:
-        last = [0]
-
-        def inner(blocks: int = 1, block_size: int = 1, total_size: int | None = None) -> None:
-            if total_size is not None and total_size > 0 and t.total is None:
-                t.total = total_size  # set total once we learn it
-            downloaded = blocks * block_size
-            t.update(downloaded - last[0])
-            last[0] = downloaded
-
-        return inner
-
-    with tqdm(
-        total=None,  # will be filled if server reports SIZE
-        unit="B",
-        unit_scale=True,
-        unit_divisor=1024,
-        desc=filename,
-    ) as t:
-        # urlretrieve handles ftp://… and calls our hook periodically
-        urllib.request.urlretrieve(url, filename=str(out_path), reporthook=_tqdm_hook(t))
+    await asyncio.to_thread(urllib.request.urlretrieve, url, filename=str(out_path))
 
     return out_path
 

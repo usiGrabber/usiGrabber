@@ -61,8 +61,8 @@ class PrideBackend(BaseBackend):
         with requests.get(url) as response:
             if response.status_code == 200:
                 files_info = response.json()
-                search_files = []
-                result_files = []
+                search_files: list[FileMetadata] = []
+                result_files: list[FileMetadata] = []
                 for file_info in files_info:
                     category = file_info["fileCategory"]["value"]
                     ftp_link = None
