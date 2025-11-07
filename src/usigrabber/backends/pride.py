@@ -1,8 +1,12 @@
+import asyncio
 import json
 import os
+from collections.abc import Generator
 from typing import Any
 
+import ijson
 import requests
+from async_http_client import AsyncHttpClient
 from sqlmodel import Session
 
 from usigrabber.backends.base import BaseBackend, FileMetadata, Files
@@ -13,7 +17,7 @@ from usigrabber.utils import DATA_DIR, logger, parse_date
 
 class PrideBackend(BaseBackend):
     BASE_URL: str = "https://www.ebi.ac.uk/pride/ws/archive/v3"
-    SAMPLED_PROJECTS_PATH = DATA_DIR / "files" / "sampled_projects.json"
+    SAMPLED_PROJECTS_PATH = DATA_DIR / "files" / "pride_sampled_projects.json"
 
     @classmethod
     def check_availability(cls, accession: str) -> bool:
@@ -23,21 +27,21 @@ class PrideBackend(BaseBackend):
             return response.text == "PUBLIC"
 
     @classmethod
-    def get_sample_projects(cls) -> list[str]:
+    def get_sample_projects(cls) -> list[dict[str, Any]]:
+        # read from DATA_DIR/files/sampled_projects.json
         if not cls.SAMPLED_PROJECTS_PATH.exists():
             raise FileNotFoundError(
                 f"Sampled projects file not found at {cls.SAMPLED_PROJECTS_PATH}"
             )
-        # read from DATA_DIR/files/sampled_projects.json
         with open(cls.SAMPLED_PROJECTS_PATH, encoding="utf-8") as f:
             project_metadata = json.load(f)
-            accessions = [project["accession"] for project in project_metadata]
-            return accessions
+            return project_metadata
 
     @classmethod
     def get_all_project_accessions(cls) -> list[str]:
         if os.getenv("DEBUG"):
-            return cls.get_sample_projects()
+            sampled_projects = cls.get_sample_projects()
+            return [project["accession"] for project in sampled_projects]
 
         url = f"{cls.BASE_URL}/projects/all"
         with requests.get(url) as response:
@@ -52,6 +56,35 @@ class PrideBackend(BaseBackend):
                     response.reason,
                 )
                 return []
+
+    @classmethod
+    def iterate_new_projects(
+        cls,
+        existing_accessions: set[str],
+        is_test: bool = False,
+    ) -> Generator[dict[str, Any], None, None]:
+        file_path = DATA_DIR / "files" / "pride_all_projects.json"
+        if is_test:
+            file_path = cls.SAMPLED_PROJECTS_PATH
+
+        # if file doesnt exist, download it
+        if not file_path.exists():
+            url = f"{cls.BASE_URL}/projects/all"
+
+            async def download_file():
+                async with AsyncHttpClient() as client:
+                    await client.stream_file(
+                        url,
+                        download_file_name=file_path,
+                    )
+
+            # TODO: make everything async to avoid this
+            asyncio.run(download_file())
+
+        with open(file_path, encoding="utf-8") as in_f:
+            for project in ijson.items(in_f, "item"):
+                if project["accession"] not in existing_accessions:
+                    yield project
 
     @classmethod
     def get_files_for_project(

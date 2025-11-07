@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from collections.abc import Iterable
 from typing import Any, TypedDict
 
 
@@ -31,6 +32,22 @@ class BaseBackend(ABC):
         Retrieve metadata for a specific project.
 
         :return: A dictionary containing project metadata.
+        """
+        ...
+
+    @classmethod
+    @abstractmethod
+    def iterate_new_projects(
+        cls,
+        existing_accessions: set[str],
+        is_test: bool = False,
+    ) -> Iterable[dict[str, Any]]:
+        """
+        Iterate over all projects that are not present in `existing_accessions`.
+
+        :param existing_accessions: A set of existing project accessions to skip.
+        :param is_test: Whether to operate in test mode.
+        :yield: A dictionary containing project metadata for each new project.
         """
         ...
 
