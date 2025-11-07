@@ -1,11 +1,8 @@
-from test_package import main as test_package_main
+from usigrabber.cli import app
 
 
-def main() -> None:
-    print(
-        "Hello from usigrabber! Hello from usigrabber!Hello from usigrabber!Hello fromf"
-    )
-    test_package_main()
+def main():
+    app()
 
 
 if __name__ == "__main__":
