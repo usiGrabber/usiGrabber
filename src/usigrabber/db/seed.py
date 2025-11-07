@@ -205,6 +205,13 @@ def seed_minimal_data(engine: Engine) -> None:
 		session.add_all([evidence1, evidence2, evidence3])
 		session.flush()
 
+		assert evidence1.id is not None, "PeptideEvidence ID should be set after flush"
+		assert evidence2.id is not None, "PeptideEvidence ID should be set after flush"
+		assert evidence3.id is not None, "PeptideEvidence ID should be set after flush"
+
+		assert psm1.id is not None, "PSM ID should be set after flush"
+		assert psm2.id is not None, "PSM ID should be set after flush"
+		assert psm3.id is not None, "PSM ID should be set after flush"
 		# 5. Link PSMs to protein evidence through junction table
 		psm_evidence1 = PSMPeptideEvidence(psm_id=psm1.id, peptide_evidence_id=evidence1.id)
 		psm_evidence2 = PSMPeptideEvidence(psm_id=psm2.id, peptide_evidence_id=evidence2.id)

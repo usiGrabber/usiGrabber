@@ -2,7 +2,6 @@
 
 from usigrabber.db.engine import load_db_engine
 from usigrabber.db.schema import (
-	Modification,
 	MzidFile,
 	Peptide,
 	PeptideEvidence,
@@ -12,6 +11,7 @@ from usigrabber.db.schema import (
 	ProjectCountry,
 	ProjectKeyword,
 	ProjectTag,
+	PSMPeptideEvidence,
 	Reference,
 	create_db_and_tables,
 )
@@ -32,8 +32,8 @@ __all__ = [
 	"PeptideSpectrumMatch",
 	"Peptide",
 	"PeptideEvidence",
-	"Modification",
 	"PeptideModification",
+	"PSMPeptideEvidence",
 	# Seeding
 	"seed_minimal_data",
 ]
