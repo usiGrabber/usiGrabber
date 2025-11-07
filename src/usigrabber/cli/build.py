@@ -35,15 +35,21 @@ def build(
         list[BackendEnum],
         typer.Option(help="Set of backends to fetch data from."),
     ] = [enum for enum in BackendEnum],  # noqa: B006
-    is_test: Annotated[
+    debug: Annotated[
         bool,
-        typer.Option(help="Run in test mode with limited data."),
+        typer.Option(help="Run in debug mode with verbose output.", envvar="DEBUG"),
     ] = False,
 ) -> None:
     """Build USI database."""
 
     typer.echo("Building database.")
     os.environ["UG_DATA_DIR"] = str(data_dir)
+
+    if debug:
+        os.environ["DEBUG"] = "1"
+
+    if os.getenv("DEBUG"):
+        logger.info("Running in DEBUG mode.")
 
     # WORKFLOW
 
@@ -65,7 +71,7 @@ def build(
         backend = backend_enum.value
         typer.echo(f"Fetching data from backend: {backend_enum.name}")
 
-        backend_accessions = backend.get_all_project_accessions(is_test=is_test)
+        backend_accessions = backend.get_all_project_accessions()
 
         # filter accessions to only new ones
         new_accessions: list[str] = []
@@ -94,9 +100,7 @@ def build(
             )
             with Session(db_engine) as session:
                 for accession in new_accessions:
-                    metadata: dict[str, Any] = backend.get_metadata_for_project(
-                        accession, is_test=is_test
-                    )
+                    metadata: dict[str, Any] = backend.get_metadata_for_project(accession)
 
                     # TODO: support other submission types
                     if metadata.get("submissionType") != "COMPLETE":

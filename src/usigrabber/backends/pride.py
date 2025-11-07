@@ -1,4 +1,5 @@
 import json
+import os
 from typing import Any
 
 import requests
@@ -34,8 +35,8 @@ class PrideBackend(BaseBackend):
             return accessions
 
     @classmethod
-    def get_all_project_accessions(cls, is_test: bool = False) -> list[str]:
-        if is_test:
+    def get_all_project_accessions(cls) -> list[str]:
+        if os.getenv("DEBUG"):
             return cls.get_sample_projects()
 
         url = f"{cls.BASE_URL}/projects/all"
@@ -129,9 +130,8 @@ class PrideBackend(BaseBackend):
     def get_metadata_for_project(
         cls,
         project_accession: str,
-        is_test: bool = False,
     ) -> dict[str, Any]:
-        if is_test:
+        if os.getenv("DEBUG"):
             if not cls.SAMPLED_PROJECTS_PATH.exists():
                 raise FileNotFoundError(
                     f"Sampled projects file not found at {cls.SAMPLED_PROJECTS_PATH}"

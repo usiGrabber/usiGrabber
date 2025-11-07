@@ -16,7 +16,7 @@ class Files(TypedDict):
 class BaseBackend(ABC):
     @classmethod
     @abstractmethod
-    def get_all_project_accessions(cls, is_test: bool) -> list[str]:
+    def get_all_project_accessions(cls) -> list[str]:
         """
         Retrieve all project accessions from the backend.
 
