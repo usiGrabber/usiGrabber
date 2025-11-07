@@ -233,6 +233,11 @@ def import_mzid(mzid_path: str, project_accession: str):
 							session.flush()  # Get the ID for junction table
 							protein_count += 1
 
+							assert pep_ev.id is not None, (
+								"PeptideEvidence ID should be set after flush"
+							)
+							assert psm_record.id is not None, "PSM ID should be set after flush"
+
 							# Link PSM to peptide evidence via junction table
 							psm_pep_ev = PSMPeptideEvidence(
 								psm_id=psm_record.id,
