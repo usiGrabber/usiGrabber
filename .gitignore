@@ -22,3 +22,6 @@ database.db
 test_*.db
 dev_*.db
 .cache
+
+# MzIdentML files
+*.mzid
