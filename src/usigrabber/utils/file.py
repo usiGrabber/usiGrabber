@@ -73,7 +73,7 @@ def main(
     filename: str | None = None,
     extract: bool = False,
 ) -> None:
-    out_path = download_ftp(url, out_dir, file_name=filename)
+    out_path = asyncio.run(download_ftp(url, out_dir, file_name=filename))
 
     if extract:
         extract_archive(out_path, out_dir)
