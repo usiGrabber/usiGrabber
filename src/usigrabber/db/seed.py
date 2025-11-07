@@ -219,12 +219,12 @@ def seed_minimal_data(engine: Engine) -> None:
 		session.add_all([psm_evidence1, psm_evidence2, psm_evidence3])
 
 		# 6. Create peptide modification (optional - just one example)
-		# Using UNIMOD:35 (Oxidation of M)
+		# Using UNIMOD:35 (Oxidation of I)
 		peptide_mod = PeptideModification(
 			peptide_id=peptide1.id,
 			unimod_id=35,
 			position=5,
-			modified_residue="M",
+			modified_residue="I",
 		)
 		session.add(peptide_mod)
 
