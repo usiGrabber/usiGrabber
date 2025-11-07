@@ -204,10 +204,3 @@ class PrideBackend(BaseBackend):
         for link in project_data.get("otherOmicsLinks", []):
             if link:
                 session.add(ProjectOtherOmicsLink(project_accession=project.accession, link=link))
-
-
-if __name__ == "__main__":
-    SAMPLE_ACCESSION = "PXD001357"
-    # print(PrideBackend.get_metadata_for_project(SAMPLE_ACCESSION))
-    # print(PrideBackend.get_files_for_project(SAMPLE_ACCESSION))
-    # print(PrideBackend.get_all_project_accessions(is_test=True))
