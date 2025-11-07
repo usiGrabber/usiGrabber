@@ -62,3 +62,7 @@ USE_LOCAL_DB=1
 # Enable SQL query logging
 DB_ECHO_SQL=1
 ```
+
+## Working with mzIdentML Files
+
+Example mzIdentML (.mzid) files for testing and development can be obtained from the HUPO-PSI mzIdentML repository: https://github.com/HUPO-PSI/mzIdentML/tree/master/examples

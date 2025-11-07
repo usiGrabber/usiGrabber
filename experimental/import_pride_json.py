@@ -10,20 +10,15 @@ relationships into the database. It handles:
 - Error handling
 
 Usage:
-    python scripts/import_pride_json.py pride_projects_all.json
+    uv run python experimental/import_pride_json.py pride_projects_all.json
 """
 
 import json
-import sys
 from datetime import date, datetime
-from pathlib import Path
 
 from rich.console import Console
 from rich.progress import Progress, SpinnerColumn, TextColumn
 from sqlmodel import Session
-
-# Add src to path
-sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from usigrabber.db import (
 	Project,
