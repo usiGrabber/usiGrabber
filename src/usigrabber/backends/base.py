@@ -44,7 +44,7 @@ class BaseBackend(ABC):
 
     @classmethod
     @abstractmethod
-    def dump_project_to_db(cls, session: Session, project_data: dict[str, Any]) -> None:
+    async def dump_project_to_db(cls, session: Session, project_data: dict[str, Any]) -> None:
         """
         Dump project data into the database.
         """
