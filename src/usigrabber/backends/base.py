@@ -2,6 +2,8 @@ from abc import ABC, abstractmethod
 from collections.abc import Iterable
 from typing import Any, TypedDict
 
+from sqlmodel import Session
+
 
 class FileMetadata(TypedDict):
     filepath: str
@@ -58,5 +60,13 @@ class BaseBackend(ABC):
         Retrieve file information for a specific project.
 
         :return: A list of dictionaries, each containing file information.
+        """
+        ...
+
+    @classmethod
+    @abstractmethod
+    def dump_project_to_db(cls, session: Session, project_data: dict[str, Any]) -> None:
+        """
+        Dump project data into the database.
         """
         ...
