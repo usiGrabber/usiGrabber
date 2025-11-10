@@ -136,7 +136,7 @@ def build(
                         )
 
                         # extract name and extension
-                        file_name, ext = filename.split(".", maxsplit=1)
+                        file_name, ext = os.path.splitext(filename)
 
                         with temporary_path() as tmp_dir:
                             # download file
