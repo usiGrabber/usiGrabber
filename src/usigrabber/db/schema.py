@@ -175,7 +175,7 @@ class Peptide(SQLModel, table=True):
 	__tablename__ = "peptides"
 
 	id: int | None = Field(default=None, primary_key=True)
-	sequence: str = Field(index=True, unique=True, description="Peptide sequence")
+	sequence: str = Field(index=True, description="Peptide sequence")
 	length: int = Field(description="Computed sequence length")
 
 	# Relationships
@@ -230,7 +230,6 @@ class PeptideSpectrumMatch(SQLModel, table=True):
 			"mzID passThreshold attribute."
 		)
 	)
-	is_decoy: bool = Field(description="Whether this is a decoy match")
 
 	# Relationships
 	project: Project | None = Relationship(back_populates="peptide_spectrum_matches")
@@ -246,7 +245,7 @@ class PeptideEvidence(SQLModel, table=True):
 
 	id: int | None = Field(default=None, primary_key=True)
 	protein_accession: str | None = Field(default=None, description="Protein accession.")
-	isDecoy: bool = Field(default=False, description="Whether the protein is a decoy")
+	is_decoy: bool = Field(default=False, description="Whether the protein is a decoy")
 	start_position: int | None = Field(
 		default=None, description="Start position in protein sequence"
 	)

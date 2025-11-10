@@ -184,7 +184,7 @@ def seed_minimal_data(engine: Engine) -> None:
 			end_position=52,
 			pre_residue="K",
 			post_residue="A",
-			isDecoy=False,
+			is_decoy=False,
 		)
 		evidence2 = PeptideEvidence(
 			protein_accession="Q67890",
@@ -192,7 +192,7 @@ def seed_minimal_data(engine: Engine) -> None:
 			end_position=126,
 			pre_residue="R",
 			post_residue="G",
-			isDecoy=False,
+			is_decoy=False,
 		)
 		evidence3 = PeptideEvidence(
 			protein_accession="A11111",
@@ -200,7 +200,7 @@ def seed_minimal_data(engine: Engine) -> None:
 			end_position=84,
 			pre_residue="K",
 			post_residue="L",
-			isDecoy=False,
+			is_decoy=False,
 		)
 		session.add_all([evidence1, evidence2, evidence3])
 		session.flush()
