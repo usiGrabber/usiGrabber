@@ -8,20 +8,32 @@ from pronto.ontology import Ontology
 
 from ontology_resolver.utils import shrink_owl_file
 
-CLUSTER_CACHE_DIR = "/sc/projects/sci-renard/usi-grabber/.cache/ontologies"
-
 logger = logging.getLogger(__name__)
-
 ONTOLOGIES_TO_SHRINK = ["NCBITaxon"]
+ONTOLOGIES_CACHE_DIR_VARIABLE = "ONTOLOGIES_CACHE_DIR"
 
 
 class OntologyLoader:
     BASE_URL: str = "https://www.ebi.ac.uk/ols4"
     OWL_DOWNLOAD_KEYS = ["iri", "ontologyPurl"]
-    cache_dir = Path(".cache/ontologies")
 
-    if os.path.isdir(CLUSTER_CACHE_DIR):
-        cache_dir = Path(CLUSTER_CACHE_DIR)
+    def __init__(self):
+        fallback_cache_dir = Path(".cache/ontologies")
+        cache_dir_env = os.environ.get(ONTOLOGIES_CACHE_DIR_VARIABLE)
+        if cache_dir_env:
+            cache_dir_env = Path(cache_dir_env)
+            if cache_dir_env.is_dir():
+                logger.info(f"Using ontology cache dir: {cache_dir_env}")
+                self._cache_dir = cache_dir_env
+            else:
+                logger.warning(
+                    f"Ontology cache dir {cache_dir_env} from env variable $ONTOLOGIES_CACHE_DIR",
+                    f" does not exist. Falling backt to: {fallback_cache_dir}",
+                )
+                self._cache_dir = fallback_cache_dir
+        else:
+            self._cache_dir = fallback_cache_dir
+            logger.info(f"Using local ontology cache dir: {self._cache_dir}")
 
     async def download_ontology(self, onto: str) -> Path:
         async with AsyncHttpClient(retry_attempts=0) as session:
@@ -32,8 +44,8 @@ class OntologyLoader:
             assert isinstance(ontology_info, dict), (
                 f"Ontology info for : {onto} is not of instance dict"
             )
-            self.cache_dir.mkdir(exist_ok=True)
-            download_file_name = self.cache_dir / f"{onto}.owl"
+            self._cache_dir.mkdir(exist_ok=True)
+            download_file_name = self._cache_dir / f"{onto}.owl"
 
             for download_key in self.OWL_DOWNLOAD_KEYS:
                 if download_key not in ontology_info:
@@ -54,13 +66,13 @@ class OntologyLoader:
             return download_file_name
 
     async def get_ontology(self, onto: str) -> Ontology:
-        file = self.cache_dir / f"{onto}.owl"
-        file_shrunk = self.cache_dir / f"{onto}_shrunk.owl"
+        file = self._cache_dir / f"{onto}.owl"
+        file_shrunk = self._cache_dir / f"{onto}_shrunk.owl"
 
-        if os.path.isfile(file_shrunk):
+        if file_shrunk.is_file():
             return Ontology(file_shrunk)
         else:
-            if not os.path.isfile(file):
+            if not file.is_file():
                 await self.download_ontology(onto)
             if onto in ONTOLOGIES_TO_SHRINK:
                 shrink_owl_file(file, file_shrunk)

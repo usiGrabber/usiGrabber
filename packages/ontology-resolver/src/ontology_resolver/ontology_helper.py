@@ -53,6 +53,8 @@ class OntologyHelper(metaclass=OntologyHelperSingletonMeta):
         """
         Includes the term itself
         """
+        # We need to parse and rebuild the term because parse_ontology
+        # might correct CV part of the term
         cv_accession, number = self.parse_ontology(term)
         term = self.build_term_id(cv_accession, number)
         ontology = await self.get_ontology(cv_accession)
