@@ -1,8 +1,12 @@
+import asyncio
 import json
 import os
+from collections.abc import Generator
 from typing import Any
 
+import ijson
 import requests
+from async_http_client import AsyncHttpClient
 from ontology_resolver.ontology_helper import OntologyHelper
 from sqlmodel import Session
 
@@ -15,7 +19,7 @@ from usigrabber.utils import DATA_DIR, logger, parse_date
 
 class PrideBackend(BaseBackend):
     BASE_URL: str = "https://www.ebi.ac.uk/pride/ws/archive/v3"
-    SAMPLED_PROJECTS_PATH = DATA_DIR / "files" / "sampled_projects.json"
+    SAMPLED_PROJECTS_PATH = DATA_DIR / "pride_sampled_projects.json"
 
     @classmethod
     def check_availability(cls, accession: str) -> bool:
@@ -25,35 +29,43 @@ class PrideBackend(BaseBackend):
             return response.text == "PUBLIC"
 
     @classmethod
-    def get_sample_projects(cls) -> list[str]:
+    def get_sample_projects(cls) -> list[dict[str, Any]]:
+        # read from DATA_DIR/files/sampled_projects.json
         if not cls.SAMPLED_PROJECTS_PATH.exists():
             raise FileNotFoundError(
                 f"Sampled projects file not found at {cls.SAMPLED_PROJECTS_PATH}"
             )
-        # read from DATA_DIR/files/sampled_projects.json
         with open(cls.SAMPLED_PROJECTS_PATH, encoding="utf-8") as f:
             project_metadata = json.load(f)
-            accessions = [project["accession"] for project in project_metadata]
-            return accessions
+            return project_metadata
 
     @classmethod
-    def get_all_project_accessions(cls) -> list[str]:
+    def get_new_projects(
+        cls,
+        existing_accessions: set[str],
+    ) -> Generator[dict[str, Any], None, None]:
+        file_path = DATA_DIR / "pride_all_projects.json"
         if os.getenv("DEBUG"):
-            return cls.get_sample_projects()
+            file_path = cls.SAMPLED_PROJECTS_PATH
 
-        url = f"{cls.BASE_URL}/projects/all"
-        with requests.get(url) as response:
-            if response.status_code == 200:
-                projects_info = response.json()
-                accessions = [project["accession"] for project in projects_info]
-                return accessions
-            else:
-                logger.error(
-                    "Could not retrieve project accessions: %s %s",
-                    response.status_code,
-                    response.reason,
-                )
-                return []
+        # if file doesnt exist, download it
+        if not file_path.exists():
+            url = f"{cls.BASE_URL}/projects/all"
+
+            async def download_file():
+                async with AsyncHttpClient() as client:
+                    await client.stream_file(
+                        url,
+                        download_file_name=file_path,
+                    )
+
+            # TODO: make everything async to avoid this
+            asyncio.run(download_file())
+
+        with open(file_path, encoding="utf-8") as in_f:
+            for project in ijson.items(in_f, "item"):
+                if project["accession"] not in existing_accessions:
+                    yield project
 
     @classmethod
     def get_files_for_project(
@@ -103,52 +115,6 @@ class PrideBackend(BaseBackend):
                     response.reason,
                 )
                 return Files(search=[], result=[])
-
-    @classmethod
-    def get_files_of_category(cls, accession: str, category: str = "SEARCH") -> list[str]:
-        url = f"{cls.BASE_URL}/projects/{accession}/files"
-        with requests.get(url) as response:
-            if response.status_code == 200:
-                files_info = response.json()
-                files = []
-                for file_info in files_info:
-                    if file_info["fileCategory"]["value"] == category:
-                        for download_link in file_info["publicFileLocations"]:
-                            if download_link["name"] == "FTP Protocol":
-                                files.append(download_link["value"])
-                                break
-
-                return files
-            else:
-                logger.error(
-                    "Could not retrieve files for accession %s: %s %s",
-                    accession,
-                    response.status_code,
-                    response.reason,
-                )
-                return []
-
-    @classmethod
-    def get_metadata_for_project(
-        cls,
-        project_accession: str,
-    ) -> dict[str, Any]:
-        if os.getenv("DEBUG"):
-            if not cls.SAMPLED_PROJECTS_PATH.exists():
-                raise FileNotFoundError(
-                    f"Sampled projects file not found at {cls.SAMPLED_PROJECTS_PATH}"
-                )
-
-            with open(DATA_DIR / "files" / "sampled_projects.json", encoding="utf-8") as f:
-                project_metadata = json.load(f)
-                for project in project_metadata:
-                    if project["accession"] == project_accession:
-                        return project
-
-        url = f"{cls.BASE_URL}/projects/{project_accession}"
-        with requests.get(url) as response:
-            response.raise_for_status()
-            return response.json()
 
     @classmethod
     async def _parse_and_add_cv_params(

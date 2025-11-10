@@ -1,9 +1,8 @@
 import asyncio
 import logging
 import os
-from collections.abc import Sequence
 from pathlib import Path
-from typing import Annotated, Any
+from typing import Annotated
 
 import typer
 from rich.progress import Progress, SpinnerColumn, TextColumn
@@ -55,6 +54,7 @@ async def async_build(
     """Build USI database."""
 
     logger.info("Building database.")
+
     os.environ["UG_DATA_DIR"] = str(data_dir)
 
     if debug:
@@ -74,122 +74,118 @@ async def async_build(
 
     # get all existing project accessions in the database
     with Session(db_engine) as session:
+        # TODO: filter for "complete" projects only
         statement = select(Project.accession)
-        accessions: Sequence[str] = session.exec(statement).all()
+        existing_accessions: set[str] = set(session.exec(statement).all())
 
-    logger.info(f"Found {len(accessions)} existing accessions in the database.")
+    logger.info(
+        "Found %s existing accessions in the database.",
+        len(existing_accessions),
+    )
 
     for backend_enum in backends:
         backend = backend_enum.value
-        logger.info(f"Fetching data from backend: {backend_enum.name}")
-
-        backend_accessions = backend.get_all_project_accessions()
-
-        # filter accessions to only new ones
-        new_accessions: list[str] = []
-        for accession in backend_accessions:
-            if accession not in accessions:
-                new_accessions.append(accession)
-
-        len_new_accessions = len(new_accessions)
-        logger.info(f"Found {len_new_accessions} new accessions from backend {backend_enum.name}.")
+        logger.debug("Fetching data from backend: %s", backend_enum.name)
 
         imported = errors = 0
-        completed = imported + errors
+        completed = 0
         error_projects = []
-        with Progress(
-            SpinnerColumn(),
-            TextColumn("[progress.description]{task.description}"),
-        ) as progress:
+        with (
+            Progress(
+                SpinnerColumn(),
+                TextColumn("[progress.description]{task.description}"),
+                console=typer.echo(),
+            ) as progress,
+            Session(db_engine) as session,
+        ):
             task = progress.add_task(
-                f"Importing projects... {completed}/{len_new_accessions}",
+                f"Importing projects... {completed}/?",
                 completed=0,
-                total=len_new_accessions,
             )
-            with Session(db_engine) as session:
-                for accession in new_accessions:
-                    metadata: dict[str, Any] = backend.get_metadata_for_project(accession)
+            for project in backend.get_new_projects(existing_accessions):
+                # TODO: support other submission types
+                if project.get("submissionType") != "COMPLETE":
+                    continue
 
-                    # TODO: support other submission types
-                    if metadata.get("submissionType") != "COMPLETE":
-                        continue
-
-                    try:
-                        await backend.dump_project_to_db(session, metadata)
-                    except Exception as e:
-                        errors += 1
-                        error_projects.append((metadata.get("accession"), str(e)))
-                        session.rollback()
-
-                    session.commit()
-                    imported += 1
-                    completed = imported + errors
+                try:
+                    await backend.dump_project_to_db(session, project)
+                except Exception as e:
+                    errors += 1
+                    error_projects.append((project.get("accession"), str(e)))
+                    session.rollback()
                     progress.update(
                         task,
-                        description=f"Importing projects... {completed}/{len_new_accessions}",
+                        description=f"Importing projects... {completed}/?",
                         completed=imported + errors,
                     )
+                    continue
 
-                    # download files
-                    files = backend.get_files_for_project(accession)
+                session.commit()
+                imported += 1
+                completed = imported + errors
+                progress.update(
+                    task,
+                    description=f"Importing projects... {completed}/?",
+                    completed=imported + errors,
+                )
 
-                    # process files
-                    if files["result"]:
-                        for file in files["result"]:
-                            # project_data["psms"].append(list(backend.process_result_file(file)))
-                            # parse filename from file url
-                            file_url = file["filepath"]
-                            filename = os.path.basename(file_url)
+                # download files
+                files = backend.get_files_for_project(project["accession"])
 
-                            logger.debug(
-                                f"Processing result file {filename} "
-                                + f"({file['file_size'] / (1024 * 1024):,.2f} MB)"
-                            )
+                # process files
+                if files["result"]:
+                    for file in files["result"]:
+                        # project_data["psms"].append(list(backend.process_result_file(file)))
+                        # parse filename from file url
+                        file_url = file["filepath"]
+                        filename = os.path.basename(file_url)
 
-                            # extract name and extension
-                            file_name, ext = filename.split(".", maxsplit=1)
-
-                            with temporary_path() as tmp_dir:
-                                path = await download_ftp(
-                                    file_url, out_dir=tmp_dir, file_name=filename
-                                )
-
-                                # optional: extract if archived
-                                if ext in {".gz", ".zip", ".tar"}:
-                                    extract_archive(path, extract_to=tmp_dir)
-                                    path = tmp_dir / (file_name + ".mzid")  # assume mzid inside
-
-                                assert path.exists(), (
-                                    f"Expected extracted file {path} does not exist."
-                                )
-
-                                # process file
-                                # TODO: implement interface
-                                # mzid_data = mzid_parser.handle(project, path)
-                                # dump_mzid_to_db(session, project.accession, mzid_data)
-
-                    elif files["search"]:
-                        # TODO: support search files
-                        continue
-                    else:
-                        logger.warning(
-                            "No results/search files found for accession %s from backend %s.",
-                            accession,
-                            backend_enum.name,
+                        logger.debug(
+                            f"Processing result file {filename} "
+                            + f"({file['file_size'] / (1024 * 1024):,.2f} MB)"
                         )
 
-                    # TODO: set "complete" flag for project
+                        # extract name and extension
+                        file_name, ext = os.path.splitext(filename)
 
-        if new_accessions:
+                        with temporary_path() as tmp_dir:
+                            path = await download_ftp(file_url, out_dir=tmp_dir, file_name=filename)
+
+                            # optional: extract if archived
+                            if ext in {".gz", ".zip", ".tar"}:
+                                extract_archive(path, extract_to=tmp_dir)
+                                path = tmp_dir / (file_name + ".mzid")  # assume mzid inside
+
+                            assert path.exists(), f"Expected extracted file {path} does not exist."
+
+                            # process file
+                            # TODO: implement interface
+                            # mzid_data = mzid_parser.handle(project, path)
+                            # dump_mzid_to_db(session, project.accession, mzid_data)
+
+                elif files["search"]:
+                    # TODO: support search files
+                    continue
+                else:
+                    logger.warning(
+                        "No results/search files found for project '%s' from backend %s.",
+                        project["accession"],
+                        backend_enum.name,
+                    )
+
+                # TODO: set "complete" flag for project
+
+        if imported > 0 or errors > 0:
+            logger.info("Finished importing from backend %s.", backend_enum.name)
             logger.info(
-                f"Finished importing from backend {backend_enum.name}. "
-                + f"\nSuccessfully imported {imported} projects, "
-                + f"encountered {errors} errors."
-                + f"Success rate: {(imported / len(new_accessions) * 100):.1f}%"
+                "Successfully imported %s projects, encountered %s errors (%.1f%%).",
+                imported,
+                errors,
+                (imported / (imported + errors) * 100),
             )
             if error_projects:
-                logger.info("\nFailed Projects:")
+                logger.warning("\nFailed Projects:")
                 for accession, error in error_projects[:10]:  # Show first 10
-                    logger.info(f"  • {accession}: {error[:80]}")
+                    logger.warning("  • %s: %s", accession, error[:80])
                 if len(error_projects) > 10:
-                    logger.info(f"  ... and {len(error_projects) - 10} more")
+                    logger.warning("  ... and %d more", len(error_projects) - 10)

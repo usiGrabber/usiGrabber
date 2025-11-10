@@ -1,5 +1,8 @@
 from abc import ABC, abstractmethod
+from collections.abc import Iterable
 from typing import Any, TypedDict
+
+from sqlmodel import Session
 
 
 class FileMetadata(TypedDict):
@@ -16,21 +19,16 @@ class Files(TypedDict):
 class BaseBackend(ABC):
     @classmethod
     @abstractmethod
-    def get_all_project_accessions(cls) -> list[str]:
+    def get_new_projects(
+        cls,
+        existing_accessions: set[str],
+    ) -> Iterable[dict[str, Any]]:
         """
-        Retrieve all project accessions from the backend.
+        Iterate over all projects that are not present in `existing_accessions`.
 
-        :return: A list of project accession strings.
-        """
-        ...
-
-    @classmethod
-    @abstractmethod
-    def get_metadata_for_project(cls, project_accession: str) -> dict[str, Any]:
-        """
-        Retrieve metadata for a specific project.
-
-        :return: A dictionary containing project metadata.
+        :param existing_accessions: A set of existing project accessions to skip.
+        :param is_test: Whether to operate in test mode.
+        :yield: A dictionary containing project metadata for each new project.
         """
         ...
 
@@ -41,5 +39,13 @@ class BaseBackend(ABC):
         Retrieve file information for a specific project.
 
         :return: A list of dictionaries, each containing file information.
+        """
+        ...
+
+    @classmethod
+    @abstractmethod
+    async def dump_project_to_db(cls, session: Session, project_data: dict[str, Any]) -> None:
+        """
+        Dump project data into the database.
         """
         ...
