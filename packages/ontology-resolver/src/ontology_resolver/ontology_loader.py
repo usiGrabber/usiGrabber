@@ -32,7 +32,7 @@ class OntologyLoader:
             assert isinstance(ontology_info, dict), (
                 f"Ontology info for : {onto} is not of instance dict"
             )
-            os.makedirs(self.cache_dir, exist_ok=True)
+            self.cache_dir.mkdir(exist_ok=True)
             download_file_name = self.cache_dir / f"{onto}.owl"
 
             for download_key in self.OWL_DOWNLOAD_KEYS:
