@@ -92,7 +92,7 @@ def build(
                 f"Importing projects... {completed}/?",
                 completed=0,
             )
-            for project in backend.iterate_new_projects(existing_accessions):
+            for project in backend.get_new_projects(existing_accessions):
                 # TODO: support other submission types
                 if project.get("submissionType") != "COMPLETE":
                     continue

@@ -38,7 +38,7 @@ class PrideBackend(BaseBackend):
             return project_metadata
 
     @classmethod
-    def iterate_new_projects(
+    def get_new_projects(
         cls,
         existing_accessions: set[str],
     ) -> Generator[dict[str, Any], None, None]:
