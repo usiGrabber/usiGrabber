@@ -1,4 +1,5 @@
 import asyncio
+import logging
 import os
 from pathlib import Path
 from typing import Annotated
@@ -11,8 +12,9 @@ from sqlmodel import Session, select
 from usigrabber.backends import BackendEnum
 from usigrabber.cli import app
 from usigrabber.db import Project, create_db_and_tables, load_db_engine
-from usigrabber.utils import logger
 from usigrabber.utils.file import download_ftp, extract_archive, temporary_path
+
+logger = logging.getLogger(__name__)
 
 
 @app.command()
