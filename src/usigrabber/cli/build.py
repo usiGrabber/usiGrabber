@@ -1,4 +1,5 @@
 import asyncio
+import logging
 import os
 from collections.abc import Sequence
 from pathlib import Path
@@ -12,8 +13,11 @@ from sqlmodel import Session, select
 from usigrabber.backends import BackendEnum
 from usigrabber.cli import app
 from usigrabber.db import Project, create_db_and_tables, load_db_engine
-from usigrabber.utils import logger
 from usigrabber.utils.file import download_ftp, extract_archive, temporary_path
+
+STANDARD_BACKENDS = [enum for enum in BackendEnum]
+
+logger = logging.getLogger(__name__)
 
 
 @app.command()
@@ -34,15 +38,23 @@ def build(
     backends: Annotated[
         list[BackendEnum],
         typer.Option(help="Set of backends to fetch data from."),
-    ] = [enum for enum in BackendEnum],  # noqa: B006
+    ] = STANDARD_BACKENDS,
     debug: Annotated[
         bool,
         typer.Option(help="Run in debug mode with verbose output.", envvar="DEBUG"),
     ] = False,
+):
+    asyncio.run(async_build(data_dir, backends, debug))
+
+
+async def async_build(
+    data_dir: Path = Path("./data"),
+    backends: list[BackendEnum] = STANDARD_BACKENDS,
+    debug: bool = False,
 ) -> None:
     """Build USI database."""
 
-    typer.echo("Building database.")
+    logger.info("Building database.")
     os.environ["UG_DATA_DIR"] = str(data_dir)
 
     if debug:
@@ -57,7 +69,7 @@ def build(
     db_engine = load_db_engine()
     inspector = inspect(db_engine)
     if len(inspector.get_table_names()) == 0:
-        typer.echo("No preexisting database found. Database will be initialized.")
+        logger.info("No preexisting database found. Database will be initialized.")
         create_db_and_tables(db_engine)
 
     # get all existing project accessions in the database
@@ -65,11 +77,11 @@ def build(
         statement = select(Project.accession)
         accessions: Sequence[str] = session.exec(statement).all()
 
-    typer.echo(f"Found {len(accessions)} existing accessions in the database.")
+    logger.info(f"Found {len(accessions)} existing accessions in the database.")
 
     for backend_enum in backends:
         backend = backend_enum.value
-        typer.echo(f"Fetching data from backend: {backend_enum.name}")
+        logger.info(f"Fetching data from backend: {backend_enum.name}")
 
         backend_accessions = backend.get_all_project_accessions()
 
@@ -80,10 +92,7 @@ def build(
                 new_accessions.append(accession)
 
         len_new_accessions = len(new_accessions)
-        typer.echo(
-            message=f"Found {len_new_accessions} new "
-            + f"accessions from backend {backend_enum.name}."
-        )
+        logger.info(f"Found {len_new_accessions} new accessions from backend {backend_enum.name}.")
 
         imported = errors = 0
         completed = imported + errors
@@ -91,7 +100,6 @@ def build(
         with Progress(
             SpinnerColumn(),
             TextColumn("[progress.description]{task.description}"),
-            console=typer.echo(),
         ) as progress:
             task = progress.add_task(
                 f"Importing projects... {completed}/{len_new_accessions}",
@@ -107,7 +115,7 @@ def build(
                         continue
 
                     try:
-                        backend.dump_project_to_db(session, metadata)
+                        await backend.dump_project_to_db(session, metadata)
                     except Exception as e:
                         errors += 1
                         error_projects.append((metadata.get("accession"), str(e)))
@@ -142,10 +150,8 @@ def build(
                             file_name, ext = filename.split(".", maxsplit=1)
 
                             with temporary_path() as tmp_dir:
-                                # download file
-                                # TODO: make async throughout
-                                path = asyncio.run(
-                                    download_ftp(file_url, out_dir=tmp_dir, file_name=filename)
+                                path = await download_ftp(
+                                    file_url, out_dir=tmp_dir, file_name=filename
                                 )
 
                                 # optional: extract if archived
@@ -175,15 +181,15 @@ def build(
                     # TODO: set "complete" flag for project
 
         if new_accessions:
-            typer.echo(
-                message=f"Finished importing from backend {backend_enum.name}. "
+            logger.info(
+                f"Finished importing from backend {backend_enum.name}. "
                 + f"\nSuccessfully imported {imported} projects, "
                 + f"encountered {errors} errors."
                 + f"Success rate: {(imported / len(new_accessions) * 100):.1f}%"
             )
             if error_projects:
-                typer.echo("\nFailed Projects:")
+                logger.info("\nFailed Projects:")
                 for accession, error in error_projects[:10]:  # Show first 10
-                    typer.echo(f"  • {accession}: {error[:80]}")
+                    logger.info(f"  • {accession}: {error[:80]}")
                 if len(error_projects) > 10:
-                    typer.echo(f"  ... and {len(error_projects) - 10} more")
+                    logger.info(f"  ... and {len(error_projects) - 10} more")
