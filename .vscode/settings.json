@@ -12,5 +12,10 @@
 	"editor.insertSpaces": true,
 	"editor.tabSize": 4,
 	"editor.detectIndentation": true,
+	"python.testing.pytestArgs": [
+		"."
+	],
+	"python.testing.unittestEnabled": false,
+	"python.testing.pytestEnabled": true,
 	"python.languageServer": "None"
 }
