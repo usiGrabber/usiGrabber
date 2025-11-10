@@ -19,26 +19,6 @@ class Files(TypedDict):
 class BaseBackend(ABC):
     @classmethod
     @abstractmethod
-    def get_all_project_accessions(cls) -> list[str]:
-        """
-        Retrieve all project accessions from the backend.
-
-        :return: A list of project accession strings.
-        """
-        ...
-
-    @classmethod
-    @abstractmethod
-    def get_metadata_for_project(cls, project_accession: str) -> dict[str, Any]:
-        """
-        Retrieve metadata for a specific project.
-
-        :return: A dictionary containing project metadata.
-        """
-        ...
-
-    @classmethod
-    @abstractmethod
     def iterate_new_projects(
         cls,
         existing_accessions: set[str],
