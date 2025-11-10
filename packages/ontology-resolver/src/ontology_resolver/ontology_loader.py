@@ -1,12 +1,12 @@
 import json
 import logging
-import os
 from pathlib import Path
 
 from async_http_client import AsyncHttpClient
 from pronto.ontology import Ontology
 
 from ontology_resolver.utils import shrink_owl_file
+from usigrabber.utils import get_cache_dir
 
 logger = logging.getLogger(__name__)
 ONTOLOGIES_TO_SHRINK = ["NCBITaxon"]
@@ -18,22 +18,9 @@ class OntologyLoader:
     OWL_DOWNLOAD_KEYS = ["iri", "ontologyPurl"]
 
     def __init__(self):
-        fallback_cache_dir = Path(".cache/ontologies")
-        cache_dir_env = os.environ.get(ONTOLOGIES_CACHE_DIR_VARIABLE)
-        if cache_dir_env:
-            cache_dir_env = Path(cache_dir_env)
-            if cache_dir_env.is_dir():
-                logger.info(f"Using ontology cache dir: {cache_dir_env}")
-                self._cache_dir = cache_dir_env
-            else:
-                logger.warning(
-                    f"Ontology cache dir {cache_dir_env} from env variable $ONTOLOGIES_CACHE_DIR",
-                    f" does not exist. Falling backt to: {fallback_cache_dir}",
-                )
-                self._cache_dir = fallback_cache_dir
-        else:
-            self._cache_dir = fallback_cache_dir
-            logger.info(f"Using local ontology cache dir: {self._cache_dir}")
+        self._cache_dir = get_cache_dir() / "ontologies"
+        self._cache_dir.mkdir(exist_ok=True)
+        logger.info(f"Using ontology cache dir: {self._cache_dir}")
 
     async def download_ontology(self, onto: str) -> Path:
         async with AsyncHttpClient(retry_attempts=0) as session:

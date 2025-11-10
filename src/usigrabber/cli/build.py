@@ -150,8 +150,6 @@ async def async_build(
                             file_name, ext = filename.split(".", maxsplit=1)
 
                             with temporary_path() as tmp_dir:
-                                # download file
-                                # TODO: make async throughout
                                 path = await download_ftp(
                                     file_url, out_dir=tmp_dir, file_name=filename
                                 )
