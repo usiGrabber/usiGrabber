@@ -17,7 +17,7 @@ from usigrabber.utils import DATA_DIR, logger, parse_date
 
 class PrideBackend(BaseBackend):
     BASE_URL: str = "https://www.ebi.ac.uk/pride/ws/archive/v3"
-    SAMPLED_PROJECTS_PATH = DATA_DIR / "files" / "pride_sampled_projects.json"
+    SAMPLED_PROJECTS_PATH = DATA_DIR / "pride_sampled_projects.json"
 
     @classmethod
     def check_availability(cls, accession: str) -> bool:
@@ -42,7 +42,7 @@ class PrideBackend(BaseBackend):
         cls,
         existing_accessions: set[str],
     ) -> Generator[dict[str, Any], None, None]:
-        file_path = DATA_DIR / "files" / "pride_all_projects.json"
+        file_path = DATA_DIR / "pride_all_projects.json"
         if os.getenv("DEBUG"):
             file_path = cls.SAMPLED_PROJECTS_PATH
 
