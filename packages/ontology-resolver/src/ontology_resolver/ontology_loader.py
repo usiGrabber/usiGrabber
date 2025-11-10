@@ -2,7 +2,6 @@ import json
 import logging
 import os
 from pathlib import Path
-from time import time
 
 from async_http_client import AsyncHttpClient
 from pronto.ontology import Ontology
@@ -27,11 +26,9 @@ class OntologyLoader:
     async def download_ontology(self, onto: str) -> Path:
         async with AsyncHttpClient(retry_attempts=0) as session:
             params = {"lang": "en", "outputOpts": json.dumps({})}
-            start_time = time()
             ontology_info = await session.get(
                 self.BASE_URL + f"/api/v2/ontologies/{onto}", params=params
             )
-            print(f"API: {time() - start_time}")
             assert isinstance(ontology_info, dict), (
                 f"Ontology info for : {onto} is not of instance dict"
             )
