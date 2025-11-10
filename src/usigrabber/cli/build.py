@@ -14,6 +14,8 @@ from usigrabber.cli import app
 from usigrabber.db import Project, create_db_and_tables, load_db_engine
 from usigrabber.utils.file import download_ftp, extract_archive, temporary_path
 
+STANDARD_BACKENDS = [enum for enum in BackendEnum]
+
 logger = logging.getLogger(__name__)
 
 
@@ -35,11 +37,19 @@ def build(
     backends: Annotated[
         list[BackendEnum],
         typer.Option(help="Set of backends to fetch data from."),
-    ] = [enum for enum in BackendEnum],  # noqa: B006
+    ] = STANDARD_BACKENDS,
     debug: Annotated[
         bool,
         typer.Option(help="Run in debug mode with verbose output.", envvar="DEBUG"),
     ] = False,
+):
+    asyncio.run(async_build(data_dir, backends, debug))
+
+
+async def async_build(
+    data_dir: Path = Path("./data"),
+    backends: list[BackendEnum] = STANDARD_BACKENDS,
+    debug: bool = False,
 ) -> None:
     """Build USI database."""
 
@@ -59,7 +69,7 @@ def build(
     db_engine = load_db_engine()
     inspector = inspect(db_engine)
     if len(inspector.get_table_names()) == 0:
-        typer.echo("No preexisting database found. Database will be initialized.")
+        logger.info("No preexisting database found. Database will be initialized.")
         create_db_and_tables(db_engine)
 
     # get all existing project accessions in the database
@@ -75,7 +85,7 @@ def build(
 
     for backend_enum in backends:
         backend = backend_enum.value
-        logger.debug(f"Fetching data from backend: {backend_enum.name}")
+        logger.debug("Fetching data from backend: %s", backend_enum.name)
 
         imported = errors = 0
         completed = 0
@@ -98,7 +108,7 @@ def build(
                     continue
 
                 try:
-                    backend.dump_project_to_db(session, project)
+                    await backend.dump_project_to_db(session, project)
                 except Exception as e:
                     errors += 1
                     error_projects.append((project.get("accession"), str(e)))
@@ -139,11 +149,7 @@ def build(
                         file_name, ext = os.path.splitext(filename)
 
                         with temporary_path() as tmp_dir:
-                            # download file
-                            # TODO: make async throughout
-                            path = asyncio.run(
-                                download_ftp(file_url, out_dir=tmp_dir, file_name=filename)
-                            )
+                            path = await download_ftp(file_url, out_dir=tmp_dir, file_name=filename)
 
                             # optional: extract if archived
                             if ext in {".gz", ".zip", ".tar"}:
