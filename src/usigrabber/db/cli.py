@@ -9,7 +9,6 @@ from sqlalchemy import inspect
 from sqlmodel import Session, select
 
 from usigrabber.db import (
-    Contact,
     CvParam,
     MzidFile,
     Peptide,
@@ -173,7 +172,6 @@ def info(echo_sql: bool = False):
             "PSM-Peptide Evidence Links": session.exec(
                 select(func.count()).select_from(PSMPeptideEvidence)
             ),
-            "Contacts": session.exec(select(func.count()).select_from(Contact)).one(),
             "CV Parameters": session.exec(select(func.count()).select_from(CvParam)).one(),
         }
 
