@@ -42,7 +42,6 @@ class BaseBackend(ABC):
     def iterate_new_projects(
         cls,
         existing_accessions: set[str],
-        is_test: bool = False,
     ) -> Iterable[dict[str, Any]]:
         """
         Iterate over all projects that are not present in `existing_accessions`.

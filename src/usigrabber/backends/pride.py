@@ -61,10 +61,9 @@ class PrideBackend(BaseBackend):
     def iterate_new_projects(
         cls,
         existing_accessions: set[str],
-        is_test: bool = False,
     ) -> Generator[dict[str, Any], None, None]:
         file_path = DATA_DIR / "files" / "pride_all_projects.json"
-        if is_test:
+        if os.getenv("DEBUG"):
             file_path = cls.SAMPLED_PROJECTS_PATH
 
         # if file doesnt exist, download it
