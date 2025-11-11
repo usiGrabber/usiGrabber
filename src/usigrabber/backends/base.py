@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from collections.abc import Iterable
+from collections.abc import AsyncGenerator
 from typing import Any, TypedDict
 
 from sqlmodel import Session
@@ -19,17 +19,20 @@ class Files(TypedDict):
 class BaseBackend(ABC):
     @classmethod
     @abstractmethod
-    def get_new_projects(
+    async def get_new_projects(
         cls,
         existing_accessions: set[str],
-    ) -> Iterable[dict[str, Any]]:
+    ) -> AsyncGenerator[dict[str, Any], None]:
         """
         Iterate over all projects that are not present in `existing_accessions`.
-
         :param existing_accessions: A set of existing project accessions to skip.
         :param is_test: Whether to operate in test mode.
         :yield: A dictionary containing project metadata for each new project.
         """
+        # This is an abstract method and should not be called.
+        raise NotImplementedError
+
+        yield
         ...
 
     @classmethod

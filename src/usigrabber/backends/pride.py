@@ -1,7 +1,6 @@
-import asyncio
 import json
 import os
-from collections.abc import Generator
+from collections.abc import AsyncGenerator
 from typing import Any
 
 import ijson
@@ -40,10 +39,10 @@ class PrideBackend(BaseBackend):
             return project_metadata
 
     @classmethod
-    def get_new_projects(
+    async def get_new_projects(
         cls,
         existing_accessions: set[str],
-    ) -> Generator[dict[str, Any], None, None]:
+    ) -> AsyncGenerator[dict[str, Any], None]:
         file_path = DATA_DIR / "pride_all_projects.json"
         if os.getenv("DEBUG"):
             file_path = cls.SAMPLED_PROJECTS_PATH
@@ -52,15 +51,11 @@ class PrideBackend(BaseBackend):
         if not file_path.exists():
             url = f"{cls.BASE_URL}/projects/all"
 
-            async def download_file():
-                async with AsyncHttpClient() as client:
-                    await client.stream_file(
-                        url,
-                        download_file_name=file_path,
-                    )
-
-            # TODO: make everything async to avoid this
-            asyncio.run(download_file())
+            async with AsyncHttpClient() as client:
+                await client.stream_file(
+                    url,
+                    download_file_name=file_path,
+                )
 
         with open(file_path, encoding="utf-8") as in_f:
             for project in ijson.items(in_f, "item"):
