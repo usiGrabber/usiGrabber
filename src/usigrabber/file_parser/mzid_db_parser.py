@@ -11,12 +11,12 @@ Parses mzIdentML files using pyteomics and populates the database with:
 Uses retrieve_refs=False to avoid handling deduplication in the code.
 """
 
+import logging
 from datetime import datetime
 from pathlib import Path
 from typing import Any
 
 from pyteomics import mzid
-from rich.console import Console
 from sqlmodel import Session
 
 from usigrabber.db.engine import load_db_engine
@@ -29,8 +29,9 @@ from usigrabber.db.schema import (
 	PSMPeptideEvidence,
 	create_db_and_tables,
 )
+from usigrabber.utils import get_unimod_db
 
-console = Console()
+logger = logging.getLogger(__name__)
 
 
 def parse_db_sequences(reader: mzid.MzIdentML) -> dict[str, str]:
@@ -51,7 +52,7 @@ def parse_db_sequences(reader: mzid.MzIdentML) -> dict[str, str]:
 		if seq_id and accession:
 			db_sequence_map[seq_id] = accession
 
-	console.print(f"[dim]Parsed {len(db_sequence_map)} database sequences[/dim]")
+	logger.info(f"Parsed {len(db_sequence_map)} database sequences")
 	return db_sequence_map
 
 
@@ -67,22 +68,29 @@ def extract_unimod_id(mod_data: dict) -> int | None:
 	"""
 	# Check if cvParam exists
 	cv_params = mod_data.get("cvParam")
-	if not cv_params:
+
+	if cv_params:
+		# cvParam can be a list or a single dict
+		if not isinstance(cv_params, list):
+			cv_params = [cv_params]
+
+		# Look for UNIMOD accession
+		for param in cv_params:
+			accession = param.get("accession", "")
+			if "UNIMOD:" in accession and len(accession) > 7:
+				try:
+					# Extract number from "UNIMOD:35" format
+					return int(accession.split(":")[-1])
+				except (ValueError, IndexError):
+					continue
+
+	unimod_db = get_unimod_db()
+	try:
+		mod = unimod_db.get(mod_data.get("name", ""), False)
+		if mod is not None:
+			return mod.id
+	except KeyError:
 		return None
-
-	# cvParam can be a list or a single dict
-	if not isinstance(cv_params, list):
-		cv_params = [cv_params]
-
-	# Look for UNIMOD accession
-	for param in cv_params:
-		accession = param.get("accession", "")
-		if "UNIMOD" in accession:
-			try:
-				# Extract number from "UNIMOD:35" format
-				return int(accession.split(":")[-1])
-			except (ValueError, IndexError):
-				continue
 
 	return None
 
@@ -136,7 +144,7 @@ def parse_peptides(
 			for mod in modifications:
 				peptide_mods[peptide.id].append(mod)
 
-	console.print(f"[dim]Created {peptides_created} peptide records[/dim]")
+	logger.info(f"Created {peptides_created} peptide records")
 	return peptide_id_map, peptide_mods
 
 
@@ -187,7 +195,7 @@ def parse_peptide_evidence(
 		assert peptide_evidence.id is not None, "PeptideEvidence ID should be set after flush"
 		pe_id_map[mzid_pe_id] = peptide_evidence.id
 
-	console.print(f"[dim]Created {pe_created} peptide evidence records[/dim]")
+	logger.info(f"Created {pe_created} peptide evidence records")
 	return pe_id_map
 
 
@@ -230,9 +238,7 @@ def parse_psms(
 			db_peptide_id = peptide_id_map.get(peptide_ref)
 
 			if not db_peptide_id:
-				console.print(
-					f"[yellow]Warning: peptide_ref '{peptide_ref}' not found in map[/yellow]"
-				)
+				logger.warning(f"Warning: peptide_ref '{peptide_ref}' not found in map")
 				continue
 
 			# Extract score values (anything that looks like a score)
@@ -284,9 +290,9 @@ def parse_psms(
 			# Commit periodically to avoid memory issues
 			if psm_count % 100 == 0:
 				session.commit()
-				console.print(f"[dim]  Processed {psm_count} PSMs...[/dim]")
+				logger.info(f"Processed {psm_count} PSMs...")
 
-	console.print(f"[dim]Created {psm_count} PSM records[/dim]")
+	logger.info(f"Created {psm_count} PSM records")
 	return psm_count
 
 
@@ -314,9 +320,7 @@ def link_modifications(
 
 			# Skip modifications without valid UNIMOD ID
 			if unimod_id is None:
-				console.print(
-					f"[yellow]Warning: No UNIMOD ID found for modification: {mod}[/yellow]"
-				)
+				logger.info(f"Warning: No UNIMOD ID found for modification: {mod}")
 				continue
 
 			# Get modification location and residue
@@ -338,7 +342,7 @@ def link_modifications(
 			session.add(peptide_mod)
 			mod_count += 1
 
-	console.print(f"[dim]Created {mod_count} peptide modification records[/dim]")
+	logger.info(f"Created {mod_count} peptide modification records")
 	return mod_count
 
 
@@ -352,10 +356,10 @@ def import_mzid(mzid_path: Path, project_accession: str) -> None:
 	"""
 
 	if not mzid_path.exists():
-		console.print(f"[red]Error: File not found: {mzid_path}[/red]")
+		logger.error(f"Error: File not found: {mzid_path}")
 		return
 
-	console.print(f"\n[bold cyan]🔬 Importing mzID file:[/bold cyan] {mzid_path.name}")
+	logger.info(f"Importing mzID file: {mzid_path.name}")
 
 	engine = load_db_engine()
 	create_db_and_tables(engine)
@@ -375,24 +379,24 @@ def import_mzid(mzid_path: Path, project_accession: str) -> None:
 		session.add(mzid_file)
 		session.flush()
 
-		console.print(f"[green]✓[/green] Created mzID file record (ID: {mzid_file.id})")
+		logger.info(f"Created mzID file record (ID: {mzid_file.id})")
 
 		# Parse mzID file with retrieve_refs=False
 		with mzid.MzIdentML(str(mzid_path), retrieve_refs=False) as reader:
 			# Phase 1: Parse DB sequences
-			console.print("\n[cyan]Phase 1:[/cyan] Parsing database sequences...")
+			logger.info("\nPhase 1: Parsing database sequences...")
 			db_sequence_map = parse_db_sequences(reader)
 
 			# Phase 2: Parse peptides
-			console.print("\n[cyan]Phase 2:[/cyan] Parsing peptides...")
+			logger.info("\nPhase 2: Parsing peptides...")
 			peptide_id_map, peptide_mods = parse_peptides(session, reader)
 
 			# Phase 3: Parse peptide evidence
-			console.print("\n[cyan]Phase 3:[/cyan] Parsing peptide evidence...")
+			logger.info("\nPhase 3: Parsing peptide evidence...")
 			pe_id_map = parse_peptide_evidence(session, reader, db_sequence_map)
 
 			# Phase 4: Parse PSMs
-			console.print("\n[cyan]Phase 4:[/cyan] Parsing spectrum identification results...")
+			logger.info("\nPhase 4: Parsing spectrum identification results...")
 			assert mzid_file.id is not None, "MzidFile ID should be set after flush"
 			psm_count = parse_psms(
 				session,
@@ -404,14 +408,14 @@ def import_mzid(mzid_path: Path, project_accession: str) -> None:
 			)
 
 			# Phase 5: Link modifications
-			console.print("\n[cyan]Phase 5:[/cyan] Linking peptide modifications...")
+			logger.info("\nPhase 5: Linking peptide modifications...")
 			mod_count = link_modifications(session, peptide_mods)
 
 			# Final commit
 			session.commit()
 
-		console.print(
-			f"\n[bold green]✅ Successfully imported:[/bold green]\n"
+		logger.info(
+			f"\n✅ Successfully imported:\n"
 			f"  • {len(peptide_id_map):,} peptides\n"
 			f"  • {mod_count:,} modifications\n"
 			f"  • {len(pe_id_map):,} protein mappings\n"
@@ -422,6 +426,6 @@ def import_mzid(mzid_path: Path, project_accession: str) -> None:
 if __name__ == "__main__":
 	# Example usage
 	SAMPLE_PROJECT = "PXD000001"
-	SAMPLE_FILE = Path("experimental/mzid/OTE0019_York_060813_JH16_F119502.mzid")
 
-	import_mzid(SAMPLE_FILE, SAMPLE_PROJECT)
+	for mzid_file in Path("experimental/mzid/").glob("*.mzid"):
+		import_mzid(mzid_file, SAMPLE_PROJECT)
