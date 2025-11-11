@@ -189,7 +189,7 @@ class MzidFile(SQLModel, table=True):
 
 
 class Peptide(SQLModel, table=True):
-    """Unique peptide sequences across all files."""
+    """Peptide sequences."""
 
     __tablename__ = "peptides"
 
