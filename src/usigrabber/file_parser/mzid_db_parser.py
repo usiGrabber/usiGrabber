@@ -50,10 +50,10 @@ def parse_software_info(reader: mzid.MzIdentML) -> tuple[str | None, str | None]
     Ignores cases with multiple software.
 
     Args:
-            reader: MzIdentML reader instance
+        reader: MzIdentML reader instance
 
     Returns:
-            Tuple of (software_name, software_version), both can be None if not found
+        Tuple of (software_name, software_version), both can be None if not found
     """
     for software in reader.iterfind("AnalysisSoftware"):
         software_name = software.get("name", None)
