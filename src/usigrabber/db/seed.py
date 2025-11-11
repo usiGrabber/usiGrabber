@@ -147,7 +147,6 @@ def seed_minimal_data(engine: Engine) -> None:
             score_values={"MS-GF:SpecEValue": 1.2e-10, "MS-GF:QValue": 0.001},
             rank=1,
             pass_threshold=True,
-            is_decoy=False,
         )
         psm2 = PeptideSpectrumMatch(
             project_accession="PXD000001",
@@ -160,7 +159,6 @@ def seed_minimal_data(engine: Engine) -> None:
             score_values={"MS-GF:SpecEValue": 5.6e-8, "MS-GF:QValue": 0.005},
             rank=1,
             pass_threshold=True,
-            is_decoy=False,
         )
         psm3 = PeptideSpectrumMatch(
             project_accession="PXD000001",
@@ -173,7 +171,6 @@ def seed_minimal_data(engine: Engine) -> None:
             score_values={"MS-GF:SpecEValue": 2.3e-6, "MS-GF:QValue": 0.008},
             rank=1,
             pass_threshold=True,
-            is_decoy=False,
         )
         session.add_all([psm1, psm2, psm3])
         session.flush()
