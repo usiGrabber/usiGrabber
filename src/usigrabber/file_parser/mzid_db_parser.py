@@ -33,7 +33,11 @@ from usigrabber.db.schema import (
 )
 from usigrabber.file_parser.errors import MzidImportError, MzidParseError
 from usigrabber.file_parser.models import ImportStats
-from usigrabber.file_parser.mzid_helpers import extract_score_values, extract_unimod_id
+from usigrabber.file_parser.mzid_helpers import (
+    extract_score_values,
+    extract_unimod_id,
+    parse_modification_location,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -267,7 +271,7 @@ def parse_psms(
             db_peptide_id = peptide_id_map.get(peptide_ref)
 
             if not db_peptide_id:
-                logger.warning(f"Warning: peptide_ref '{peptide_ref}' not found in map")
+                logger.warning(f"Peptide_ref '{peptide_ref}' not found in map")
                 continue
 
             # Extract score values using helper function
@@ -341,16 +345,10 @@ def link_modifications(
 
             # Skip modifications without valid UNIMOD ID
             if unimod_id is None:
-                logger.info(f"Warning: No UNIMOD ID found for modification: {mod}")
+                logger.warning(f"No UNIMOD ID found for modification: {mod}")
                 continue
 
-            # Get modification location and residue
-            location = mod.get("location", 0)
-            residues = mod.get("residues", "")
-
-            # Convert residues to string if it's a list
-            if isinstance(residues, list):
-                residues = "".join(residues)
+            location, residues = parse_modification_location(mod)
 
             # Create modification record
             peptide_mod = PeptideModification(
