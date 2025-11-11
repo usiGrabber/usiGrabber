@@ -414,7 +414,7 @@ def import_mzid(mzid_path: Path, project_accession: str) -> ImportStats:
                 mzid_file = MzidFile(
                     project_accession=project_accession,
                     file_name=mzid_path.name,
-                    file_path=str(mzid_path.absolute()),  ## TODO: Replace with PRIDE file path
+                    file_path=str(mzid_path.absolute()),  # TODO: Replace with PRIDE file path
                     software_name=software_name,
                     software_version=software_version,
                     threshold_type=threshold_type,
