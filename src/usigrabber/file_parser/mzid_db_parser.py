@@ -34,6 +34,70 @@ from usigrabber.utils import get_unimod_db
 logger = logging.getLogger(__name__)
 
 
+def parse_software_info(reader: mzid.MzIdentML) -> tuple[str | None, str | None]:
+	"""
+	Parse analysis software information from AnalysisSoftware elements.
+
+	Extracts the first analysis software name and version.
+	Ignores cases with multiple software.
+
+	Args:
+		reader: MzIdentML reader instance
+
+	Returns:
+		Tuple of (software_name, software_version), both can be None if not found
+	"""
+	for software in reader.iterfind("AnalysisSoftware"):
+		software_name = software.get("name", None)
+		software_version = software.get("version", None)
+		logger.info(f"Parsed software: {software_name} v{software_version}")
+		return software_name, software_version
+
+	return None, None
+
+
+def parse_threshold_info(reader: mzid.MzIdentML) -> tuple[str, float | None]:
+	"""
+	Parse threshold information from SpectrumIdentificationProtocol.
+
+	Args:
+		reader: MzIdentML reader instance
+
+	Returns:
+		Tuple of (threshold_type, threshold_value)
+	"""
+	threshold_type = "unknown"
+	threshold_value = None
+
+	for protocol in reader.iterfind("SpectrumIdentificationProtocol"):
+		threshold = protocol.get("Threshold", {})
+		if threshold and len(threshold) > 0:
+			# Threshold can contain cvParam or userParam with various threshold types
+			# Example: "Mascot:SigThreshold", "pep:FDR threshold", "distinct peptide-level FDRScore"
+			# Get first key-value pair
+			cv_param = threshold.get("cvParam", None)
+			user_param = threshold.get("userParam", None)
+
+			param = cv_param if cv_param else user_param
+			if param is None:
+				continue
+
+			name = param.get("name", "unknown")
+			value = param.get("value", None)
+			threshold_type = name
+			threshold_value_raw = value
+
+			# Convert to float, handling empty strings
+			try:
+				threshold_value = float(threshold_value_raw) if threshold_value_raw != "" else None
+			except (ValueError, TypeError):
+				threshold_value = None
+
+			break
+
+	return threshold_type, threshold_value
+
+
 def parse_db_sequences(reader: mzid.MzIdentML) -> dict[str, str]:
 	"""
 	Parse DBSequence elements to build mapping from sequence IDs to protein accessions.
@@ -365,24 +429,28 @@ def import_mzid(mzid_path: Path, project_accession: str) -> None:
 	create_db_and_tables(engine)
 
 	with Session(engine) as session:
-		# Create MzidFile record for provenance
-		mzid_file = MzidFile(
-			project_accession=project_accession,
-			file_name=mzid_path.name,
-			file_path=str(mzid_path.absolute()),
-			software_name="software_name",
-			software_version="software_version",
-			threshold_type="threshold_type",
-			threshold_value=0.01,
-			creation_date=datetime.now(),
-		)
-		session.add(mzid_file)
-		session.flush()
-
-		logger.info(f"Created mzID file record (ID: {mzid_file.id})")
-
 		# Parse mzID file with retrieve_refs=False
 		with mzid.MzIdentML(str(mzid_path), retrieve_refs=False) as reader:
+			# Parse software and threshold metadata
+			software_name, software_version = parse_software_info(reader)
+			threshold_type, threshold_value = parse_threshold_info(reader)
+
+			# Phase 0: Create mzid record and retrieve metadata
+			mzid_file = MzidFile(
+				project_accession=project_accession,
+				file_name=mzid_path.name,
+				file_path=str(mzid_path.absolute()),  ## TODO: Replace with PRIDE file path
+				software_name=software_name,
+				software_version=software_version,
+				threshold_type=threshold_type,
+				threshold_value=threshold_value,
+				creation_date=datetime.now(),
+			)
+			session.add(mzid_file)
+			session.flush()
+
+			logger.info(f"Created mzID file record (ID: {mzid_file.id})")
+
 			# Phase 1: Parse DB sequences
 			logger.info("\nPhase 1: Parsing database sequences...")
 			db_sequence_map = parse_db_sequences(reader)
