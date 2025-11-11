@@ -166,9 +166,10 @@ async def async_build(
                             # Process mzID file
                             try:
                                 stats = import_mzid(path, project["accession"])
+                                duration_str = f"{stats.duration_seconds:.1f}s" if stats.duration_seconds is not None else "N/A"
                                 logger.info(
                                     f"Imported {stats.psm_count:,} PSMs from {path.name} "
-                                    f"({stats.duration_seconds:.1f}s)"
+                                    f"({duration_str})"
                                 )
                             except MzidParseError as e:
                                 logger.warning(f"Skipping malformed mzID file {path.name}: {e}")
