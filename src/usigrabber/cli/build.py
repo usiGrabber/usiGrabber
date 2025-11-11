@@ -102,7 +102,7 @@ async def async_build(
                 f"Importing projects... {completed}/?",
                 completed=0,
             )
-            for project in backend.get_new_projects(existing_accessions):
+            async for project in backend.get_new_projects(existing_accessions):
                 # TODO: support other submission types
                 if project.get("submissionType") != "COMPLETE":
                     continue
