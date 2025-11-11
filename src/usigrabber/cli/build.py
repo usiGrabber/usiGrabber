@@ -151,6 +151,14 @@ async def async_build(
                         with temporary_path() as tmp_dir:
                             path = await download_ftp(file_url, out_dir=tmp_dir, file_name=filename)
 
+                            if path is None or not path.exists():
+                                logger.error(
+                                    "Failed to download file %s for project %s.",
+                                    filename,
+                                    project["accession"],
+                                )
+                                continue
+
                             # optional: extract if archived
                             if ext in {".gz", ".zip", ".tar"}:
                                 extract_archive(path, extract_to=tmp_dir)

@@ -4,27 +4,47 @@ import os
 import shutil
 import tarfile
 import tempfile
-import urllib.parse
-import urllib.request
 import zipfile
 from collections.abc import Generator
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlparse
 
+import aioftp
 import typer
 
 from usigrabber.utils import DATA_DIR, logger
 
 
-async def download_ftp(url: str, out_dir: Path, file_name: str | None = None) -> Path:
-    parsed = urllib.parse.urlparse(url)
+async def download_ftp(
+    url: str,
+    out_dir: Path,
+    file_name: str | None = None,
+    retries: int = 3,
+    delay: int = 5,
+) -> Path | None:
+    parsed = urlparse(url)
+    if parsed.scheme != "ftp":
+        raise ValueError(f"URL scheme for {url} is not FTP, found {parsed.scheme}")
     filename = file_name or os.path.basename(parsed.path)
     out_path = out_dir / filename
+    out_dir.mkdir(parents=True, exist_ok=True)
 
-    await asyncio.to_thread(urllib.request.urlretrieve, url, filename=str(out_path))
-
-    return out_path
+    for attempt in range(retries):
+        try:
+            async with aioftp.Client.context(
+                parsed.hostname,
+                user=parsed.username or "anonymous",
+                password=parsed.password or "anonymous@",
+            ) as client:
+                await client.download(parsed.path, str(out_path))
+            return out_path
+        except Exception:
+            if attempt < retries - 1:
+                await asyncio.sleep(delay)
+            else:
+                return None
 
 
 def extract_archive(archive_path: Path, extract_to: Path) -> None:
