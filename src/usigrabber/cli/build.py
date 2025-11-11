@@ -12,6 +12,7 @@ from sqlmodel import Session, select
 from usigrabber.backends import BackendEnum
 from usigrabber.cli import app
 from usigrabber.db import Project, create_db_and_tables, load_db_engine
+from usigrabber.file_parser import MzidImportError, MzidParseError, import_mzid
 from usigrabber.utils.file import download_ftp, extract_archive, temporary_path
 
 STANDARD_BACKENDS = [enum for enum in BackendEnum]
@@ -156,12 +157,26 @@ async def async_build(
                                 extract_archive(path, extract_to=tmp_dir)
                                 path = tmp_dir / (file_name + ".mzid")  # assume mzid inside
 
-                            assert path.exists(), f"Expected extracted file {path} does not exist."
+                            if not path.exists():
+                                logger.warning(
+                                    f"Expected extracted file {path} does not exist. Skipping."
+                                )
+                                continue
 
-                            # process file
-                            # TODO: implement interface
-                            # mzid_data = mzid_parser.handle(project, path)
-                            # dump_mzid_to_db(session, project.accession, mzid_data)
+                            # Process mzID file
+                            try:
+                                stats = import_mzid(path, project["accession"])
+                                logger.info(
+                                    f"Imported {stats.psm_count:,} PSMs from {path.name} "
+                                    f"({stats.duration_seconds:.1f}s)"
+                                )
+                            except MzidParseError as e:
+                                logger.warning(f"Skipping malformed mzID file {path.name}: {e}")
+                                continue
+                            except MzidImportError as e:
+                                logger.error(f"Failed to import mzID file {path.name}: {e}")
+                                errors += 1
+                                continue
 
                 elif files["search"]:
                     # TODO: support search files
