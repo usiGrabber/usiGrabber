@@ -11,19 +11,20 @@
 ./scripts/setup_dev/all.sh
 ```
 
-3. _Optional_: Create a .env file in the root directory by copying from .env.sample:
+## Build database
+
+You can build the database using the CLI:
 
 ```bash
-cp .env.sample .env
+uv run usigrabber build
 ```
 
-Then add environment variables to shell using:
+Arguments:
+- `--debug`: Enable debug mode. Defaults to `False`. Can also be set via `DEBUG` environment variable.
+  - This will attempt to use a smaller sample dataset for faster testing. This sample dataset show be located under the directory specified by the `--data-dir` flag or the `UG_DATA_DIR` environment variable (default: `./data`). The file should be named `pride_sampled_projects.json`.
 
-```bash
-export $(cat .env | xargs)
-```
 
-## Database
+## Database management
 
 The project uses SQLite with SQLModel for storing PRIDE proteomics data.
 
@@ -61,6 +62,12 @@ USE_LOCAL_DB=1
 
 # Enable SQL query logging
 DB_ECHO_SQL=1
+
+# Enable debug mode by setting this variable
+DEBUG=1
+
+# Directory for storing intermediate files
+UG_DATA_DIR=./data
 ```
 
 ## Working with mzIdentML Files

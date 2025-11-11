@@ -1,121 +1,25 @@
-import csv
-from pathlib import Path
+import asyncio
+import json
+import os
+from collections.abc import Generator
 from typing import Any
 
+import ijson
 import requests
-from tqdm import tqdm
+from async_http_client import AsyncHttpClient
+from ontology_resolver.ontology_helper import OntologyHelper
+from sqlmodel import Session
 
-from usigrabber.utils import data_directory_path, iter_json, logger
+from usigrabber.backends.base import BaseBackend, FileMetadata, Files
+from usigrabber.cv_parameters.cv_engine import CVInjector, CVParam, CVTuple
+from usigrabber.db import Project, ProjectCountry, ProjectKeyword, ProjectTag, Reference
+from usigrabber.db.schema import ProjectAffiliation, ProjectOtherOmicsLink
+from usigrabber.utils import DATA_DIR, logger, parse_date
 
 
-class PRIDE:
+class PrideBackend(BaseBackend):
     BASE_URL: str = "https://www.ebi.ac.uk/pride/ws/archive/v3"
-    JSON_PATH: Path = data_directory_path() / "files" / "all_files.json"
-    JSON_EXISTS: bool = JSON_PATH.exists()
-    RESULT_CSV_PATH: Path = data_directory_path() / "files" / "result_files.csv"
-    CSV_EXISTS: bool = RESULT_CSV_PATH.exists()
-
-    @classmethod
-    def all_files_to_json(cls) -> None:
-        """
-        Download all files metadata from PRIDE Archive
-        API and save to a JSON file.
-        """
-        if cls.JSON_EXISTS:
-            logger.debug(
-                "All files JSON already exists at %s. Remove to re-run.", cls.JSON_PATH
-            )
-            return
-
-        url = f"{PRIDE.BASE_URL}/files/all"
-        logger.debug(
-            "Downloading all files metadata from '%s' to '%s'", url, cls.JSON_PATH
-        )
-
-        with requests.get(url, stream=True) as r:
-            r.raise_for_status()
-            total_bytes = int(r.headers.get("content-length", 0))
-            with (
-                open(cls.JSON_PATH, "wb") as f,
-                tqdm(
-                    total=total_bytes,
-                    unit="B",
-                    unit_scale=True,
-                    unit_divisor=1024,
-                    desc="Downloading",
-                ) as pbar,
-            ):
-                for chunk in r.iter_content(chunk_size=8192):
-                    if chunk:
-                        f.write(chunk)
-                        pbar.update(len(chunk))
-
-        logger.debug("All files downloaded to %s", cls.JSON_PATH)
-
-    @classmethod
-    def filter_result_files_to_csv(cls) -> None:
-        """
-        Parse PRIDE Archive all files JSON (`PRIDE.all_files`) and create a "
-        "filtered CSV of RESULT files.
-        """
-
-        with open(cls.RESULT_CSV_PATH, "w", newline="", encoding="utf-8") as csvfile:
-            fieldnames = ["accession", "project_accession", "file", "size"]
-            writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
-            writer.writeheader()
-
-            # iterate through JSON items
-            for file_item in iter_json(cls.JSON_PATH):
-                if file_item["fileCategory"]["value"] != "RESULT":
-                    continue
-
-                accession = file_item["accession"]
-                if len(file_item["projectAccessions"]) > 1:
-                    logger.warning(
-                        "Multiple project accessions found for file %s, "
-                        "using the first one.",
-                        file_item["accession"],
-                    )
-
-                # assuming only one accession
-                project_accession = file_item["projectAccessions"][0]
-                filesize = file_item["fileSizeBytes"]
-                file_url = None
-                for file_loc in file_item["publicFileLocations"]:
-                    if file_loc["name"] == "FTP Protocol":
-                        file_url = file_loc["value"]
-                        break
-
-                writer.writerow(
-                    {
-                        "accession": accession,
-                        "project_accession": project_accession,
-                        "file": file_url,
-                        "size": filesize,
-                    }
-                )
-
-        logger.debug("CSV file created at %s", cls.RESULT_CSV_PATH)
-
-    @classmethod
-    def histogram_of_file_categories(cls) -> dict[str, int]:
-        """
-        Generate and print a histogram of file categories from the JSON file.
-        """
-        if not cls.JSON_EXISTS:
-            raise FileNotFoundError(
-                f"JSON file {cls.JSON_PATH} does not exist. "
-                "Run `PRIDE.all_files_to_json()` first."
-            )
-
-        logger.debug("Generating histogram of file categories from %s", cls.JSON_PATH)
-        category_counts = {}
-
-        for file_item in iter_json(cls.JSON_PATH):
-            category = file_item["fileCategory"]["value"]
-            category_counts[category] = category_counts.get(category, 0) + 1
-
-        return category_counts
+    SAMPLED_PROJECTS_PATH = DATA_DIR / "pride_sampled_projects.json"
 
     @classmethod
     def check_availability(cls, accession: str) -> bool:
@@ -125,67 +29,203 @@ class PRIDE:
             return response.text == "PUBLIC"
 
     @classmethod
-    def get_files_for_project(
-        cls,
-        accession: str,
-    ) -> list[dict[str, Any]]:
-        url = f"{cls.BASE_URL}/projects/{accession}/files/all"
-        with requests.get(url) as response:
-            if response.status_code == 200:
-                files_info = response.json()
-                return files_info
-            else:
-                logger.error(
-                    "Could not retrieve files for accession %s: %s %s",
-                    accession,
-                    response.status_code,
-                    response.reason,
-                )
-                return []
+    def get_sample_projects(cls) -> list[dict[str, Any]]:
+        # read from DATA_DIR/files/sampled_projects.json
+        if not cls.SAMPLED_PROJECTS_PATH.exists():
+            raise FileNotFoundError(
+                f"Sampled projects file not found at {cls.SAMPLED_PROJECTS_PATH}"
+            )
+        with open(cls.SAMPLED_PROJECTS_PATH, encoding="utf-8") as f:
+            project_metadata = json.load(f)
+            return project_metadata
 
     @classmethod
-    def get_files_of_category(
-        cls, accession: str, category: str = "SEARCH"
-    ) -> list[str]:
-        url = f"{cls.BASE_URL}/projects/{accession}/files"
+    def get_new_projects(
+        cls,
+        existing_accessions: set[str],
+    ) -> Generator[dict[str, Any], None, None]:
+        file_path = DATA_DIR / "pride_all_projects.json"
+        if os.getenv("DEBUG"):
+            file_path = cls.SAMPLED_PROJECTS_PATH
+
+        # if file doesnt exist, download it
+        if not file_path.exists():
+            url = f"{cls.BASE_URL}/projects/all"
+
+            async def download_file():
+                async with AsyncHttpClient() as client:
+                    await client.stream_file(
+                        url,
+                        download_file_name=file_path,
+                    )
+
+            # TODO: make everything async to avoid this
+            asyncio.run(download_file())
+
+        with open(file_path, encoding="utf-8") as in_f:
+            for project in ijson.items(in_f, "item"):
+                if project["accession"] not in existing_accessions:
+                    yield project
+
+    @classmethod
+    def get_files_for_project(
+        cls,
+        project_accession: str,
+    ) -> Files:
+        url = f"{cls.BASE_URL}/projects/{project_accession}/files/all"
         with requests.get(url) as response:
             if response.status_code == 200:
                 files_info = response.json()
-                files = []
+                search_files: list[FileMetadata] = []
+                result_files: list[FileMetadata] = []
                 for file_info in files_info:
-                    if file_info["fileCategory"]["value"] == category:
-                        for download_link in file_info["publicFileLocations"]:
-                            if download_link["name"] == "FTP Protocol":
-                                files.append(download_link["value"])
-                                break
+                    category = file_info["fileCategory"]["value"]
+                    ftp_link = None
+                    for loc in file_info.get("publicFileLocations", []):
+                        if loc.get("name") == "FTP Protocol":
+                            ftp_link = loc.get("value")
+                            break
+                    if not ftp_link:
+                        logger.warning(
+                            "No FTP link found for file %s in project %s. Skipping.",
+                            file_info.get("fileName"),
+                            project_accession,
+                        )
+                        continue
 
-                return files
+                    file = FileMetadata(
+                        {
+                            "filepath": ftp_link,
+                            "category": category,
+                            "file_size": file_info.get("fileSizeBytes"),
+                        }
+                    )
+
+                    if category == "SEARCH":
+                        search_files.append(file)
+                    elif category == "RESULT":
+                        result_files.append(file)
+
+                return Files(search=search_files, result=result_files)
             else:
                 logger.error(
                     "Could not retrieve files for accession %s: %s %s",
-                    accession,
+                    project_accession,
                     response.status_code,
                     response.reason,
                 )
-                return []
+                return Files(search=[], result=[])
 
+    @classmethod
+    async def _parse_and_add_cv_params(
+        cls, project_accession: str, session: Session, project_data: dict
+    ) -> None:
+        ontology_helper = OntologyHelper()
 
-if __name__ == "__main__":
-    # PRIDE.all_files_to_json()
-    # PRIDE.filter_result_files_to_csv()
+        cv_data_keys = [
+            "instruments",
+            "softwares",
+            "experimentTypes",
+            "quantificationMethods",
+            "organisms",
+            "organismParts",
+            "diseases",
+            "identifiedPTMStrings",
+        ]
 
-    # hist = histogram_of_file_categories(json_path)
-    # for category, count in hist.items():
-    #     print(f"{category}: {count}")
+        async with CVInjector(project_accession, session) as injector:
+            for json_key in cv_data_keys:
+                for cv_data in project_data.get(json_key, []):
+                    cv_term: str | None = None
+                    cv_term_value = None
+                    supperclass_cv_terms: list[str] = []
 
-    SAMPLE_ACCESSION = "PXD001357"
-    # root_path = project_root / "data" / "project_archive"
-    # project_path = root_path / SAMPLE_ACCESSION
-    # if not project_path.exists():
-    #     result_files = get_files_of_category(
-    #       SAMPLE_ACCESSION,
-    #       category="RESULT"
-    #     )
-    #     download_ftp(result_files[0], out_dir=project_path)
+                    if cv_data.get("@type") == "Tuple":
+                        if "key" not in cv_data and not isinstance(cv_data["key"], dict):
+                            logger.warning(f"Pride CV Tuple (key) is malformed: {cv_data}")
+                            continue
+                        if "value" not in cv_data and isinstance(cv_data["value"], dict):
+                            logger.warning(f"Pride CV Tuple (value) is malformed: {cv_data}")
+                            continue
+                        key = CVParam(
+                            term=cv_data["key"]["accession"], value=cv_data["key"].get("value")
+                        )
+                        value = CVParam(
+                            term=cv_data["value"]["accession"], value=cv_data["value"].get("value")
+                        )
 
-    # extract archive
+                        await injector.add(CVTuple(key, value))
+
+                    elif cv_data.get("@type") == "CvParam":
+                        cv_term = cv_data.get("accession")
+                        assert isinstance(cv_term, str)
+                        try:
+                            superclasses = await ontology_helper.get_superclasses(cv_term)
+                            supperclass_cv_terms = [x.id for x in superclasses[1:]]
+                            cv_term_value = cv_data.get("value", None)
+                        except Exception as e:
+                            logger.error(f"Failed to resolve super classes for term {cv_term}:", e)
+
+                    if cv_term is not None:
+                        await injector.add(CVParam(term=cv_term, value=cv_term_value))
+                        for x in supperclass_cv_terms:
+                            await injector.add(CVParam(term=x))
+
+    @classmethod
+    async def dump_project_to_db(cls, session: Session, project_data: dict[str, Any]) -> None:
+        # 1. Create Project
+        project = Project(
+            accession=project_data["accession"],
+            title=project_data["title"],
+            projectDescription=project_data.get("projectDescription"),
+            sampleProcessingProtocol=project_data.get("sampleProcessingProtocol"),
+            dataProcessingProtocol=project_data.get("dataProcessingProtocol"),
+            doi=project_data.get("doi"),
+            submissionType=project_data["submissionType"],
+            license=project_data.get("license"),
+            submissionDate=parse_date(project_data.get("submissionDate")),
+            publicationDate=parse_date(project_data.get("publicationDate")),
+            totalFileDownloads=project_data.get("totalFileDownloads", 0),
+            sampleAttributes=project_data.get("sampleAttributes"),
+            additionalAttributes=project_data.get("additionalAttributes"),
+        )
+        session.add(project)
+
+        # 2. References
+        for ref_data in project_data.get("references", []):
+            reference = Reference(
+                project_accession=project.accession,
+                referenceLine=ref_data.get("referenceLine"),
+                pubmedID=ref_data.get("pubmedID"),
+                doi=ref_data.get("doi"),
+            )
+            session.add(reference)
+
+        # 3. Keywords
+        for keyword in project_data.get("keywords", []):
+            if keyword:  # Skip empty strings
+                session.add(ProjectKeyword(project_accession=project.accession, keyword=keyword))
+
+        # 4. Tags
+        for tag in project_data.get("projectTags", []):
+            if tag:
+                session.add(ProjectTag(project_accession=project.accession, tag=tag))
+
+        # 5. Countries
+        for country in project_data.get("countries", []):
+            if country:
+                session.add(ProjectCountry(project_accession=project.accession, country=country))
+
+        # 6. Affiliations
+        for affiliation in project_data.get("affiliations", []):
+            if affiliation:
+                session.add(
+                    ProjectAffiliation(project_accession=project.accession, affiliation=affiliation)
+                )
+
+        # 7. Other Omics Links
+        for link in project_data.get("otherOmicsLinks", []):
+            if link:
+                session.add(ProjectOtherOmicsLink(project_accession=project.accession, link=link))
+
+        await cls._parse_and_add_cv_params(project.accession, session, project_data)

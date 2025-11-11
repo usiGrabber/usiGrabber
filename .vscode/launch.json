@@ -1,0 +1,20 @@
+{
+    "configurations": [
+        {
+            "name": "Build database",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/src/usigrabber/__init__.py",
+            "args": [
+                "build",
+                "--debug", // technically optional due to envvar, but explicit is better
+            ],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "env": {
+                "DEBUG": "1"
+            }
+        }
+    ]
+}
