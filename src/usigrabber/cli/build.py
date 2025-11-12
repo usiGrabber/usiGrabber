@@ -149,7 +149,9 @@ async def async_build(
                         file_name, ext = os.path.splitext(filename)
 
                         with temporary_path() as tmp_dir:
-                            path = await download_ftp(file_url, out_dir=tmp_dir, file_name=filename)
+                            path = await download_ftp(
+                                url=file_url, out_dir=tmp_dir, file_name=filename
+                            )
 
                             if path is None or not path.exists():
                                 logger.error(
@@ -159,17 +161,27 @@ async def async_build(
                                 )
                                 continue
 
-                            # optional: extract if archived
-                            if ext in {".gz", ".zip", ".tar"}:
-                                extract_archive(path, extract_to=tmp_dir)
-                                path = tmp_dir / (file_name + ".mzid")  # assume mzid inside
+                            extracted_files = extract_archive(archive_path=path, extract_to=tmp_dir)
 
-                            assert path.exists(), f"Expected extracted file {path} does not exist."
+                            filetypes = set()
+                            for f in extracted_files:
+                                str_f = str(f)
+                                ext = os.path.splitext(str_f)[1]
+                                filetypes.add(ext)
 
-                            # process file
-                            # TODO: implement interface
-                            # mzid_data = mzid_parser.handle(project, path)
-                            # dump_mzid_to_db(session, project.accession, mzid_data)
+                            # access files based on priority
+                            if ".mzid" in filetypes:
+                                # process file
+                                # TODO: implement interface
+                                # mzid_data = mzid_parser.handle(project, path)
+                                # dump_mzid_to_db(session, project.accession, mzid_data)
+                                pass
+                            # elif '.mztab' in filetypes:
+                            #     # parse mztab files
+                            else:
+                                print("No known file types found.")
+                                # make sure project is not flagged as complete
+                                return
 
                 elif files["search"]:
                     # TODO: support search files

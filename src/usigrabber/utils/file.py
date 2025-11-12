@@ -5,7 +5,7 @@ import shutil
 import tarfile
 import tempfile
 import zipfile
-from collections.abc import Generator
+from collections.abc import Generator, Set
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
@@ -47,25 +47,25 @@ async def download_ftp(
                 return None
 
 
-def extract_archive(archive_path: Path, extract_to: Path) -> None:
+def extract_archive(archive_path: Path, extract_to: Path) -> Set[str]:
     # extracts all files/folders from archive directly to extract_to
     archive_str = str(archive_path)
     members = []
 
     if not archive_str.endswith((".zip", ".tar", ".tar.gz", ".tgz", ".gz")):
         logger.debug("No extraction needed for path: %s", archive_path)
-        return
+        return set([archive_str])
     else:
         os.makedirs(extract_to, exist_ok=True)
 
     if archive_str.endswith(".zip"):
         with zipfile.ZipFile(archive_path, "r") as zip_ref:
-            zip_ref.extractall(extract_to)
+            zip_ref.extractall(path=extract_to)
         members = zip_ref.namelist()
     elif archive_str.endswith((".tar", ".tar.gz", ".tgz")):
         with tarfile.open(archive_path, "r:*") as tar_ref:
             members = tar_ref.getnames()
-            tar_ref.extractall(extract_to)
+            tar_ref.extractall(path=extract_to)
     elif archive_str.endswith(".gz"):
         output_file = os.path.join(extract_to, os.path.basename(str(archive_path)[:-3]))
         with gzip.open(archive_path, "rb") as f_in, open(output_file, "wb") as f_out:
@@ -73,12 +73,19 @@ def extract_archive(archive_path: Path, extract_to: Path) -> None:
         members = [os.path.basename(output_file)]
     else:
         logger.debug("Unsupported archive format for path: %s", archive_path)
-        return
+        return set()
 
+    all_members = set[str]()
     for member in members:
-        extract_archive(extract_to / Path(member), extract_to / os.path.splitext(member)[0])
+        all_members = all_members.union(
+            set(
+                extract_archive(extract_to / Path(member), extract_to / os.path.splitext(member)[0])
+            )
+        )
 
     logger.debug("Extracted %s to %s", archive_path, extract_to)
+
+    return all_members
 
 
 @contextmanager
@@ -95,7 +102,7 @@ def main(
 ) -> None:
     out_path = asyncio.run(download_ftp(url, out_dir, file_name=filename))
 
-    if extract:
+    if extract and out_path:
         extract_archive(out_path, out_dir)
 
 
