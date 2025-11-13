@@ -67,7 +67,7 @@ def parse_software_info(reader: mzid.MzIdentML) -> tuple[str | None, str | None]
     return None, None
 
 
-def parse_threshold_info(reader: mzid.MzIdentML) -> tuple[str, float | None]:
+def parse_threshold_info(reader: mzid.MzIdentML) -> tuple[str | None, float | None]:
     """
     Parse threshold information from SpectrumIdentificationProtocol.
 
@@ -77,7 +77,7 @@ def parse_threshold_info(reader: mzid.MzIdentML) -> tuple[str, float | None]:
     Returns:
             Tuple of (threshold_type, threshold_value)
     """
-    threshold_type = "unknown"
+    threshold_type = None
     threshold_value = None
 
     for protocol in reader.iterfind("SpectrumIdentificationProtocol"):
@@ -93,7 +93,7 @@ def parse_threshold_info(reader: mzid.MzIdentML) -> tuple[str, float | None]:
             if param is None:
                 continue
 
-            name = param.get("name", "unknown")
+            name = param.get("name", None)
             value = param.get("value", None)
             threshold_type = name
             threshold_value_raw = value
@@ -217,11 +217,11 @@ def parse_peptide_evidence(
         # Create peptide evidence record
         peptide_evidence = PeptideEvidence(
             protein_accession=protein_accession,
-            is_decoy=pe_elem.get("isDecoy", False),
-            start_position=pe_elem.get("start"),
-            end_position=pe_elem.get("end"),
-            pre_residue=pe_elem.get("pre"),
-            post_residue=pe_elem.get("post"),
+            is_decoy=pe_elem.get("isDecoy", None),
+            start_position=pe_elem.get("start", None),
+            end_position=pe_elem.get("end", None),
+            pre_residue=pe_elem.get("pre", None),
+            post_residue=pe_elem.get("post", None),
         )
 
         session.add(peptide_evidence)
@@ -286,12 +286,12 @@ def parse_psms(
                 mzid_file_id=mzid_file_id,
                 peptide_id=db_peptide_id,
                 spectrum_id=spectrum_id,
-                charge_state=sii.get("chargeState", 0),
-                experimental_mz=sii.get("experimentalMassToCharge", 0.0),
-                calculated_mz=sii.get("calculatedMassToCharge", 0.0),
+                charge_state=sii.get("chargeState", None),
+                experimental_mz=sii.get("experimentalMassToCharge", None),
+                calculated_mz=sii.get("calculatedMassToCharge", None),
                 score_values=score_values if score_values else None,
-                rank=sii.get("rank", 1),
-                pass_threshold=sii.get("passThreshold", False),
+                rank=sii.get("rank", None),
+                pass_threshold=sii.get("passThreshold", None),
             )
 
             session.add(psm)

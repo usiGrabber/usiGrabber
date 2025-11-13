@@ -77,7 +77,7 @@ def extract_score_values(sii: dict) -> dict[str, Any]:
     return score_values if score_values else {}
 
 
-def parse_modification_location(mod: dict) -> tuple[int, str]:
+def parse_modification_location(mod: dict) -> tuple[int | None, str | None]:
     """
     Extract modification location and residue information.
 
@@ -87,14 +87,14 @@ def parse_modification_location(mod: dict) -> tuple[int, str]:
     Returns:
             Tuple of (location, residues_string)
     """
-    location = mod.get("location", 0)
-    residues = mod.get("residues", "")
+    location = mod.get("location")
+    residues = mod.get("residues")
 
     # Convert residues to string if it's a list
     if isinstance(residues, list):
         residues = "".join(residues)
 
-    return location, residues or ""
+    return location, residues
 
 
 def normalize_residues(residues: Any) -> str:

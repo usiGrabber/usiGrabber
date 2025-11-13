@@ -232,16 +232,16 @@ class PeptideSpectrumMatch(SQLModel, table=True):
     )
     peptide_id: int = Field(foreign_key="peptides.id", index=True)
     spectrum_id: str = Field(index=True, description="Spectrum identifier/index")
-    charge_state: int
-    experimental_mz: float = Field(description="Experimental m/z value")
-    calculated_mz: float = Field(description="Calculated m/z value")
+    charge_state: int | None
+    experimental_mz: float | None = Field(description="Experimental m/z value")
+    calculated_mz: float | None = Field(description="Calculated m/z value")
     score_values: dict | None = Field(
         default=None,
         sa_column=Column(JSON),
         description="MS-GF+ score, FDR, e-value, etc. as JSON",
     )
     rank: int | None = Field(default=None, description="Rank of this PSM for the spectrum")
-    pass_threshold: bool = Field(
+    pass_threshold: bool | None = Field(
         description=(
             "Whether PSM passes quality threshold. Based on file-level threshold "
             "(see mzid_file.threshold_type and threshold_value) or per-spectrum "
@@ -264,7 +264,7 @@ class PeptideEvidence(SQLModel, table=True):
 
     id: int | None = Field(default=None, primary_key=True)
     protein_accession: str | None = Field(default=None, description="Protein accession.")
-    is_decoy: bool = Field(default=False, description="Whether the protein is a decoy")
+    is_decoy: bool | None = Field(default=None, description="Whether the protein is a decoy")
     start_position: int | None = Field(
         default=None, description="Start position in protein sequence"
     )
