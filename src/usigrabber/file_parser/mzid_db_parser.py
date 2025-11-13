@@ -133,26 +133,25 @@ def parse_db_sequences(reader: mzid.MzIdentML) -> dict[str, str]:
 
 
 def parse_peptides(
-    session: Session,
     reader: mzid.MzIdentML,
-) -> tuple[dict[str, uuid.UUID], dict[uuid.UUID, list[dict[str, Any]]]]:
+) -> tuple[dict[str, uuid.UUID], dict[uuid.UUID, list[dict[str, Any]]], list(Peptide)]:
     """
-    Parse Peptide elements and store in database.
+    Parse Peptide elements.
     Creates a new Peptide record for each mzID Peptide element.
 
     Args:
-            session: SQLModel session
             reader: MzIdentML reader instance
 
     Returns:
             Tuple of:
             - peptide_id_map: Maps mzID peptide IDs to database Peptide.id
             - peptide_mods: Maps database Peptide.id to list of modification data
+            - List of Peptide records created
     """
 
     peptide_id_map: dict[str, uuid.UUID] = {}
     peptide_mods: dict[uuid.UUID, list[dict[str, Any]]] = {}
-    peptides_created = 0
+    peptides_batch = []
 
     for peptide_elem in reader.iterfind("Peptide"):
         mzid_peptide_id = peptide_elem.get("id", "")
@@ -162,8 +161,7 @@ def parse_peptides(
             continue
 
         peptide = Peptide(sequence=sequence, length=len(sequence))
-        session.add(peptide)
-        peptides_created += 1
+        peptides_batch.append(peptide)
 
         peptide_id_map[mzid_peptide_id] = peptide.id
 
@@ -179,29 +177,30 @@ def parse_peptides(
             for mod in modifications:
                 peptide_mods[peptide.id].append(mod)
 
-    logger.debug(f"Created {peptides_created} peptide records")
-    return peptide_id_map, peptide_mods
+    logger.debug(f"Created {len(peptides_batch)} peptide records")
+    return peptide_id_map, peptide_mods, peptides_batch
 
 
 def parse_peptide_evidence(
-    session: Session,
     reader: mzid.MzIdentML,
     db_sequence_map: dict[str, str],
-) -> dict[str, uuid.UUID]:
+) -> tuple[dict[str, uuid.UUID], list[PeptideEvidence]]:
     """
-    Parse PeptideEvidence elements and store in database.
+    Parse PeptideEvidence elements.
 
     Args:
-            session: SQLModel session
             reader: MzIdentML reader instance
             db_sequence_map: Mapping from DBSequence IDs to protein accessions
 
     Returns:
-            Dictionary mapping mzID peptide evidence IDs to database PeptideEvidence.id
+            Tuple of:
+            - pe_id_map: Maps mzID peptide evidence IDs to database PeptideEvidence.id
+            - List of PeptideEvidence records created
     """
 
     pe_id_map: dict[str, uuid.UUID] = {}
-    pe_created = 0
+
+    peptide_evidence_batch = []
 
     for pe_elem in reader.iterfind("PeptideEvidence"):
         mzid_pe_id = pe_elem.get("id", "")
@@ -223,13 +222,12 @@ def parse_peptide_evidence(
             post_residue=pe_elem.get("post", None),
         )
 
-        session.add(peptide_evidence)
-        pe_created += 1
+        peptide_evidence_batch.append(peptide_evidence)
 
         pe_id_map[mzid_pe_id] = peptide_evidence.id
 
-    logger.debug(f"Created {pe_created} peptide evidence records")
-    return pe_id_map
+    logger.debug(f"Created {len(peptide_evidence_batch)} peptide evidence records")
+    return pe_id_map, peptide_evidence_batch
 
 
 def parse_psms(
@@ -426,11 +424,13 @@ def import_mzid(mzid_path: Path, project_accession: str) -> ImportStats:
 
                 # Phase 2: Parse peptides
                 logger.debug("\nPhase 2: Parsing peptides...")
-                peptide_id_map, peptide_mods = parse_peptides(session, reader)
+                peptide_id_map, peptide_mods, peptides_batch = parse_peptides(reader)
+                session.add_all(peptides_batch)
 
                 # Phase 3: Parse peptide evidence
                 logger.debug("\nPhase 3: Parsing peptide evidence...")
-                pe_id_map = parse_peptide_evidence(session, reader, db_sequence_map)
+                pe_id_map, peptide_evidence_batch = parse_peptide_evidence(reader, db_sequence_map)
+                session.add_all(peptide_evidence_batch)
 
                 # Phase 4: Parse PSMs
                 logger.debug("\nPhase 4: Parsing spectrum identification results...")
