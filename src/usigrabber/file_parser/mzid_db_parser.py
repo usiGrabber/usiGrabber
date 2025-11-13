@@ -42,6 +42,9 @@ from usigrabber.file_parser.mzid_helpers import (
 logger = logging.getLogger(__name__)
 
 
+COMMIT_FREQUENCY_FOR_PSMS = 1000  # Commit every N PSMs to avoid memory issues
+
+
 def parse_software_info(reader: mzid.MzIdentML) -> tuple[str | None, str | None]:
     """
     Parse analysis software information from AnalysisSoftware elements.
@@ -58,7 +61,7 @@ def parse_software_info(reader: mzid.MzIdentML) -> tuple[str | None, str | None]
     for software in reader.iterfind("AnalysisSoftware"):
         software_name = software.get("name", None)
         software_version = software.get("version", None)
-        logger.info(f"Parsed software: {software_name} v{software_version}")
+        logger.debug(f"Parsed software: {software_name} v{software_version}")
         return software_name, software_version
 
     return None, None
@@ -124,7 +127,7 @@ def parse_db_sequences(reader: mzid.MzIdentML) -> dict[str, str]:
         if seq_id and accession:
             db_sequence_map[seq_id] = accession
 
-    logger.info(f"Parsed {len(db_sequence_map)} database sequences")
+    logger.debug(f"Parsed {len(db_sequence_map)} database sequences")
     return db_sequence_map
 
 
@@ -177,7 +180,7 @@ def parse_peptides(
             for mod in modifications:
                 peptide_mods[peptide.id].append(mod)
 
-    logger.info(f"Created {peptides_created} peptide records")
+    logger.debug(f"Created {peptides_created} peptide records")
     return peptide_id_map, peptide_mods
 
 
@@ -228,7 +231,7 @@ def parse_peptide_evidence(
         assert peptide_evidence.id is not None, "PeptideEvidence ID should be set after flush"
         pe_id_map[mzid_pe_id] = peptide_evidence.id
 
-    logger.info(f"Created {pe_created} peptide evidence records")
+    logger.debug(f"Created {pe_created} peptide evidence records")
     return pe_id_map
 
 
@@ -313,11 +316,11 @@ def parse_psms(
                     session.add(junction)
 
             # Commit periodically to avoid memory issues
-            if psm_count % 100 == 0:
+            if psm_count % COMMIT_FREQUENCY_FOR_PSMS == 0:
                 session.commit()
                 logger.info(f"Processed {psm_count} PSMs...")
 
-    logger.info(f"Created {psm_count} PSM records")
+    logger.debug(f"Created {psm_count} PSM records")
     return psm_count
 
 
@@ -361,7 +364,7 @@ def link_modifications(
             session.add(peptide_mod)
             mod_count += 1
 
-    logger.info(f"Created {mod_count} peptide modification records")
+    logger.debug(f"Created {mod_count} peptide modification records")
     return mod_count
 
 
@@ -422,22 +425,22 @@ def import_mzid(mzid_path: Path, project_accession: str) -> ImportStats:
                 session.add(mzid_file)
                 session.flush()
 
-                logger.info(f"Created mzID file record (ID: {mzid_file.id})")
+                logger.debug(f"Created mzID file record (ID: {mzid_file.id})")
 
                 # Phase 1: Parse DB sequences
-                logger.info("\nPhase 1: Parsing database sequences...")
+                logger.debug("\nPhase 1: Parsing database sequences...")
                 db_sequence_map = parse_db_sequences(reader)
 
                 # Phase 2: Parse peptides
-                logger.info("\nPhase 2: Parsing peptides...")
+                logger.debug("\nPhase 2: Parsing peptides...")
                 peptide_id_map, peptide_mods = parse_peptides(session, reader)
 
                 # Phase 3: Parse peptide evidence
-                logger.info("\nPhase 3: Parsing peptide evidence...")
+                logger.debug("\nPhase 3: Parsing peptide evidence...")
                 pe_id_map = parse_peptide_evidence(session, reader, db_sequence_map)
 
                 # Phase 4: Parse PSMs
-                logger.info("\nPhase 4: Parsing spectrum identification results...")
+                logger.debug("\nPhase 4: Parsing spectrum identification results...")
                 assert mzid_file.id is not None, "MzidFile ID should be set after flush"
                 psm_count = parse_psms(
                     session,
@@ -449,7 +452,7 @@ def import_mzid(mzid_path: Path, project_accession: str) -> ImportStats:
                 )
 
                 # Phase 5: Link modifications
-                logger.info("\nPhase 5: Linking peptide modifications...")
+                logger.debug("\nPhase 5: Linking peptide modifications...")
                 mod_count = link_modifications(session, peptide_mods)
 
                 # Final commit
