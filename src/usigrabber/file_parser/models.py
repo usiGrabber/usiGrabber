@@ -19,9 +19,14 @@ class ImportStats:
     peptide_evidence_count: int = 0
     psm_count: int = 0
     start_time: datetime = field(default_factory=datetime.now)
+    parsing_complete_time: datetime | None = None
     end_time: datetime | None = None
     success: bool = False
     error_message: str | None = None
+
+    def mark_parsing_complete(self) -> None:
+        """Mark parsing as successfully completed."""
+        self.parsing_complete_time = datetime.now()
 
     def mark_complete(self) -> None:
         """Mark import as successfully completed."""
@@ -41,16 +46,27 @@ class ImportStats:
             return (self.end_time - self.start_time).total_seconds()
         return None
 
+    @property
+    def parsing_duration_seconds(self) -> float | None:
+        """Calculate parsing duration in seconds."""
+        if self.parsing_complete_time:
+            return (self.parsing_complete_time - self.start_time).total_seconds()
+        return None
+
     def summary(self) -> str:
         """Generate human-readable summary."""
         if not self.success:
             return f"Import failed: {self.error_message}"
 
-        duration = f" ({self.duration_seconds:.1f}s)" if self.duration_seconds else ""
+        duration = f"{self.duration_seconds:.1f}s" if self.duration_seconds else ""
+        parsing_duration = (
+            f"{self.parsing_duration_seconds:.1f}s" if self.parsing_duration_seconds else ""
+        )
         return (
-            f"Successfully imported{duration}:\n"
+            f"Successfully imported ({duration}):\n"
             f"  - {self.peptide_count:,} peptides\n"
             f"  - {self.modification_count:,} modifications\n"
             f"  - {self.peptide_evidence_count:,} protein mappings\n"
-            f"  - {self.psm_count:,} PSMs"
+            f"  - {self.psm_count:,} PSMs\n"
+            f"Parsing took {parsing_duration}/{duration}."
         )

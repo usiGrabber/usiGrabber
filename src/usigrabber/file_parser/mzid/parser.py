@@ -94,13 +94,6 @@ def parse_mzid_file(mzid_path: Path, project_accession: str) -> ParsedMzidData:
                 psm_peptide_evidence_junctions=junction_batch,
             )
 
-            logger.debug(
-                f"Parsing complete: {len(peptides_batch)} peptides, "
-                f"{len(mod_batch)} modifications, "
-                f"{len(peptide_evidence_batch)} evidence, "
-                f"{len(psm_batch)} PSMs"
-            )
-
             return parsed_data
 
     except PyteomicsError as e:
@@ -139,6 +132,8 @@ def import_mzid(mzid_path: Path, project_accession: str) -> ImportStats:
     try:
         # Step 1: Parse the mzID file (pure parsing, no DB operations)
         parsed_data = parse_mzid_file(mzid_path, project_accession)
+
+        stats.mark_parsing_complete()
 
         # Step 2: Persist everything to the database
         engine = load_db_engine()
