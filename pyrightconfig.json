@@ -1,6 +1,9 @@
 {
 	// Start from Pyright's recommended rules
 	"typeCheckingMode": "standard",
+	// Virtual environment configuration
+	"venvPath": ".",
+	"venv": ".venv",
 	// Then override specific settings. I don't think this overwrite really works..
 	"failOnWarnings": false,
 	"reportMissingTypeStubs": "none",
