@@ -21,6 +21,7 @@ dependencies = [
     "rich>=13.9.4",
     "pronto>=2.7.1",
     "ontology-resolver",
+    "psycopg>=3.2.12",
 ]
 
 [project.scripts]
@@ -45,5 +46,6 @@ ontology-resolver = { workspace = true }
 [dependency-groups]
 dev = [
     "basedpyright>=1.31.7",
+    "pytest>=9.0.0",
     "ruff>=0.14.1",
 ]

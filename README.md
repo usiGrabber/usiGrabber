@@ -26,19 +26,36 @@ Arguments:
 
 ## Database management
 
-The project uses SQLite with SQLModel for storing PRIDE proteomics data.
+The project requires a connection to an SQLite or PostgreSQL database for storing PRIDE proteomics data.
+
+### Local docker container (PostgreSQL)
+We provide a simple [docker compose file](./compose.yaml) for running a PostgreSQL database in a container. By default, it stores the data in a local volume named `usigrabber_pgdata`. The container requires the following environment variables to be set or overriden in the compose file:
+- `POSTGRES_USER`
+- `POSTGRES_PASSWORD`.
+
+See [Configuration](#configuration) for more details. In order to start the container, run:
+```bash
+docker compose up -d
+```
+in the root of this project. It will expose the database on port `5432`.
+
+You can directly interact with the database using
+```bash
+docker exec -it usigrabber_db psql -d usigrabber -U <ENTER USERNAME HERE>
+```
+or via the usigraber database CLI commands (see below).
 
 ### Quick Start
 
 ```bash
 # Initialize database (create all tables)
-uv run python -m usigrabber.db.cli init
+uv run usigrabber db init
 
 # Seed with sample data
-uv run python -m usigrabber.db.cli seed
+uv run usigrabber db seed
 
 # View database info
-uv run python -m usigrabber.db.cli info
+uv run usigrabber db info
 ```
 
 ### Other Commands
@@ -46,10 +63,10 @@ uv run python -m usigrabber.db.cli info
 ```bash
 
 # Reset database (drop + recreate + seed)
-uv run python -m usigrabber.db.cli reset --force
+uv run usigrabber db reset --force
 
 # Drop all tables (WARNING: deletes all data)
-uv run python -m usigrabber.db.cli drop --force
+uv run usigrabber db drop --force
 ```
 
 ### Configuration
@@ -57,8 +74,15 @@ uv run python -m usigrabber.db.cli drop --force
 Database settings can be configured via `.env` file:
 
 ```bash
-# Use local database (default: database.db)
-USE_LOCAL_DB=1
+# Database connection URL
+DB_URL=sqlite:///./database.db
+# alternatively, for Postgres:
+# DB_URL=postgresql:///localhost:5432/usigrabber
+
+# If a postgres URL is used, the following environment variables are required:
+# ATTENTION: be sure to use the same credentials when running your database!
+POSTGRES_USER=your_username
+POSTGRES_PASSWORD=your_password
 
 # Enable SQL query logging
 DB_ECHO_SQL=1
