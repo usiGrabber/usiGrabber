@@ -29,11 +29,11 @@ Arguments:
 The project requires a connection to an SQLite or PostgreSQL database for storing PRIDE proteomics data.
 
 ### Local docker container (PostgreSQL)
-We provide a simple [docker compose file](./compose.yaml) for running a PostgreSQL database in a container. By default, it stores the data in a local volume named `usigrabber_pgdata`. The container requires the following environment variables to be set or overriden in the compose file:
+We provide a simple [docker compose file](./compose.yaml) for running a PostgreSQL database in a container. By default, it stores the data in a local volume named `usigrabber_pgdata`. The container requires the following environment variables to be set in your `.env` or overriden in the compose file:
 - `POSTGRES_USER`
 - `POSTGRES_PASSWORD`.
 
-See [Configuration](#configuration) for more details. In order to start the container, run:
+See [Configuration](#configuration) and [`.env.sample`](./.env.sample) for more details. In order to start the container, run:
 ```bash
 docker compose up -d
 ```
@@ -71,28 +71,8 @@ uv run usigrabber db drop --force
 
 ### Configuration
 
-Database settings can be configured via `.env` file:
-
-```bash
-# Database connection URL
-DB_URL=sqlite:///./database.db
-# alternatively, for Postgres:
-# DB_URL=postgresql:///localhost:5432/usigrabber
-
-# If a postgres URL is used, the following environment variables are required:
-# ATTENTION: be sure to use the same credentials when running your database!
-POSTGRES_USER=your_username
-POSTGRES_PASSWORD=your_password
-
-# Enable SQL query logging
-DB_ECHO_SQL=1
-
-# Enable debug mode by setting this variable
-DEBUG=1
-
-# Directory for storing intermediate files
-UG_DATA_DIR=./data
-```
+We provide a sample environment file at [`.env.sample`](./.env.sample).
+Copy this file to `.env` and modify the settings as needed.
 
 ## Working with mzIdentML Files
 
