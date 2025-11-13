@@ -12,6 +12,7 @@ from sqlmodel import Session, select
 from usigrabber.backends import BackendEnum
 from usigrabber.cli import app
 from usigrabber.db import Project, create_db_and_tables, load_db_engine
+from usigrabber.file_parser import MzidImportError, MzidParseError, import_mzid
 from usigrabber.utils.file import download_ftp, extract_archive, temporary_path
 
 STANDARD_BACKENDS = [enum for enum in BackendEnum]
@@ -171,11 +172,33 @@ async def async_build(
 
                             # access files based on priority
                             if ".mzid" in filetypes:
-                                # process file
-                                # TODO: implement interface
-                                # mzid_data = mzid_parser.handle(project, path)
-                                # dump_mzid_to_db(session, project.accession, mzid_data)
-                                pass
+                                # Process mzID file
+                                try:
+                                    stats = import_mzid(path, project["accession"])
+                                    duration_str = (
+                                        f"{stats.duration_seconds:.1f}s"
+                                        if stats.duration_seconds is not None
+                                        else "N/A"
+                                    )
+                                    logger.info(
+                                        f"Imported {stats.psm_count:,} PSMs from {path.name} "
+                                        f"({duration_str})"
+                                    )
+                                except MzidParseError as e:
+                                    logger.warning(f"Skipping malformed mzID file {path.name}: {e}")
+                                    continue
+                                except MzidImportError as e:
+                                    logger.error(
+                                        f"Failed to import mzID file {path.name}: {e}",
+                                        exc_info=True,
+                                        stack_info=True,
+                                        extra={
+                                            "mzid_file": str(path),
+                                            "project_accession": project["accession"],
+                                        },
+                                    )
+                                    errors += 1
+                                    continue
                             # elif '.mztab' in filetypes:
                             #     # parse mztab files
                             else:

@@ -1,3 +1,4 @@
+import uuid
 from datetime import date, datetime
 
 from sqlmodel import JSON, Column, Field, Relationship, SQLModel
@@ -40,6 +41,9 @@ class Project(SQLModel, table=True):
     submission_date: date | None = Field(default=None, alias="submissionDate")
     publication_date: date | None = Field(default=None, alias="publicationDate")
     total_file_downloads: int = Field(default=0, alias="totalFileDownloads")
+    fully_processed: bool = Field(
+        default=False, description="Flag indicating if project is fully processed or not"
+    )
 
     # Complex nested data stored as JSON
     sample_attributes: dict | None = Field(
@@ -157,7 +161,7 @@ class MzidFile(SQLModel, table=True):
 
     __tablename__ = "mzid_files"
 
-    id: int | None = Field(default=None, primary_key=True)
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
     project_accession: str = Field(foreign_key="projects.accession", index=True)
     file_name: str
     file_path: str | None = None
@@ -189,12 +193,12 @@ class MzidFile(SQLModel, table=True):
 
 
 class Peptide(SQLModel, table=True):
-    """Unique peptide sequences across all files."""
+    """Peptide sequences."""
 
     __tablename__ = "peptides"
 
-    id: int | None = Field(default=None, primary_key=True)
-    sequence: str = Field(index=True, unique=True, description="Peptide sequence")
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    sequence: str = Field(index=True, description="Peptide sequence")
     length: int = Field(description="Computed sequence length")
 
     # Relationships
@@ -207,8 +211,8 @@ class PeptideModification(SQLModel, table=True):
 
     __tablename__ = "peptide_modifications"
 
-    id: int | None = Field(default=None, primary_key=True)
-    peptide_id: int = Field(foreign_key="peptides.id", index=True)
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    peptide_id: uuid.UUID = Field(foreign_key="peptides.id", index=True)
     unimod_id: int = Field(description="Unimod id, e.g., '35' for 'UNIMOD:35' accession")
     position: int = Field(description="Position in the peptide sequence (1-indexed)")
     modified_residue: str = Field(description="The specific amino acid that was modified")
@@ -222,26 +226,26 @@ class PeptideSpectrumMatch(SQLModel, table=True):
 
     __tablename__ = "peptide_spectrum_matches"
 
-    id: int | None = Field(default=None, primary_key=True)
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
     project_accession: str = Field(foreign_key="projects.accession", index=True)
-    mzid_file_id: int | None = Field(
+    mzid_file_id: uuid.UUID | None = Field(
         default=None,
         foreign_key="mzid_files.id",
         index=True,
         description="Optional: can be NULL for non-mzID sources",
     )
-    peptide_id: int = Field(foreign_key="peptides.id", index=True)
+    peptide_id: uuid.UUID = Field(foreign_key="peptides.id", index=True)
     spectrum_id: str = Field(index=True, description="Spectrum identifier/index")
-    charge_state: int
-    experimental_mz: float = Field(description="Experimental m/z value")
-    calculated_mz: float = Field(description="Calculated m/z value")
+    charge_state: int | None
+    experimental_mz: float | None = Field(description="Experimental m/z value")
+    calculated_mz: float | None = Field(description="Calculated m/z value")
     score_values: dict | None = Field(
         default=None,
         sa_column=Column(JSON),
         description="MS-GF+ score, FDR, e-value, etc. as JSON",
     )
     rank: int | None = Field(default=None, description="Rank of this PSM for the spectrum")
-    pass_threshold: bool = Field(
+    pass_threshold: bool | None = Field(
         description=(
             "Whether PSM passes quality threshold. Based on file-level threshold "
             "(see mzid_file.threshold_type and threshold_value) or per-spectrum "
@@ -249,7 +253,6 @@ class PeptideSpectrumMatch(SQLModel, table=True):
             "mzID passThreshold attribute."
         )
     )
-    is_decoy: bool = Field(description="Whether this is a decoy match")
 
     # Relationships
     project: Project | None = Relationship(back_populates="peptide_spectrum_matches")
@@ -263,9 +266,9 @@ class PeptideEvidence(SQLModel, table=True):
 
     __tablename__ = "peptide_evidence"
 
-    id: int | None = Field(default=None, primary_key=True)
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
     protein_accession: str | None = Field(default=None, description="Protein accession.")
-    isDecoy: bool = Field(default=False, description="Whether the protein is a decoy")
+    is_decoy: bool | None = Field(default=None, description="Whether the protein is a decoy")
     start_position: int | None = Field(
         default=None, description="Start position in protein sequence"
     )
@@ -294,9 +297,9 @@ class PSMPeptideEvidence(SQLModel, table=True):
 
     __tablename__ = "psm_peptide_evidence"
 
-    id: int | None = Field(default=None, primary_key=True)
-    psm_id: int = Field(foreign_key="peptide_spectrum_matches.id", index=True)
-    peptide_evidence_id: int = Field(foreign_key="peptide_evidence.id", index=True)
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    psm_id: uuid.UUID = Field(foreign_key="peptide_spectrum_matches.id", index=True)
+    peptide_evidence_id: uuid.UUID = Field(foreign_key="peptide_evidence.id", index=True)
 
     # Relationships
     psm: "PeptideSpectrumMatch" = Relationship(back_populates="psm_peptide_evidences")

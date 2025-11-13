@@ -26,6 +26,9 @@ jobs:
       - name: Install dependencies
         run: uv sync --frozen
 
+      - name: Create data directory
+        run: mkdir -p ./data
+
       - name: Run tests for ${{ matrix.package }}
         working-directory: ${{ matrix.package }}
         run: |
