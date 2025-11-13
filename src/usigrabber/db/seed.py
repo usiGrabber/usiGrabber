@@ -121,21 +121,14 @@ def seed_minimal_data(engine: Engine) -> None:
             creation_date=datetime(2023, 1, 20),
         )
         session.add(mzid_file)
-        session.flush()
 
         # 2. Create peptides
         peptide1 = Peptide(sequence="PEPTIDER", length=8)
         peptide2 = Peptide(sequence="EXAMPLE", length=7)
         peptide3 = Peptide(sequence="TESTSEQ", length=7)
         session.add_all([peptide1, peptide2, peptide3])
-        session.flush()
 
         # 3. Create PSMs
-        assert mzid_file.id is not None, "MzidFile ID should be set after flush"
-        assert peptide1.id is not None, "Peptide ID should be set after flush"
-        assert peptide2.id is not None, "Peptide ID should be set after flush"
-        assert peptide3.id is not None, "Peptide ID should be set after flush"
-
         psm1 = PeptideSpectrumMatch(
             project_accession="PXD000001",
             mzid_file_id=mzid_file.id,
@@ -173,7 +166,6 @@ def seed_minimal_data(engine: Engine) -> None:
             pass_threshold=True,
         )
         session.add_all([psm1, psm2, psm3])
-        session.flush()
 
         # 4. Create peptide evidence (protein mappings)
         evidence1 = PeptideEvidence(
@@ -201,15 +193,7 @@ def seed_minimal_data(engine: Engine) -> None:
             is_decoy=False,
         )
         session.add_all([evidence1, evidence2, evidence3])
-        session.flush()
 
-        assert evidence1.id is not None, "PeptideEvidence ID should be set after flush"
-        assert evidence2.id is not None, "PeptideEvidence ID should be set after flush"
-        assert evidence3.id is not None, "PeptideEvidence ID should be set after flush"
-
-        assert psm1.id is not None, "PSM ID should be set after flush"
-        assert psm2.id is not None, "PSM ID should be set after flush"
-        assert psm3.id is not None, "PSM ID should be set after flush"
         # 5. Link PSMs to protein evidence through junction table
         psm_evidence1 = PSMPeptideEvidence(psm_id=psm1.id, peptide_evidence_id=evidence1.id)
         psm_evidence2 = PSMPeptideEvidence(psm_id=psm2.id, peptide_evidence_id=evidence2.id)

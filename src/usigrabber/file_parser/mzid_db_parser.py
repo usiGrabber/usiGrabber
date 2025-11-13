@@ -13,6 +13,7 @@ Implements streaming parsing with periodic commits for large files.
 """
 
 import logging
+import uuid
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -134,7 +135,7 @@ def parse_db_sequences(reader: mzid.MzIdentML) -> dict[str, str]:
 def parse_peptides(
     session: Session,
     reader: mzid.MzIdentML,
-) -> tuple[dict[str, int], dict[int, list[dict[str, Any]]]]:
+) -> tuple[dict[str, uuid.UUID], dict[uuid.UUID, list[dict[str, Any]]]]:
     """
     Parse Peptide elements and store in database.
     Creates a new Peptide record for each mzID Peptide element.
@@ -149,8 +150,8 @@ def parse_peptides(
             - peptide_mods: Maps database Peptide.id to list of modification data
     """
 
-    peptide_id_map: dict[str, int] = {}
-    peptide_mods: dict[int, list[dict[str, Any]]] = {}
+    peptide_id_map: dict[str, uuid.UUID] = {}
+    peptide_mods: dict[uuid.UUID, list[dict[str, Any]]] = {}
     peptides_created = 0
 
     for peptide_elem in reader.iterfind("Peptide"):
@@ -162,10 +163,8 @@ def parse_peptides(
 
         peptide = Peptide(sequence=sequence, length=len(sequence))
         session.add(peptide)
-        session.flush()
         peptides_created += 1
 
-        assert peptide.id is not None, "Peptide ID should be set after flush"
         peptide_id_map[mzid_peptide_id] = peptide.id
 
         # Store modification data for later processing
@@ -188,7 +187,7 @@ def parse_peptide_evidence(
     session: Session,
     reader: mzid.MzIdentML,
     db_sequence_map: dict[str, str],
-) -> dict[str, int]:
+) -> dict[str, uuid.UUID]:
     """
     Parse PeptideEvidence elements and store in database.
 
@@ -201,7 +200,7 @@ def parse_peptide_evidence(
             Dictionary mapping mzID peptide evidence IDs to database PeptideEvidence.id
     """
 
-    pe_id_map: dict[str, int] = {}
+    pe_id_map: dict[str, uuid.UUID] = {}
     pe_created = 0
 
     for pe_elem in reader.iterfind("PeptideEvidence"):
@@ -225,10 +224,8 @@ def parse_peptide_evidence(
         )
 
         session.add(peptide_evidence)
-        session.flush()
         pe_created += 1
 
-        assert peptide_evidence.id is not None, "PeptideEvidence ID should be set after flush"
         pe_id_map[mzid_pe_id] = peptide_evidence.id
 
     logger.debug(f"Created {pe_created} peptide evidence records")
@@ -239,9 +236,9 @@ def parse_psms(
     session: Session,
     reader: mzid.MzIdentML,
     project_accession: str,
-    mzid_file_id: int,
-    peptide_id_map: dict[str, int],
-    pe_id_map: dict[str, int],
+    mzid_file_id: uuid.UUID,
+    peptide_id_map: dict[str, uuid.UUID],
+    pe_id_map: dict[str, uuid.UUID],
 ) -> int:
     """
     Parse SpectrumIdentificationResult elements and store PSMs in database.
@@ -295,10 +292,7 @@ def parse_psms(
             )
 
             session.add(psm)
-            session.flush()
             psm_count += 1
-
-            assert psm.id is not None, "PSM ID should be set after flush"
 
             # Link PSM to peptide evidence via junction table
             pe_refs = sii.get("PeptideEvidenceRef", [])
@@ -326,7 +320,7 @@ def parse_psms(
 
 def link_modifications(
     session: Session,
-    peptide_mods: dict[int, list[dict[str, Any]]],
+    peptide_mods: dict[uuid.UUID, list[dict[str, Any]]],
 ) -> int:
     """
     Create PeptideModification records for all peptides with modifications.
@@ -352,6 +346,11 @@ def link_modifications(
                 continue
 
             location, residues = parse_modification_location(mod)
+
+            # Skip modifications without valid location
+            if location is None:
+                logger.warning(f"No location found for modification: {mod}")
+                continue
 
             # Create modification record
             peptide_mod = PeptideModification(
@@ -423,7 +422,6 @@ def import_mzid(mzid_path: Path, project_accession: str) -> ImportStats:
                     creation_date=datetime.now(),
                 )
                 session.add(mzid_file)
-                session.flush()
 
                 logger.debug(f"Created mzID file record (ID: {mzid_file.id})")
 
@@ -441,7 +439,6 @@ def import_mzid(mzid_path: Path, project_accession: str) -> ImportStats:
 
                 # Phase 4: Parse PSMs
                 logger.debug("\nPhase 4: Parsing spectrum identification results...")
-                assert mzid_file.id is not None, "MzidFile ID should be set after flush"
                 psm_count = parse_psms(
                     session,
                     reader,
