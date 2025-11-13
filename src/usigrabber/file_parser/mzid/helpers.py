@@ -6,7 +6,7 @@ These functions extract and transform data from mzIdentML elements.
 """
 
 import logging
-from typing import Any
+from typing import Any, cast
 
 from usigrabber.utils import get_unimod_db
 
@@ -47,7 +47,11 @@ def extract_unimod_id(mod_data: dict) -> int | None:
                 try:
                     mod = unimod_db.get(name, False)
                     if mod is not None:
-                        return int(mod.id)
+                        try:
+                            return int(cast(int, mod.id))
+                        except (TypeError, ValueError):
+                            # If mod.id cannot be converted to int (e.g., a SQLAlchemy Column), skip
+                            continue
                 except KeyError:
                     continue
     else:
