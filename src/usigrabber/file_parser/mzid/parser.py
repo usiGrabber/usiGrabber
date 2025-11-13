@@ -6,7 +6,6 @@ and handle database operations.
 """
 
 import logging
-from datetime import datetime
 from pathlib import Path
 
 from pyteomics import mzid
@@ -15,18 +14,16 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlmodel import Session
 
 from usigrabber.db.engine import load_db_engine
-from usigrabber.db.schema import MzidFile
 from usigrabber.file_parser.errors import MzidImportError, MzidParseError
 from usigrabber.file_parser.models import ImportStats
 from usigrabber.file_parser.mzid.models import ParsedMzidData
 from usigrabber.file_parser.mzid.parsing_functions import (
     link_modifications,
     parse_db_sequences,
+    parse_mzid_metadata,
     parse_peptide_evidence,
     parse_peptides,
     parse_psms,
-    parse_software_info,
-    parse_threshold_info,
 )
 
 logger = logging.getLogger(__name__)
@@ -59,23 +56,7 @@ def parse_mzid_file(mzid_path: Path, project_accession: str) -> ParsedMzidData:
     try:
         # Parse mzID file with retrieve_refs=False
         with mzid.MzIdentML(str(mzid_path), retrieve_refs=False) as reader:
-            # Parse software and threshold metadata
-            software_name, software_version = parse_software_info(reader)
-            threshold_type, threshold_value = parse_threshold_info(reader)
-
-            # Phase 0: Create mzid record
-            mzid_file = MzidFile(
-                project_accession=project_accession,
-                file_name=mzid_path.name,
-                file_path=str(mzid_path.absolute()),  # TODO: Replace with PRIDE file path
-                software_name=software_name,
-                software_version=software_version,
-                threshold_type=threshold_type,
-                threshold_value=threshold_value,
-                creation_date=datetime.now(),
-            )
-
-            logger.debug(f"Created mzID file record (ID: {mzid_file.id})")
+            mzid_file = parse_mzid_metadata(reader, mzid_path, project_accession)
 
             # Phase 1: Parse DB sequences
             logger.debug("\nPhase 1: Parsing database sequences...")

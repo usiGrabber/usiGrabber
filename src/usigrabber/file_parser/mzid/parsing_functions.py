@@ -8,11 +8,14 @@ returning the appropriate data structures.
 
 import logging
 import uuid
+from datetime import datetime
+from pathlib import Path
 from typing import Any
 
 from pyteomics import mzid
 
 from usigrabber.db.schema import (
+    MzidFile,
     Peptide,
     PeptideEvidence,
     PeptideModification,
@@ -90,6 +93,40 @@ def parse_threshold_info(reader: mzid.MzIdentML) -> tuple[str | None, float | No
             break
 
     return threshold_type, threshold_value
+
+
+def parse_mzid_metadata(
+    reader: mzid.MzIdentML,
+    mzid_path: Path,
+    project_accession: str,
+) -> MzidFile:
+    """
+    Parse mzID file metadata including software and threshold information.
+
+    Args:
+        reader: MzIdentML reader instance
+        mzid_path: Path to the mzIdentML file
+        project_accession: PRIDE project accession
+
+    Returns:
+        MzidFile record with parsed metadata
+    """
+    software_name, software_version = parse_software_info(reader)
+    threshold_type, threshold_value = parse_threshold_info(reader)
+
+    mzid_file = MzidFile(
+        project_accession=project_accession,
+        file_name=mzid_path.name,
+        file_path=str(mzid_path.absolute()),  # TODO: Replace with PRIDE file path
+        software_name=software_name,
+        software_version=software_version,
+        threshold_type=threshold_type,
+        threshold_value=threshold_value,
+        creation_date=datetime.now(),
+    )
+
+    logger.debug(f"Created mzID file record (ID: {mzid_file.id})")
+    return mzid_file
 
 
 def parse_db_sequences(reader: mzid.MzIdentML) -> dict[str, str]:
