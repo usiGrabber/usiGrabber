@@ -136,7 +136,6 @@ async def async_build(
                 # process files
                 if files["result"]:
                     for file in files["result"]:
-                        # project_data["psms"].append(list(backend.process_result_file(file)))
                         # parse filename from file url
                         file_url = file["filepath"]
                         filename = os.path.basename(file_url)
@@ -145,9 +144,6 @@ async def async_build(
                             f"Processing result file {filename} "
                             + f"({file['file_size'] / (1024 * 1024):,.2f} MB)"
                         )
-
-                        # extract name and extension
-                        file_name, ext = os.path.splitext(filename)
 
                         with temporary_path() as tmp_dir:
                             path = await download_ftp(
@@ -202,9 +198,12 @@ async def async_build(
                             # elif '.mztab' in filetypes:
                             #     # parse mztab files
                             else:
-                                print("No known file types found.")
+                                logger.warning(
+                                    "No known file types found for project %s. Skipping project.",
+                                    project["accession"],
+                                )
                                 # make sure project is not flagged as complete
-                                return
+                                continue
 
                 elif files["search"]:
                     # TODO: support search files
