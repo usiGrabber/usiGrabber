@@ -43,6 +43,7 @@ def seed_minimal_data(engine: Engine) -> None:
             submissionDate=date(2023, 1, 15),
             publicationDate=date(2023, 6, 1),
             totalFileDownloads=523,
+            fully_processed=True,
         )
 
         project2 = Project(
@@ -53,6 +54,7 @@ def seed_minimal_data(engine: Engine) -> None:
             submissionDate=date(2023, 3, 10),
             publicationDate=date(2023, 8, 15),
             totalFileDownloads=187,
+            fully_processed=False,
         )
 
         session.add_all([project1, project2])

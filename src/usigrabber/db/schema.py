@@ -40,6 +40,9 @@ class Project(SQLModel, table=True):
     submission_date: date | None = Field(default=None, alias="submissionDate")
     publication_date: date | None = Field(default=None, alias="publicationDate")
     total_file_downloads: int = Field(default=0, alias="totalFileDownloads")
+    fully_processed: bool = Field(
+        default=False, description="Flag indicating if project is fully processed or not"
+    )
 
     # Complex nested data stored as JSON
     sample_attributes: dict | None = Field(
