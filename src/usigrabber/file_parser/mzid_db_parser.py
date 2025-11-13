@@ -233,18 +233,16 @@ def parse_peptide_evidence(
 
 
 def parse_psms(
-    session: Session,
     reader: mzid.MzIdentML,
     project_accession: str,
     mzid_file_id: uuid.UUID,
     peptide_id_map: dict[str, uuid.UUID],
     pe_id_map: dict[str, uuid.UUID],
-) -> int:
+) -> tuple[list[PeptideSpectrumMatch], list[PSMPeptideEvidence]]:
     """
-    Parse SpectrumIdentificationResult elements and store PSMs in database.
+    Parse SpectrumIdentificationResult elements.
 
     Args:
-            session: SQLModel session
             reader: MzIdentML reader instance
             project_accession: PRIDE project accession
             mzid_file_id: Database ID of the MzidFile record
@@ -252,10 +250,13 @@ def parse_psms(
             pe_id_map: Mapping from mzID peptide evidence IDs to database PeptideEvidence.id
 
     Returns:
-            Number of PSMs created
+            Tuple of:
+            - List of PeptideSpectrumMatch records
+            - List of PSMPeptideEvidence junction records
     """
 
-    psm_count = 0
+    psm_batch = []
+    junction_batch = []
 
     for sir in reader.iterfind("SpectrumIdentificationResult"):
         spectrum_id = sir.get("spectrumID", "")
@@ -291,8 +292,7 @@ def parse_psms(
                 pass_threshold=sii.get("passThreshold", None),
             )
 
-            session.add(psm)
-            psm_count += 1
+            psm_batch.append(psm)
 
             # Link PSM to peptide evidence via junction table
             pe_refs = sii.get("PeptideEvidenceRef", [])
@@ -307,15 +307,10 @@ def parse_psms(
                         psm_id=psm.id,
                         peptide_evidence_id=db_pe_id,
                     )
-                    session.add(junction)
+                    junction_batch.append(junction)
 
-            # Commit periodically to avoid memory issues
-            if psm_count % COMMIT_FREQUENCY_FOR_PSMS == 0:
-                session.commit()
-                logger.info(f"Processed {psm_count} PSMs...")
-
-    logger.debug(f"Created {psm_count} PSM records")
-    return psm_count
+        logger.debug(f"Parsed {len(psm_batch)} PSMs and {len(junction_batch)} junctions so far")
+    return psm_batch, junction_batch
 
 
 def link_modifications(
@@ -439,14 +434,15 @@ def import_mzid(mzid_path: Path, project_accession: str) -> ImportStats:
 
                 # Phase 4: Parse PSMs
                 logger.debug("\nPhase 4: Parsing spectrum identification results...")
-                psm_count = parse_psms(
-                    session,
+                psm_batch, junction_batch = parse_psms(
                     reader,
                     project_accession,
                     mzid_file.id,
                     peptide_id_map,
                     pe_id_map,
                 )
+                session.add_all(psm_batch)
+                session.add_all(junction_batch)
 
                 # Phase 5: Link modifications
                 logger.debug("\nPhase 5: Linking peptide modifications...")
@@ -459,7 +455,7 @@ def import_mzid(mzid_path: Path, project_accession: str) -> ImportStats:
                 stats.peptide_count = len(peptide_id_map)
                 stats.modification_count = mod_count
                 stats.peptide_evidence_count = len(pe_id_map)
-                stats.psm_count = psm_count
+                stats.psm_count = len(psm_batch)
                 stats.mark_complete()
 
             logger.info(stats.summary())
