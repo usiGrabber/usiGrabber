@@ -39,16 +39,19 @@ def extract_unimod_id(mod_data: dict) -> int | None:
                     # Extract number from "UNIMOD:35" format
                     return int(accession.split(":")[-1])
                 except (ValueError, IndexError):
+                    pass
+            name = param.get("name", "")
+            if name:
+                # Fallback: resolve by modification name
+                unimod_db = get_unimod_db()
+                try:
+                    mod = unimod_db.get(name, False)
+                    if mod is not None:
+                        return int(mod.id)
+                except KeyError:
                     continue
-
-    # Fallback: resolve by modification name
-    unimod_db = get_unimod_db()
-    try:
-        mod = unimod_db.get(mod_data.get("name", ""), False)
-        if mod is not None:
-            return int(mod.id)  # type: ignore[arg-type]
-    except KeyError:
-        return None
+    else:
+        logger.error("No cvParam found in modification data.")
 
     return None
 

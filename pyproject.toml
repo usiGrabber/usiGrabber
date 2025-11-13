@@ -44,6 +44,11 @@ ontology-resolver = { workspace = true }
 
 [dependency-groups]
 dev = [
+    "pytest>=9.0.0",
     "basedpyright>=1.31.7",
     "ruff>=0.14.1",
 ]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
