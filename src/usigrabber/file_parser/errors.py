@@ -11,38 +11,20 @@ class FileParserError(Exception):
     pass
 
 
-class FileReadError(FileParserError):
-    """Failed to read or access file."""
-
-    pass
-
-
-class ParseError(FileParserError):
-    """Failed to parse file contents."""
-
-    pass
-
-
-class ValidationError(FileParserError):
-    """Data validation failed."""
-
-    pass
-
-
-class DatabaseError(FileParserError):
-    """Database operation failed during import."""
+class ImportError(Exception):
+    """Base exception for all import errors."""
 
     pass
 
 
 # mzID-specific errors
-class MzidParseError(ParseError):
+class MzidParseError(FileParserError):
     """Failed to parse mzIdentML file."""
 
     pass
 
 
-class MzidImportError(DatabaseError):
+class MzidImportError(ImportError):
     """Failed to import mzIdentML data to database."""
 
     pass

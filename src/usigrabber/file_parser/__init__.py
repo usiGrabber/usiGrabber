@@ -5,13 +5,9 @@ Provides parsers for various proteomics file formats.
 """
 
 from usigrabber.file_parser.errors import (
-    DatabaseError,
     FileParserError,
-    FileReadError,
     MzidImportError,
     MzidParseError,
-    ParseError,
-    ValidationError,
 )
 from usigrabber.file_parser.models import ImportStats
 from usigrabber.file_parser.mzid import import_mzid
@@ -23,10 +19,6 @@ __all__ = [
     "ImportStats",
     # Exceptions
     "FileParserError",
-    "FileReadError",
-    "ParseError",
-    "ValidationError",
-    "DatabaseError",
     "MzidParseError",
     "MzidImportError",
 ]
