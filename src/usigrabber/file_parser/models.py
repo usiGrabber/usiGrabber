@@ -44,13 +44,13 @@ class ImportStats:
     def summary(self) -> str:
         """Generate human-readable summary."""
         if not self.success:
-            return f"❌ Import failed: {self.error_message}"
+            return f"Import failed: {self.error_message}"
 
         duration = f" ({self.duration_seconds:.1f}s)" if self.duration_seconds else ""
         return (
-            f"✅ Successfully imported{duration}:\n"
-            f"  • {self.peptide_count:,} peptides\n"
-            f"  • {self.modification_count:,} modifications\n"
-            f"  • {self.peptide_evidence_count:,} protein mappings\n"
-            f"  • {self.psm_count:,} PSMs"
+            f"Successfully imported{duration}:\n"
+            f"  - {self.peptide_count:,} peptides\n"
+            f"  - {self.modification_count:,} modifications\n"
+            f"  - {self.peptide_evidence_count:,} protein mappings\n"
+            f"  - {self.psm_count:,} PSMs"
         )
