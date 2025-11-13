@@ -123,21 +123,14 @@ def seed_minimal_data(engine: Engine) -> None:
             creation_date=datetime(2023, 1, 20),
         )
         session.add(mzid_file)
-        session.flush()
 
         # 2. Create peptides
         peptide1 = Peptide(sequence="PEPTIDER", length=8)
         peptide2 = Peptide(sequence="EXAMPLE", length=7)
         peptide3 = Peptide(sequence="TESTSEQ", length=7)
         session.add_all([peptide1, peptide2, peptide3])
-        session.flush()
 
         # 3. Create PSMs
-        assert mzid_file.id is not None, "MzidFile ID should be set after flush"
-        assert peptide1.id is not None, "Peptide ID should be set after flush"
-        assert peptide2.id is not None, "Peptide ID should be set after flush"
-        assert peptide3.id is not None, "Peptide ID should be set after flush"
-
         psm1 = PeptideSpectrumMatch(
             project_accession="PXD000001",
             mzid_file_id=mzid_file.id,
@@ -149,7 +142,6 @@ def seed_minimal_data(engine: Engine) -> None:
             score_values={"MS-GF:SpecEValue": 1.2e-10, "MS-GF:QValue": 0.001},
             rank=1,
             pass_threshold=True,
-            is_decoy=False,
         )
         psm2 = PeptideSpectrumMatch(
             project_accession="PXD000001",
@@ -162,7 +154,6 @@ def seed_minimal_data(engine: Engine) -> None:
             score_values={"MS-GF:SpecEValue": 5.6e-8, "MS-GF:QValue": 0.005},
             rank=1,
             pass_threshold=True,
-            is_decoy=False,
         )
         psm3 = PeptideSpectrumMatch(
             project_accession="PXD000001",
@@ -175,10 +166,8 @@ def seed_minimal_data(engine: Engine) -> None:
             score_values={"MS-GF:SpecEValue": 2.3e-6, "MS-GF:QValue": 0.008},
             rank=1,
             pass_threshold=True,
-            is_decoy=False,
         )
         session.add_all([psm1, psm2, psm3])
-        session.flush()
 
         # 4. Create peptide evidence (protein mappings)
         evidence1 = PeptideEvidence(
@@ -187,7 +176,7 @@ def seed_minimal_data(engine: Engine) -> None:
             end_position=52,
             pre_residue="K",
             post_residue="A",
-            isDecoy=False,
+            is_decoy=False,
         )
         evidence2 = PeptideEvidence(
             protein_accession="Q67890",
@@ -195,7 +184,7 @@ def seed_minimal_data(engine: Engine) -> None:
             end_position=126,
             pre_residue="R",
             post_residue="G",
-            isDecoy=False,
+            is_decoy=False,
         )
         evidence3 = PeptideEvidence(
             protein_accession="A11111",
@@ -203,18 +192,10 @@ def seed_minimal_data(engine: Engine) -> None:
             end_position=84,
             pre_residue="K",
             post_residue="L",
-            isDecoy=False,
+            is_decoy=False,
         )
         session.add_all([evidence1, evidence2, evidence3])
-        session.flush()
 
-        assert evidence1.id is not None, "PeptideEvidence ID should be set after flush"
-        assert evidence2.id is not None, "PeptideEvidence ID should be set after flush"
-        assert evidence3.id is not None, "PeptideEvidence ID should be set after flush"
-
-        assert psm1.id is not None, "PSM ID should be set after flush"
-        assert psm2.id is not None, "PSM ID should be set after flush"
-        assert psm3.id is not None, "PSM ID should be set after flush"
         # 5. Link PSMs to protein evidence through junction table
         psm_evidence1 = PSMPeptideEvidence(psm_id=psm1.id, peptide_evidence_id=evidence1.id)
         psm_evidence2 = PSMPeptideEvidence(psm_id=psm2.id, peptide_evidence_id=evidence2.id)

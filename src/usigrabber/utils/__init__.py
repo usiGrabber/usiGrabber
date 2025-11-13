@@ -59,6 +59,7 @@ def get_unimod_db():
         from pyteomics.mass.unimod import Unimod
 
         unimod_db = Unimod("sqlite:///" + (data_directory_path() / "unimod.db").as_posix())
+
     return unimod_db
 
 
