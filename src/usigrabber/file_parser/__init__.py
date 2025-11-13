@@ -14,7 +14,7 @@ from usigrabber.file_parser.errors import (
     ValidationError,
 )
 from usigrabber.file_parser.models import ImportStats
-from usigrabber.file_parser.mzid_db_parser import import_mzid
+from usigrabber.file_parser.mzid import import_mzid
 
 __all__ = [
     # Main functions
