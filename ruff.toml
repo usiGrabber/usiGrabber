@@ -21,4 +21,4 @@ select = [
 
 [format]
 # Use tabs instead of 4 space indentation.
-indent-style = "tab"
+indent-style = "space"
