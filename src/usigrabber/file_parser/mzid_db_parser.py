@@ -134,7 +134,7 @@ def parse_db_sequences(reader: mzid.MzIdentML) -> dict[str, str]:
 
 def parse_peptides(
     reader: mzid.MzIdentML,
-) -> tuple[dict[str, uuid.UUID], dict[uuid.UUID, list[dict[str, Any]]], list(Peptide)]:
+) -> tuple[dict[str, uuid.UUID], dict[uuid.UUID, list[dict[str, Any]]], list[Peptide]]:
     """
     Parse Peptide elements.
     Creates a new Peptide record for each mzID Peptide element.
