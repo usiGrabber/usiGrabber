@@ -22,6 +22,7 @@ dependencies = [
     "pronto>=2.7.1",
     "ontology-resolver",
     "aioftp>=0.27.2",
+    "psycopg>=3.2.12",
 ]
 
 [project.scripts]
@@ -47,6 +48,7 @@ ontology-resolver = { workspace = true }
 dev = [
     "pytest>=9.0.0",
     "basedpyright>=1.31.7",
+    "pytest>=9.0.0",
     "ruff>=0.14.1",
 ]
 

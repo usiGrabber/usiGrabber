@@ -1,5 +1,6 @@
 import asyncio
 import gzip
+import logging
 import os
 import shutil
 import tarfile
@@ -14,7 +15,9 @@ from urllib.parse import urlparse
 import aioftp
 import typer
 
-from usigrabber.utils import DATA_DIR, logger
+from usigrabber.utils import DATA_DIR
+
+logger = logging.getLogger(__name__)
 
 
 async def download_ftp(
@@ -38,7 +41,7 @@ async def download_ftp(
                 user=parsed.username or "anonymous",
                 password=parsed.password or "anonymous@",
             ) as client:
-                await client.download(parsed.path, str(out_path))
+                await client.download(parsed.path, str(out_path), write_into=True)
             return out_path
         except Exception:
             if attempt < retries - 1:
@@ -47,45 +50,94 @@ async def download_ftp(
                 return None
 
 
+ARCHIVE_SUFFIXES = (".zip", ".tar", ".tar.gz", ".tgz")
+GZIP_SINGLE = (".gz",)  # but NOT .tar.gz
+
+
+def is_archive_file(path: Path) -> bool:
+    """Return True only if this is an actual file archive, not a directory."""
+    if path.is_dir():
+        return False  # directories are never archives
+
+    p = str(path).lower()
+
+    # .tar.gz or .tgz
+    if p.endswith((".tar.gz", ".tgz")):
+        return True
+
+    # .zip or .tar
+    if p.endswith((".zip", ".tar")):
+        return True
+
+    # single-file compression (NOT .tar.gz)
+    return bool(p.endswith(".gz") and not p.endswith(".tar.gz"))
+
+
 def extract_archive(archive_path: Path, extract_to: Path) -> Set[str]:
-    # extracts all files/folders from archive directly to extract_to
-    archive_str = str(archive_path)
-    members = []
+    """
+    Recursively extract archives into extract_to.
+    Returns a set of extracted file paths.
+    """
+    archive_path = archive_path.resolve()
+    extract_to.mkdir(parents=True, exist_ok=True)
 
-    if not archive_str.endswith((".zip", ".tar", ".tar.gz", ".tgz", ".gz")):
-        logger.debug("No extraction needed for path: %s", archive_path)
-        return set([archive_str])
-    else:
-        os.makedirs(extract_to, exist_ok=True)
+    # --- CRITICAL FIX: directory named *.gz, *.zip, etc ---
+    if archive_path.is_dir():
+        # Not a real archive; return directory contents but no extraction
+        return {str(p) for p in archive_path.iterdir()}
 
+    # Not an archive → return as-is
+    if not is_archive_file(archive_path):
+        return {str(archive_path)}
+
+    archive_str = str(archive_path).lower()
+    extracted_members: Set[str] = set()
+
+    # --- ZIP ---
     if archive_str.endswith(".zip"):
-        with zipfile.ZipFile(archive_path, "r") as zip_ref:
-            zip_ref.extractall(path=extract_to)
-        members = zip_ref.namelist()
+        with zipfile.ZipFile(archive_path, "r") as z:
+            z.extractall(extract_to)
+            members = z.namelist()
+
+    # --- TAR / TAR.GZ / TGZ ---
     elif archive_str.endswith((".tar", ".tar.gz", ".tgz")):
-        with tarfile.open(archive_path, "r:*") as tar_ref:
-            members = tar_ref.getnames()
-            tar_ref.extractall(path=extract_to)
+        with tarfile.open(archive_path, "r:*") as t:
+            members = t.getnames()
+            t.extractall(extract_to)
+
+    # --- Single-file GZIP (e.g. file.mzid.gz, file.txt.gz) ---
     elif archive_str.endswith(".gz"):
-        output_file = os.path.join(extract_to, os.path.basename(str(archive_path)[:-3]))
-        with gzip.open(archive_path, "rb") as f_in, open(output_file, "wb") as f_out:
+        output_name = archive_path.stem  # remove only .gz
+        output_path = extract_to / output_name
+
+        with gzip.open(archive_path, "rb") as f_in, open(output_path, "wb") as f_out:
             shutil.copyfileobj(f_in, f_out)
-        members = [os.path.basename(output_file)]
+
+        members = [output_name]
+
     else:
-        logger.debug("Unsupported archive format for path: %s", archive_path)
-        return set()
+        # unknown format (should never reach here)
+        return {str(archive_path)}
 
-    all_members = set[str]()
-    for member in members:
-        all_members = all_members.union(
-            set(
-                extract_archive(extract_to / Path(member), extract_to / os.path.splitext(member)[0])
-            )
-        )
+    # ------------------------------------------------------
+    # Handle extracted members (recursively if archives)
+    # ------------------------------------------------------
+    for m in members:
+        member_path = (extract_to / m).resolve()
 
-    logger.debug("Extracted %s to %s", archive_path, extract_to)
+        # Skip directories
+        if member_path.is_dir():
+            extracted_members.add(str(member_path))
+            continue
 
-    return all_members
+        # Recurse only into REAL archive files
+        if is_archive_file(member_path):
+            next_extract_dir = extract_to / member_path.stem
+            extracted_members |= extract_archive(member_path, next_extract_dir)
+        else:
+            extracted_members.add(str(member_path))
+
+    return extracted_members
 
 
 @contextmanager

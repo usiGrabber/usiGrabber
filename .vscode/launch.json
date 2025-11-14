@@ -13,7 +13,8 @@
             "console": "integratedTerminal",
             "justMyCode": true,
             "env": {
-                "DEBUG": "1"
+                "DEBUG": "1",
+                "DB_ECHO_SQL": "1"
             }
         }
     ]
