@@ -19,6 +19,9 @@ STANDARD_BACKENDS = [enum for enum in BackendEnum]
 
 logger = logging.getLogger(__name__)
 
+# empty string for folders (no extension)
+FILETYPE_WHITELIST = {".mzid", ""}
+
 
 @app.command()
 def build(
@@ -75,7 +78,6 @@ async def async_build(
 
     # get all existing project accessions in the database
     with Session(db_engine) as session:
-        # TODO: filter for "complete" projects only
         statement = select(Project.accession)
         existing_accessions: set[str] = set(session.exec(statement).all())
 
@@ -140,6 +142,17 @@ async def async_build(
                         file_url = file["filepath"]
                         filename = os.path.basename(file_url)
 
+                        # find actual file extension, without archives
+                        file_base, file_ext = os.path.splitext(filename)
+                        while file_ext in {".zip", ".gz", ".tar", ".rar", ".7z"}:
+                            file_base, file_ext = os.path.splitext(file_base)
+
+                        if file_ext not in FILETYPE_WHITELIST:
+                            logger.debug(
+                                f"Skipping file {filename} with unsupported extension {file_ext}."
+                            )
+                            continue
+
                         logger.debug(
                             f"Processing result file {filename} "
                             + f"({file['file_size'] / (1024 * 1024):,.2f} MB)"
@@ -158,58 +171,54 @@ async def async_build(
                                 )
                                 continue
 
+                            # contains all files extracted from archive
                             extracted_files = extract_archive(archive_path=path, extract_to=tmp_dir)
 
-                            filetypes = set()
-                            mzid_files = []
+                            interesting_files: dict[str, list[Path]] = {
+                                ext: [] for ext in FILETYPE_WHITELIST
+                            }
                             for f in extracted_files:
-                                str_f = str(f)
-                                ext = os.path.splitext(str_f)[1]
-                                if ext == ".mzid":
-                                    mzid_files.append(Path(f))
-                                filetypes.add(ext)
+                                ext = os.path.splitext(str(f))[1]
+                                if ext in FILETYPE_WHITELIST:
+                                    interesting_files[ext].append(f)
 
                             # access files based on priority
-                            if ".mzid" in filetypes:
-                                for file in mzid_files:
-                                    # Process mzID file
-                                    try:
-                                        stats = import_mzid(file, project["accession"])
-                                        duration_str = (
-                                            f"{stats.duration_seconds:.1f}s"
-                                            if stats.duration_seconds is not None
-                                            else "N/A"
-                                        )
-                                        logger.info(
-                                            f"Imported {stats.psm_count:,} PSMs from {path.name} "
-                                            f"({duration_str})"
-                                        )
-                                    except MzidParseError as e:
-                                        logger.warning(
-                                            f"Skipping malformed mzID file {path.name}: {e}"
-                                        )
-                                        continue
-                                    except MzidImportError as e:
-                                        logger.error(
-                                            f"Failed to import mzID file {path.name}: {e}",
-                                            exc_info=True,
-                                            stack_info=True,
-                                            extra={
-                                                "mzid_file": str(path),
-                                                "project_accession": project["accession"],
-                                            },
-                                        )
-                                        errors += 1
-                                        continue
-                            # elif '.mztab' in filetypes:
-                            #     # parse mztab files
-                            else:
-                                logger.warning(
-                                    "No known file types found for project %s. Skipping project.",
-                                    project["accession"],
-                                )
-                                # make sure project is not flagged as complete
-                                continue
+                            for mzid_file in interesting_files[".mzid"]:
+                                # Process mzID file
+                                try:
+                                    stats = import_mzid(mzid_file, project["accession"])
+                                    duration_str = (
+                                        f"{stats.duration_seconds:.1f}s"
+                                        if stats.duration_seconds is not None
+                                        else "N/A"
+                                    )
+                                    logger.info(
+                                        f"Imported {stats.psm_count:,} PSMs from {path.name} "
+                                        f"({duration_str})"
+                                    )
+                                except MzidParseError as e:
+                                    logger.warning(f"Skipping malformed mzID file {path.name}: {e}")
+                                    continue
+                                except MzidImportError as e:
+                                    logger.error(
+                                        f"Failed to import mzID file {path.name}: {e}",
+                                        exc_info=True,
+                                        stack_info=True,
+                                        extra={
+                                            "mzid_file": str(path),
+                                            "project_accession": project["accession"],
+                                        },
+                                    )
+                                    errors += 1
+                                    continue
+                            # TODO: add processing for other file types here
+                            # else:
+                            #     logger.warning(
+                            #         "No known file types found for project %s. Skipping project.",
+                            #         project["accession"],
+                            #     )
+                            #     # make sure project is not flagged as complete
+                            #     continue
 
                 elif files["search"]:
                     # TODO: support search files

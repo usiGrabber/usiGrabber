@@ -6,7 +6,7 @@ import shutil
 import tarfile
 import tempfile
 import zipfile
-from collections.abc import Generator, Set
+from collections.abc import Generator
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
@@ -73,7 +73,7 @@ def is_archive_file(path: Path) -> bool:
     return bool(p.endswith(".gz") and not p.endswith(".tar.gz"))
 
 
-def extract_archive(archive_path: Path, extract_to: Path) -> Set[str]:
+def extract_archive(archive_path: Path, extract_to: Path) -> list[Path]:
     """
     Recursively extract archives into extract_to.
     Returns a set of extracted file paths.
@@ -84,14 +84,13 @@ def extract_archive(archive_path: Path, extract_to: Path) -> Set[str]:
     # --- CRITICAL FIX: directory named *.gz, *.zip, etc ---
     if archive_path.is_dir():
         # Not a real archive; return directory contents but no extraction
-        return {str(p) for p in archive_path.iterdir()}
+        return [p for p in archive_path.iterdir()]
 
     # Not an archive → return as-is
     if not is_archive_file(archive_path):
-        return {str(archive_path)}
+        return [archive_path]
 
     archive_str = str(archive_path).lower()
-    extracted_members: Set[str] = set()
 
     # --- ZIP ---
     if archive_str.endswith(".zip"):
@@ -117,25 +116,26 @@ def extract_archive(archive_path: Path, extract_to: Path) -> Set[str]:
 
     else:
         # unknown format (should never reach here)
-        return {str(archive_path)}
+        return [archive_path]
 
     # ------------------------------------------------------
     # Handle extracted members (recursively if archives)
     # ------------------------------------------------------
+    extracted_members: list[Path] = []
     for m in members:
         member_path = (extract_to / m).resolve()
 
         # Skip directories
         if member_path.is_dir():
-            extracted_members.add(str(member_path))
+            extracted_members.append(member_path)
             continue
 
         # Recurse only into REAL archive files
         if is_archive_file(member_path):
             next_extract_dir = extract_to / member_path.stem
-            extracted_members |= extract_archive(member_path, next_extract_dir)
+            extracted_members.extend(extract_archive(member_path, next_extract_dir))
         else:
-            extracted_members.add(str(member_path))
+            extracted_members.append(member_path)
 
     return extracted_members
 
