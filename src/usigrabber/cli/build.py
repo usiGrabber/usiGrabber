@@ -161,40 +161,46 @@ async def async_build(
                             extracted_files = extract_archive(archive_path=path, extract_to=tmp_dir)
 
                             filetypes = set()
+                            mzid_files = []
                             for f in extracted_files:
                                 str_f = str(f)
                                 ext = os.path.splitext(str_f)[1]
+                                if ext == ".mzid":
+                                    mzid_files.append(Path(f))
                                 filetypes.add(ext)
 
                             # access files based on priority
                             if ".mzid" in filetypes:
-                                # Process mzID file
-                                try:
-                                    stats = import_mzid(path, project["accession"])
-                                    duration_str = (
-                                        f"{stats.duration_seconds:.1f}s"
-                                        if stats.duration_seconds is not None
-                                        else "N/A"
-                                    )
-                                    logger.info(
-                                        f"Imported {stats.psm_count:,} PSMs from {path.name} "
-                                        f"({duration_str})"
-                                    )
-                                except MzidParseError as e:
-                                    logger.warning(f"Skipping malformed mzID file {path.name}: {e}")
-                                    continue
-                                except MzidImportError as e:
-                                    logger.error(
-                                        f"Failed to import mzID file {path.name}: {e}",
-                                        exc_info=True,
-                                        stack_info=True,
-                                        extra={
-                                            "mzid_file": str(path),
-                                            "project_accession": project["accession"],
-                                        },
-                                    )
-                                    errors += 1
-                                    continue
+                                for file in mzid_files:
+                                    # Process mzID file
+                                    try:
+                                        stats = import_mzid(file, project["accession"])
+                                        duration_str = (
+                                            f"{stats.duration_seconds:.1f}s"
+                                            if stats.duration_seconds is not None
+                                            else "N/A"
+                                        )
+                                        logger.info(
+                                            f"Imported {stats.psm_count:,} PSMs from {path.name} "
+                                            f"({duration_str})"
+                                        )
+                                    except MzidParseError as e:
+                                        logger.warning(
+                                            f"Skipping malformed mzID file {path.name}: {e}"
+                                        )
+                                        continue
+                                    except MzidImportError as e:
+                                        logger.error(
+                                            f"Failed to import mzID file {path.name}: {e}",
+                                            exc_info=True,
+                                            stack_info=True,
+                                            extra={
+                                                "mzid_file": str(path),
+                                                "project_accession": project["accession"],
+                                            },
+                                        )
+                                        errors += 1
+                                        continue
                             # elif '.mztab' in filetypes:
                             #     # parse mztab files
                             else:
