@@ -26,19 +26,6 @@ def get_cache_dir() -> Path:
     return Path(os.getenv("CACHE_DIR", ".cache"))
 
 
-def data_directory_path() -> Path:
-    """Return the root directory of the project."""
-    data_dir = os.getenv("UG_DATA_DIR", default="./data")
-    if data_dir == ".":
-        logger.warning("UG_DATA_DIR environment variable not set. Using current directory as root.")
-    if data_dir.startswith("~"):
-        data_dir = os.path.expanduser(data_dir)
-    return Path(data_dir)
-
-
-DATA_DIR = data_directory_path()
-
-
 def iter_json(json_path: Path) -> Generator[dict[Any, Any], None, None]:
     """Yield items from a JSON file using ijson for efficient parsing."""
     with open(json_path, "rb") as in_f:
@@ -58,7 +45,8 @@ def get_unimod_db():
     if unimod_db is None:
         from pyteomics.mass.unimod import Unimod
 
-        unimod_db = Unimod("sqlite:///" + (data_directory_path() / "unimod.db").as_posix())
+        db_path = get_cache_dir() / "unimod.db"
+        unimod_db = Unimod("sqlite:///" + db_path.as_posix())
 
     return unimod_db
 
