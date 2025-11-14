@@ -26,19 +26,36 @@ Arguments:
 
 ## Database management
 
-The project uses SQLite with SQLModel for storing PRIDE proteomics data.
+The project requires a connection to an SQLite or PostgreSQL database for storing PRIDE proteomics data.
+
+### Local docker container (PostgreSQL)
+We provide a simple [docker compose file](./compose.yaml) for running a PostgreSQL database in a container. By default, it stores the data in a local volume named `usigrabber_pgdata`. The container requires the following environment variables to be set in your `.env` or overriden in the compose file:
+- `POSTGRES_USER`
+- `POSTGRES_PASSWORD`.
+
+See [Configuration](#configuration) and [`.env.sample`](./.env.sample) for more details. In order to start the container, run:
+```bash
+docker compose up -d
+```
+in the root of this project. It will expose the database on port `5432`.
+
+You can directly interact with the database using
+```bash
+docker exec -it usigrabber_db psql -d usigrabber -U <ENTER USERNAME HERE>
+```
+or via the usigraber database CLI commands (see below).
 
 ### Quick Start
 
 ```bash
 # Initialize database (create all tables)
-uv run python -m usigrabber.db.cli init
+uv run usigrabber db init
 
 # Seed with sample data
-uv run python -m usigrabber.db.cli seed
+uv run usigrabber db seed
 
 # View database info
-uv run python -m usigrabber.db.cli info
+uv run usigrabber db info
 ```
 
 ### Other Commands
@@ -46,29 +63,16 @@ uv run python -m usigrabber.db.cli info
 ```bash
 
 # Reset database (drop + recreate + seed)
-uv run python -m usigrabber.db.cli reset --force
+uv run usigrabber db reset --force
 
 # Drop all tables (WARNING: deletes all data)
-uv run python -m usigrabber.db.cli drop --force
+uv run usigrabber db drop --force
 ```
 
 ### Configuration
 
-Database settings can be configured via `.env` file:
-
-```bash
-# Use local database (default: database.db)
-USE_LOCAL_DB=1
-
-# Enable SQL query logging
-DB_ECHO_SQL=1
-
-# Enable debug mode by setting this variable
-DEBUG=1
-
-# Directory for storing intermediate files
-UG_DATA_DIR=./data
-```
+We provide a sample environment file at [`.env.sample`](./.env.sample).
+Copy this file to `.env` and modify the settings as needed.
 
 ## Working with mzIdentML Files
 
