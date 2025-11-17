@@ -20,9 +20,9 @@ def system_setup(logger_name: str):
     every log message will be formatted.
 
     If you only want to format our logs, use "usigrabber" as the name.
-
     """
-    global _setup_done
+
+    global _setup_done, _setup_lock
     if _setup_done:
         return
 
