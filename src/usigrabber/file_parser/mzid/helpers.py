@@ -50,13 +50,15 @@ def extract_unimod_id(mod_data: dict) -> int | None:
                     return uid
     if mod_name:
         # Fallback: resolve by modification name
-        return lookup_unimod_id_by_name(mod_name)
+        uid = lookup_unimod_id_by_name(mod_name)
+        if uid is not None:
+            return uid
 
     logger.debug("No UNIMOD ID found for modification: %s", mod_data)
     return None
 
 
-@lru_cache(maxsize=4269)
+@lru_cache(maxsize=420)
 def lookup_unimod_id_by_name(mod_name: str) -> int | None:
     """
     Lookup UNIMOD ID by modification name with caching.
