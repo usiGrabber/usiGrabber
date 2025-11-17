@@ -1159,12 +1159,6 @@ wheels = [
 ]
 
 [[package]]
-name = "psycopg-c"
-version = "3.2.12"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/68/27/33699874745d7bb195e78fd0a97349908b64d3ec5fea7b8e5e52f56df04c/psycopg_c-3.2.12.tar.gz", hash = "sha256:1c80042067d5df90d184c6fbd58661350b3620f99d87a01c882953c4d5dfa52b", size = 608386, upload-time = "2025-10-26T00:46:08.727Z" }
-
-[[package]]
 name = "pydantic"
 version = "2.12.4"
 source = { registry = "https://pypi.org/simple" }
@@ -1580,7 +1574,6 @@ dependencies = [
     { name = "pre-commit" },
     { name = "pronto" },
     { name = "psycopg" },
-    { name = "psycopg-c" },
     { name = "pydantic" },
     { name = "pyteomics" },
     { name = "python-dotenv" },
@@ -1609,7 +1602,6 @@ requires-dist = [
     { name = "pre-commit", specifier = ">=4.3.0" },
     { name = "pronto", specifier = ">=2.7.1" },
     { name = "psycopg", specifier = ">=3.2.12" },
-    { name = "psycopg-c", specifier = ">=3.2.12" },
     { name = "pydantic", specifier = ">=2.12.3" },
     { name = "pyteomics", specifier = ">=4.7.5" },
     { name = "python-dotenv", specifier = ">=1.1.1" },

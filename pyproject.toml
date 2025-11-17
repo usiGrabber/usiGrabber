@@ -22,7 +22,6 @@ dependencies = [
     "pronto>=2.7.1",
     "ontology-resolver",
     "psycopg>=3.2.12",
-    "psycopg-c>=3.2.12",
 ]
 
 [project.scripts]
