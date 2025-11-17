@@ -28,3 +28,16 @@ class MzidImportError(ImportError):
     """Failed to import mzIdentML data to database."""
 
     pass
+
+
+# evidence.txt-specific errors
+class EvidenceTxtParseError(FileParserError):
+    """Failed to parse evidence.txt file."""
+
+    pass
+
+
+class EvidenceTxtImportError(ImportError):
+    """Failed to import evidence.txt data to database."""
+
+    pass
