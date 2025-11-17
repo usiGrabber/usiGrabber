@@ -39,6 +39,23 @@
                 "kind": "test",
                 "isDefault": false
             }
+        },
+        {
+            "label": "Reset database",
+            "type": "shell",
+            "command": "uv",
+            "args": [
+                "run",
+                "usigrabber",
+                "db",
+                "reset",
+                "-f", // force
+            ],
+            "problemMatcher": [],
+            "group": {
+                "kind": "build",
+                "isDefault": false
+            }
         }
     ]
 }
