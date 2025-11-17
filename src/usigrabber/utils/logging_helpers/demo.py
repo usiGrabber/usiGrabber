@@ -2,7 +2,7 @@ import logging
 
 from usigrabber.utils.setup import system_setup
 
-system_setup("")
+system_setup()
 
 logger = logging.getLogger(__name__)
 

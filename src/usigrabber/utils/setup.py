@@ -11,7 +11,7 @@ _setup_done = False
 _setup_lock = threading.Lock()
 
 
-def system_setup(logger_name: str):
+def system_setup(logger_name: str = ""):
     """
     - Setups logger
     - Loads env variables
