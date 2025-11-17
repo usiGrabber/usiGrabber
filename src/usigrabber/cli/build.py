@@ -33,6 +33,13 @@ def build(
         list[BackendEnum],
         typer.Option(help="Set of backends to fetch data from."),
     ] = STANDARD_BACKENDS,
+    no_ontology: Annotated[
+        bool,
+        typer.Option(
+            help="Disable ontology lookup.",
+            envvar="NO_ONTOLOGY",
+        ),
+    ] = False,
     cache_dir: Annotated[
         Path,
         typer.Option(
@@ -47,19 +54,26 @@ def build(
         ),
     ] = CACHE_DIR,
 ):
-    asyncio.run(async_build(cache_dir, backends, debug))
+    asyncio.run(async_build(debug, backends, no_ontology, cache_dir))
 
 
 async def async_build(
-    cache_dir: Path = CACHE_DIR,
-    backends: list[BackendEnum] = STANDARD_BACKENDS,
     debug: bool = False,
+    backends: list[BackendEnum] = STANDARD_BACKENDS,
+    no_ontology: bool = False,
+    cache_dir: Path = CACHE_DIR,
 ) -> None:
     """Build USI database."""
 
     logger.info("Building database.")
 
     os.environ["CACHE_DIR"] = str(cache_dir)
+
+    if no_ontology:
+        os.environ["NO_ONTOLOGY"] = "1"
+
+    if os.getenv("NO_ONTOLOGY"):
+        logger.warning("Ontology lookup is disabled.")
 
     if debug:
         os.environ["DEBUG"] = "1"
