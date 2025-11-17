@@ -16,7 +16,7 @@ jobs:
 
     strategy:
       matrix:
-        package: [packages/ontology-resolver/, packages/async-http-client/, '']
+        package: [packages/ontology-resolver/, packages/async-http-client/, ""]
       fail-fast: false
 
     steps:
@@ -25,9 +25,6 @@ jobs:
 
       - name: Install dependencies
         run: uv sync --frozen
-
-      - name: Create data directory
-        run: mkdir -p ./data
 
       - name: Run tests for ${{ matrix.package }}
         working-directory: ${{ matrix.package }}
