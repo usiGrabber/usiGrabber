@@ -1,5 +1,6 @@
 import logging
 import os
+import sys
 from collections.abc import Generator
 from datetime import date, datetime
 from pathlib import Path
@@ -7,19 +8,40 @@ from typing import Any
 
 import ijson
 from dotenv import load_dotenv
-from rich.console import Console
+
+from usigrabber.utils.logging_helpers.formatter import CustomColorFormatter, JsonFormatter
 
 load_dotenv()
 
-# Create one shared console for everything
-console = Console()
-logging.basicConfig(
-    level=os.environ.get("LOGLEVEL", "INFO").upper(),
-)
-logger = logging.getLogger(__name__)
-# Suppress overly verbose logs from dependencies
-for name in ["sqlalchemy", "urllib3"]:
-    logging.getLogger(name).setLevel(logging.WARNING)
+logging_dir = Path(os.environ.get("LOGGING_DIR", "logs"))
+
+logging_dir.mkdir(exist_ok=True)
+
+# TODO: Remove this later: https://rednafi.com/python/no-hijack-root-logger/
+logger = logging.getLogger("")
+
+logger.setLevel(os.environ.get("LOGLEVEL", "INFO").upper())
+logger.propagate = False  # Chatty variable. TODO: check
+if logger.hasHandlers():
+    logger.handlers.clear()
+
+terminal_handler = logging.StreamHandler(sys.stdout)
+terminal_handler.setLevel(logging.INFO)
+terminal_handler.setFormatter(CustomColorFormatter(use_colors=True))
+
+# Handler for plain text file output (without colors)
+file_handler = logging.FileHandler(logging_dir / "application.log", mode="w")
+file_handler.setLevel(logging.DEBUG)
+file_handler.setFormatter(CustomColorFormatter(use_colors=False))
+
+# Handler for JSON file output (remains unchanged)
+json_handler = logging.FileHandler(logging_dir / "application.jsonl", mode="w")
+json_handler.setLevel(logging.DEBUG)
+json_handler.setFormatter(JsonFormatter())
+
+logger.addHandler(terminal_handler)
+logger.addHandler(file_handler)
+logger.addHandler(json_handler)
 
 
 def get_cache_dir() -> Path:
@@ -64,3 +86,9 @@ def parse_date(date_str: str | None) -> date | None:
         return dt.date()
     except (ValueError, AttributeError):
         return None
+
+
+if __name__ == "__main__":
+    logger.debug("This is a debug message for the file and json logs.")
+    logger.info("Starting the application with the new formatter.", extra={"project_id": "Hi"})
+    logger.warning("A non-critical warning has occurred.")
