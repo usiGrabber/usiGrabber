@@ -45,7 +45,10 @@ def get_unimod_db():
     if unimod_db is None:
         from pyteomics.mass.unimod import Unimod
 
-        db_path = get_cache_dir() / "unimod.db"
+        cache_dir = get_cache_dir()
+        cache_dir.mkdir(parents=True, exist_ok=True)
+        db_path = cache_dir / "unimod.db"
+
         unimod_db = Unimod("sqlite:///" + db_path.as_posix())
 
     return unimod_db
