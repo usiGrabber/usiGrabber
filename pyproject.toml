@@ -21,7 +21,7 @@ dependencies = [
     "rich>=13.9.4",
     "pronto>=2.7.1",
     "ontology-resolver",
-    "psycopg>=3.2.12",
+    "psycopg[binary]>=3.2.12",
 ]
 
 [project.scripts]
