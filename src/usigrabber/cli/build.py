@@ -205,7 +205,7 @@ async def async_build(
                                         exc_info=True,
                                         stack_info=True,
                                         extra={
-                                            "mzid_file": str(path),
+                                            "mzid_file": str(mzid_file),
                                             "project_accession": project["accession"],
                                         },
                                     )
