@@ -5,7 +5,6 @@ from pathlib import Path
 from typing import Annotated
 
 import typer
-from rich.progress import Progress, SpinnerColumn, TextColumn
 from sqlalchemy import inspect
 from sqlmodel import Session, select
 
@@ -18,7 +17,6 @@ from usigrabber.utils.file import download_ftp, extract_archive, temporary_path
 
 CACHE_DIR = get_cache_dir()
 STANDARD_BACKENDS = [enum for enum in BackendEnum]
-
 logger = logging.getLogger(__name__)
 
 # empty string for folders (no extension)
@@ -93,20 +91,8 @@ async def async_build(
         logger.debug("Fetching data from backend: %s", backend_enum.name)
 
         imported = errors = 0
-        completed = 0
         error_projects = []
-        with (
-            Progress(
-                SpinnerColumn(),
-                TextColumn("[progress.description]{task.description}"),
-                console=typer.echo(),
-            ) as progress,
-            Session(db_engine) as session,
-        ):
-            task = progress.add_task(
-                f"Importing projects... {completed}/?",
-                completed=0,
-            )
+        with Session(db_engine) as session:
             async for project in backend.get_new_projects(existing_accessions):
                 # TODO: support other submission types
                 if project.get("submissionType") != "COMPLETE":
@@ -118,22 +104,10 @@ async def async_build(
                     errors += 1
                     error_projects.append((project.get("accession"), str(e)))
                     session.rollback()
-                    progress.update(
-                        task,
-                        description=f"Importing projects... {completed}/?",
-                        completed=imported + errors,
-                    )
                     continue
 
                 session.commit()
                 imported += 1
-                completed = imported + errors
-                progress.update(
-                    task,
-                    description=f"Importing projects... {completed}/?",
-                    completed=imported + errors,
-                )
-
                 # download files
                 files = backend.get_files_for_project(project["accession"])
 

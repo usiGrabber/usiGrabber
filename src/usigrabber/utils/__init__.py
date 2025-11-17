@@ -6,20 +6,8 @@ from pathlib import Path
 from typing import Any
 
 import ijson
-from dotenv import load_dotenv
-from rich.console import Console
 
-load_dotenv()
-
-# Create one shared console for everything
-console = Console()
-logging.basicConfig(
-    level=os.environ.get("LOGLEVEL", "INFO").upper(),
-)
 logger = logging.getLogger(__name__)
-# Suppress overly verbose logs from dependencies
-for name in ["sqlalchemy", "urllib3"]:
-    logging.getLogger(name).setLevel(logging.WARNING)
 
 
 def get_cache_dir() -> Path:

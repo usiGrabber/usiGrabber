@@ -30,6 +30,7 @@ class OntologyHelper(metaclass=OntologyHelperSingletonMeta):
 
     def __init__(self):
         self.ontologies: dict[str, Ontology] = {}
+        self._ontology_loader = OntologyLoader()
 
     def parse_ontology(self, term: str) -> tuple[str, str]:
         cv, id_number = term.split(":")
@@ -45,7 +46,7 @@ class OntologyHelper(metaclass=OntologyHelperSingletonMeta):
         if onto in self.ontologies:
             return self.ontologies[onto]
         start_time = time.time()
-        self.ontologies[onto] = await OntologyLoader().get_ontology(onto)
+        self.ontologies[onto] = await self._ontology_loader.get_ontology(onto)
         logger.info(f"Loaded {onto} in {time.time() - start_time}s")
         return self.ontologies[onto]
 
