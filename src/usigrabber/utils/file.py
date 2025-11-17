@@ -15,8 +15,6 @@ from urllib.parse import urlparse
 import aioftp
 import typer
 
-from usigrabber.utils import DATA_DIR
-
 logger = logging.getLogger(__name__)
 
 
@@ -163,7 +161,7 @@ def temporary_path(*, suffix="", prefix="tmp", dir=None) -> Generator[Path, Any,
 
 def main(
     url: str,
-    out_dir: Path = DATA_DIR / "files",
+    out_dir: Path = Path("."),
     filename: str | None = None,
     extract: bool = False,
 ) -> None:

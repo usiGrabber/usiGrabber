@@ -4,7 +4,7 @@ from pathlib import Path
 import pandas as pd
 from pyteomics.usi import USI
 
-from usigrabber.utils import data_directory_path, logger
+from usigrabber.utils import logger
 
 
 def maxquant_generate_usis(
@@ -57,7 +57,7 @@ if __name__ == "__main__":
     SAMPLE_ACCESSION = "PXD014174"
     # SAMPLE_ACCESSION = "PXD069312"  # yannicks project
 
-    root_path = data_directory_path() / "project_archive"
+    root_path = Path(".")
     project_path = root_path / SAMPLE_ACCESSION
 
     # generate USIs
