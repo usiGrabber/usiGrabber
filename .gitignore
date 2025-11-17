@@ -13,7 +13,6 @@ aiohttp-cache.sqlite
 
 # My local dir for data (-Konstantin)
 data
-pride_projects_all.json
 
 # Database files
 database.db
