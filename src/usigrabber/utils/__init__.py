@@ -13,23 +13,13 @@ load_dotenv()
 
 # Create one shared console for everything
 console = Console()
-
 logging.basicConfig(
     level=os.environ.get("LOGLEVEL", "INFO").upper(),
 )
+logger = logging.getLogger(__name__)
 # Suppress overly verbose logs from dependencies
 for name in ["sqlalchemy", "urllib3"]:
     logging.getLogger(name).setLevel(logging.WARNING)
-
-# add a file logging handler
-log_file_path = Path(os.getenv("LOG_FILE", "usigrabber.log"))
-file_handler = logging.FileHandler(log_file_path)
-file_handler.setLevel(logging.INFO)
-file_formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
-file_handler.setFormatter(file_formatter)
-logging.getLogger().addHandler(file_handler)
-
-logger = logging.getLogger(__name__)
 
 
 def get_cache_dir() -> Path:
