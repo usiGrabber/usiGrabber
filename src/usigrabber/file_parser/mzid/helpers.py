@@ -6,6 +6,7 @@ These functions extract and transform data from mzIdentML elements.
 """
 
 import logging
+from functools import lru_cache
 from typing import Any, cast
 
 from usigrabber.utils import get_unimod_db
@@ -44,26 +45,34 @@ def extract_unimod_id(mod_data: dict) -> int | None:
             name = param.get("name", "")
             if name:
                 # Fallback: resolve by modification name
-                try:
-                    mod = get_unimod_db().get(name, False)
-                    if mod is not None:
-                        try:
-                            return int(cast(int, mod.id))
-                        except (TypeError, ValueError):
-                            # If mod.id cannot be converted to int (e.g., a SQLAlchemy Column), skip
-                            continue
-                except KeyError:
-                    continue
-    elif mod_name:
-        try:
-            mod = get_unimod_db().get(mod_name)
-            if mod is not None:
-                return int(cast(int, mod.id))
-        except KeyError:
-            pass
+                uid = lookup_unimod_id_by_name(name)
+                if uid is not None:
+                    return uid
+    if mod_name:
+        # Fallback: resolve by modification name
+        return lookup_unimod_id_by_name(mod_name)
 
-    else:
-        logger.error("No cvParam found in modification data.")
+    logger.debug("No UNIMOD ID found for modification: %s", mod_data)
+    return None
+
+
+@lru_cache(maxsize=4269)
+def lookup_unimod_id_by_name(mod_name: str) -> int | None:
+    """
+    Lookup UNIMOD ID by modification name with caching.
+
+    Args:
+            mod_name: Name of the modification
+
+    Returns:
+            UNIMOD ID as integer, or None if not found
+    """
+    try:
+        mod = get_unimod_db().get(mod_name, False)
+        if mod is not None:
+            return int(cast(int, mod.id))
+    except KeyError:
+        pass
 
     return None
 
