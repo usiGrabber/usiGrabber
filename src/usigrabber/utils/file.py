@@ -26,7 +26,7 @@ async def download_ftp(
     file_name: str | None = None,
     retries: int = 3,
     delay: int = 5,
-) -> Path | None:
+) -> Path:
     parsed = urlparse(url)
     if parsed.scheme != "ftp":
         raise ValueError(f"URL scheme for {url} is not FTP, found {parsed.scheme}")
@@ -45,14 +45,16 @@ async def download_ftp(
                 await client.download(parsed.path, str(out_path), write_into=True)
             return out_path
         except Exception:
+            logger.warning(
+                f"FTP download attempt {attempt + 1}/{retries} failed for {url}",
+                exc_info=True,
+            )
             if attempt < retries - 1:
                 await asyncio.sleep(delay)
             else:
-                return None
+                raise
 
-
-ARCHIVE_SUFFIXES = (".zip", ".tar", ".tar.gz", ".tgz")
-GZIP_SINGLE = (".gz",)  # but NOT .tar.gz
+    raise RuntimeError("Unreachable: retry loop ended without returning or raising")
 
 
 def is_archive_file(path: Path) -> bool:
@@ -74,13 +76,18 @@ def is_archive_file(path: Path) -> bool:
     return bool(p.endswith(".gz") and not p.endswith(".tar.gz"))
 
 
-def extract_archive(archive_path: Path, extract_to: Path) -> list[Path]:
+def extract_archive(
+    archive_path: Path, extract_to: Path, delete_existing_files: bool = True
+) -> list[Path]:
     """
     Recursively extract archives into extract_to.
-    Returns a set of extracted file paths.
+    Returns a list of extracted file paths.
     """
     archive_path = archive_path.resolve()
-    extract_to.mkdir(parents=True, exist_ok=True)
+    if delete_existing_files and extract_to.exists():
+        shutil.rmtree(extract_to)
+
+    extract_to.mkdir(parents=True, exist_ok=False)
 
     # --- CRITICAL FIX: directory named *.gz, *.zip, etc ---
     if archive_path.is_dir():
@@ -125,6 +132,8 @@ def extract_archive(archive_path: Path, extract_to: Path) -> list[Path]:
     extracted_members: list[Path] = []
     for m in members:
         member_path = (extract_to / m).resolve()
+
+        # TODO check for path traversal attack
 
         # Skip directories
         if member_path.is_dir():

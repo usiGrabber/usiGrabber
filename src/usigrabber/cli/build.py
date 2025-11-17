@@ -159,15 +159,18 @@ async def async_build(
                         )
 
                         with temporary_path() as tmp_dir:
-                            path = await download_ftp(
-                                url=file_url, out_dir=tmp_dir, file_name=filename
-                            )
-
-                            if path is None or not path.exists():
+                            try:
+                                path = await download_ftp(
+                                    url=file_url,
+                                    out_dir=tmp_dir,
+                                    file_name=filename,
+                                )
+                            except Exception:
                                 logger.error(
                                     "Failed to download file %s for project %s.",
                                     filename,
                                     project["accession"],
+                                    exc_info=True,
                                 )
                                 continue
 
@@ -193,15 +196,17 @@ async def async_build(
                                         else "N/A"
                                     )
                                     logger.info(
-                                        f"Imported {stats.psm_count:,} PSMs from {path.name} "
+                                        f"Imported {stats.psm_count:,} PSMs from {mzid_file.name} "
                                         f"({duration_str})"
                                     )
                                 except MzidParseError as e:
-                                    logger.warning(f"Skipping malformed mzID file {path.name}: {e}")
+                                    logger.warning(
+                                        f"Skipping malformed mzID file {mzid_file.name}: {e}"
+                                    )
                                     continue
                                 except MzidImportError as e:
                                     logger.error(
-                                        f"Failed to import mzID file {path.name}: {e}",
+                                        f"Failed to import mzID file {mzid_file.name}: {e}",
                                         exc_info=True,
                                         stack_info=True,
                                         extra={
