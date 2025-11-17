@@ -1,4 +1,3 @@
-import json
 import os
 from collections.abc import AsyncGenerator
 from typing import Any
@@ -13,12 +12,11 @@ from usigrabber.backends.base import BaseBackend, FileMetadata, Files
 from usigrabber.cv_parameters.cv_engine import CVInjector, CVParam, CVTuple
 from usigrabber.db import Project, ProjectCountry, ProjectKeyword, ProjectTag, Reference
 from usigrabber.db.schema import ProjectAffiliation, ProjectOtherOmicsLink
-from usigrabber.utils import DATA_DIR, logger, parse_date
+from usigrabber.utils import get_cache_dir, logger, parse_date
 
 
 class PrideBackend(BaseBackend):
     BASE_URL: str = "https://www.ebi.ac.uk/pride/ws/archive/v3"
-    SAMPLED_PROJECTS_PATH = DATA_DIR / "pride_sampled_projects.json"
 
     @classmethod
     def check_availability(cls, accession: str) -> bool:
@@ -28,27 +26,20 @@ class PrideBackend(BaseBackend):
             return response.text == "PUBLIC"
 
     @classmethod
-    def get_sample_projects(cls) -> list[dict[str, Any]]:
-        # read from DATA_DIR/files/sampled_projects.json
-        if not cls.SAMPLED_PROJECTS_PATH.exists():
-            raise FileNotFoundError(
-                f"Sampled projects file not found at {cls.SAMPLED_PROJECTS_PATH}"
-            )
-        with open(cls.SAMPLED_PROJECTS_PATH, encoding="utf-8") as f:
-            project_metadata = json.load(f)
-            return project_metadata
-
-    @classmethod
     async def get_new_projects(
         cls,
         existing_accessions: set[str],
     ) -> AsyncGenerator[dict[str, Any], None]:
-        file_path = DATA_DIR / "pride_all_projects.json"
-        if os.getenv("DEBUG"):
-            file_path = cls.SAMPLED_PROJECTS_PATH
+        file_path = get_cache_dir() / "pride" / "all_projects.json"
+        is_debug = os.getenv("DEBUG")
+        if is_debug:
+            file_path = get_cache_dir() / "pride" / "sampled_projects.json"
 
         # if file doesnt exist, download it
         if not file_path.exists():
+            if is_debug:
+                raise FileNotFoundError("Sampled projects file not found in cache directory.")
+
             url = f"{cls.BASE_URL}/projects/all"
 
             async with AsyncHttpClient() as client:

@@ -13,8 +13,10 @@ from usigrabber.backends import BackendEnum
 from usigrabber.cli import app
 from usigrabber.db import Project, create_db_and_tables, load_db_engine
 from usigrabber.file_parser import MzidImportError, MzidParseError, import_mzid
+from usigrabber.utils import get_cache_dir
 from usigrabber.utils.file import download_ftp, extract_archive, temporary_path
 
+CACHE_DIR = get_cache_dir()
 STANDARD_BACKENDS = [enum for enum in BackendEnum]
 
 logger = logging.getLogger(__name__)
@@ -22,11 +24,19 @@ logger = logging.getLogger(__name__)
 
 @app.command()
 def build(
-    data_dir: Annotated[
+    debug: Annotated[
+        bool,
+        typer.Option(help="Run in debug mode with verbose output.", envvar="DEBUG"),
+    ] = False,
+    backends: Annotated[
+        list[BackendEnum],
+        typer.Option(help="Set of backends to fetch data from."),
+    ] = STANDARD_BACKENDS,
+    cache_dir: Annotated[
         Path,
         typer.Option(
-            help="Path to the USI data directory.",
-            envvar="UG_DATA_DIR",
+            help="Path to the cache dir.",
+            envvar="CACHE_DIR",
             exists=True,
             dir_okay=True,
             file_okay=False,
@@ -34,21 +44,13 @@ def build(
             readable=True,
             resolve_path=True,
         ),
-    ] = Path("./data"),
-    backends: Annotated[
-        list[BackendEnum],
-        typer.Option(help="Set of backends to fetch data from."),
-    ] = STANDARD_BACKENDS,
-    debug: Annotated[
-        bool,
-        typer.Option(help="Run in debug mode with verbose output.", envvar="DEBUG"),
-    ] = False,
+    ] = CACHE_DIR,
 ):
-    asyncio.run(async_build(data_dir, backends, debug))
+    asyncio.run(async_build(cache_dir, backends, debug))
 
 
 async def async_build(
-    data_dir: Path = Path("./data"),
+    cache_dir: Path = CACHE_DIR,
     backends: list[BackendEnum] = STANDARD_BACKENDS,
     debug: bool = False,
 ) -> None:
@@ -56,7 +58,7 @@ async def async_build(
 
     logger.info("Building database.")
 
-    os.environ["UG_DATA_DIR"] = str(data_dir)
+    os.environ["CACHE_DIR"] = str(cache_dir)
 
     if debug:
         os.environ["DEBUG"] = "1"

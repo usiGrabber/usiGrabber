@@ -14,7 +14,7 @@ from typing import Any
 
 import typer
 
-from usigrabber.utils import DATA_DIR, logger
+from usigrabber.utils import logger
 
 
 async def download_ftp(url: str, out_dir: Path, file_name: str | None = None) -> Path:
@@ -69,7 +69,7 @@ def temporary_path(*, suffix="", prefix="tmp", dir=None) -> Generator[Path, Any,
 
 def main(
     url: str,
-    out_dir: Path = DATA_DIR / "files",
+    out_dir: Path = Path("."),
     filename: str | None = None,
     extract: bool = False,
 ) -> None:
