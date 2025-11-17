@@ -11,6 +11,7 @@ from sqlmodel import Session, select
 from usigrabber.backends import BackendEnum
 from usigrabber.cli import app
 from usigrabber.db import Project, create_db_and_tables, load_db_engine
+from usigrabber.db.cli import reset as db_reset
 from usigrabber.file_parser import MzidImportError, MzidParseError, import_mzid
 from usigrabber.utils import get_cache_dir
 from usigrabber.utils.file import download_ftp, extract_archive, temporary_path
@@ -29,6 +30,7 @@ def build(
         bool,
         typer.Option(help="Run in debug mode with verbose output.", envvar="DEBUG"),
     ] = False,
+    reset: Annotated[bool, typer.Option(help="Reset the database before building.")] = False,
     backends: Annotated[
         list[BackendEnum],
         typer.Option(help="Set of backends to fetch data from."),
@@ -54,11 +56,12 @@ def build(
         ),
     ] = CACHE_DIR,
 ):
-    asyncio.run(async_build(debug, backends, no_ontology, cache_dir))
+    asyncio.run(async_build(debug, reset, backends, no_ontology, cache_dir))
 
 
 async def async_build(
     debug: bool = False,
+    reset: bool = False,
     backends: list[BackendEnum] = STANDARD_BACKENDS,
     no_ontology: bool = False,
     cache_dir: Path = CACHE_DIR,
@@ -80,6 +83,10 @@ async def async_build(
 
     if os.getenv("DEBUG"):
         logger.info("Running in DEBUG mode.")
+
+    if reset:
+        logger.info("Resetting database before build.")
+        db_reset(force=True)
 
     # WORKFLOW
 
@@ -221,6 +228,8 @@ async def async_build(
                     )
 
                 # TODO: set "complete" flag for project
+
+                break  # process only first project for testing
 
         if imported > 0 or errors > 0:
             logger.info("Finished importing from backend %s.", backend_enum.name)

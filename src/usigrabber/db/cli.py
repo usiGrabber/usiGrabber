@@ -103,10 +103,6 @@ def reset(
     console.print("  - Creating tables...")
     create_db_and_tables(engine)
 
-    # Seed data
-    console.print("  - Seeding sample data...")
-    seed_minimal_data(engine)
-
     console.print("✅ Database reset complete!", style="bold green")
 
 
