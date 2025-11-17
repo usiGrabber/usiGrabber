@@ -185,7 +185,7 @@ def info(echo_sql: bool = False):
             ).one(),
             "PSM-Peptide Evidence Links": session.exec(
                 select(func.count()).select_from(PSMPeptideEvidence)
-            ),
+            ).one(),
             "CV Parameters": session.exec(select(func.count()).select_from(CvParam)).one(),
         }
 
