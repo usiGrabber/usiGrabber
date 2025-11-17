@@ -153,35 +153,34 @@ async def async_build(
                     imported += 1
                     # download files
                     files = backend.get_files_for_project(project["accession"])
+                    with temporary_path() as tmp_dir:
+                        # process files
+                        if files["result"]:
+                            interesting_files: dict[str, list[Path]] = {
+                                ext: [] for ext in FILETYPE_WHITELIST
+                            }
 
-                    # process files
-                    if files["result"]:
-                        interesting_files: dict[str, list[Path]] = {
-                            ext: [] for ext in FILETYPE_WHITELIST
-                        }
+                            for file in files["result"]:
+                                # parse filename from file url
+                                file_url = file["filepath"]
+                                filename = os.path.basename(file_url)
 
-                        for file in files["result"]:
-                            # parse filename from file url
-                            file_url = file["filepath"]
-                            filename = os.path.basename(file_url)
+                                # find actual file extension, without archives
+                                file_base, file_ext = os.path.splitext(filename)
+                                while file_ext in {".zip", ".gz", ".tar", ".rar", ".7z"}:
+                                    file_base, file_ext = os.path.splitext(file_base)
 
-                            # find actual file extension, without archives
-                            file_base, file_ext = os.path.splitext(filename)
-                            while file_ext in {".zip", ".gz", ".tar", ".rar", ".7z"}:
-                                file_base, file_ext = os.path.splitext(file_base)
+                                if file_ext not in FILETYPE_WHITELIST:
+                                    logger.debug(
+                                        f"Skipping file {filename} with unsupported extension {file_ext}."
+                                    )
+                                    continue
 
-                            if file_ext not in FILETYPE_WHITELIST:
                                 logger.debug(
-                                    f"Skipping file {filename} with unsupported extension {file_ext}."
+                                    f"Processing result file {filename} "
+                                    + f"({file['file_size'] / (1024 * 1024):,.2f} MB)"
                                 )
-                                continue
 
-                            logger.debug(
-                                f"Processing result file {filename} "
-                                + f"({file['file_size'] / (1024 * 1024):,.2f} MB)"
-                            )
-
-                            with temporary_path() as tmp_dir:
                                 try:
                                     path = await download_ftp(
                                         url=file_url,
@@ -199,7 +198,7 @@ async def async_build(
 
                                 # contains all files extracted from archive
                                 extracted_files = extract_archive(
-                                    archive_path=path, extract_to=tmp_dir / "extracted"
+                                    archive_path=path, extract_to=tmp_dir / "extracted" / filename
                                 )
 
                                 for f in extracted_files:
@@ -207,21 +206,21 @@ async def async_build(
                                     if ext in FILETYPE_WHITELIST:
                                         interesting_files[ext].append(f)
 
-                        mzid_tasks = [
-                            parse_and_import_mzid(mzid_file, project["accession"], process_pool)
-                            for mzid_file in interesting_files[".mzid"]
-                        ]
-                        await asyncio.gather(*mzid_tasks)
+                            mzid_tasks = [
+                                parse_and_import_mzid(mzid_file, project["accession"], process_pool)
+                                for mzid_file in interesting_files[".mzid"]
+                            ]
+                            await asyncio.gather(*mzid_tasks)
 
-                    elif files["search"]:
-                        # TODO: support search files
-                        continue
-                    else:
-                        logger.warning(
-                            "No results/search files found for project '%s' from backend %s.",
-                            project["accession"],
-                            backend_enum.name,
-                        )
+                        elif files["search"]:
+                            # TODO: support search files
+                            continue
+                        else:
+                            logger.warning(
+                                "No results/search files found for project '%s' from backend %s.",
+                                project["accession"],
+                                backend_enum.name,
+                            )
 
                 # TODO: set "complete" flag for project
 
