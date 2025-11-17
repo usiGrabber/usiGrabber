@@ -133,7 +133,12 @@ def extract_archive(
     for m in members:
         member_path = (extract_to / m).resolve()
 
-        # TODO check for path traversal attack
+        # Security check: ensure member is within extract_to
+        if not member_path.is_relative_to(extract_to):
+            logger.warning(
+                "Skipping member with path outside extraction directory: %s", member_path
+            )
+            continue
 
         # Skip directories
         if member_path.is_dir():

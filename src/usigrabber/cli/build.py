@@ -217,13 +217,6 @@ async def async_build(
                                     errors += 1
                                     continue
                             # TODO: add processing for other file types here
-                            # else:
-                            #     logger.warning(
-                            #         "No known file types found for project %s. Skipping project.",
-                            #         project["accession"],
-                            #     )
-                            #     # make sure project is not flagged as complete
-                            #     continue
 
                 elif files["search"]:
                     # TODO: support search files

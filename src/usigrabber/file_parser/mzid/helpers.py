@@ -12,8 +12,6 @@ from usigrabber.utils import get_unimod_db
 
 logger = logging.getLogger(__name__)
 
-UNIMOD_DB = get_unimod_db()
-
 
 def extract_unimod_id(mod_data: dict) -> int | None:
     """
@@ -47,7 +45,7 @@ def extract_unimod_id(mod_data: dict) -> int | None:
             if name:
                 # Fallback: resolve by modification name
                 try:
-                    mod = UNIMOD_DB.get(name, False)
+                    mod = get_unimod_db().get(name, False)
                     if mod is not None:
                         try:
                             return int(cast(int, mod.id))
@@ -58,7 +56,7 @@ def extract_unimod_id(mod_data: dict) -> int | None:
                     continue
     elif mod_name:
         try:
-            mod = UNIMOD_DB.get(mod_name)
+            mod = get_unimod_db().get(mod_name)
             if mod is not None:
                 return int(cast(int, mod.id))
         except KeyError:
