@@ -177,7 +177,9 @@ async def async_build(
                                 continue
 
                             # contains all files extracted from archive
-                            extracted_files = extract_archive(archive_path=path, extract_to=tmp_dir)
+                            extracted_files = extract_archive(
+                                archive_path=path, extract_to=tmp_dir / "extracted"
+                            )
 
                             interesting_files: dict[str, list[Path]] = {
                                 ext: [] for ext in FILETYPE_WHITELIST
