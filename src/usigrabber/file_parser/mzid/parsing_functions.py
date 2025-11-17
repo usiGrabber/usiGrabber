@@ -57,6 +57,10 @@ def parse_threshold_info(reader: mzid.MzIdentML) -> tuple[str | None, float | No
     """
     Parse threshold information from SpectrumIdentificationProtocol.
 
+    When using retrieve_refs=False, pyteomics flattens the Threshold element
+    into a dictionary with threshold names as keys and values as values.
+    For example: {'Mascot:SigThreshold': 0.05, 'Mascot:SigThresholdType': 'homology'}
+
     Args:
                     reader: MzIdentML reader instance
 
@@ -70,25 +74,43 @@ def parse_threshold_info(reader: mzid.MzIdentML) -> tuple[str | None, float | No
         threshold = protocol.get("Threshold", {})
         if threshold and len(threshold) > 0:
             # Threshold can contain cvParam or userParam with various threshold types
+            # In most cases, pyteomics flattens this into a dict with one key-value pair
             # Example: "Mascot:SigThreshold", "pep:FDR threshold", "distinct peptide-level FDRScore"
-            # Get first key-value pair
             cv_param = threshold.get("cvParam", None)
             user_param = threshold.get("userParam", None)
 
-            param = cv_param if cv_param else user_param
-            if param is None:
-                continue
+            threshold_value_raw: str | int | float | None = None
 
-            name = param.get("name", None)
-            value = param.get("value", None)
-            threshold_type = name
-            threshold_value_raw = value
+            if cv_param is None and user_param is None:
+                # This is a flattened structure - get the first key-value pair
+                for key, value in threshold.items():
+                    threshold_type = key
+                    threshold_value_raw = value
+                    break
+            else:
+                # This is a nested structure with cvParam/userParam
+                param = cv_param if cv_param else user_param
+                if param is None:
+                    continue
 
-            # Convert to float, handling empty strings
-            try:
-                threshold_value = float(threshold_value_raw) if threshold_value_raw != "" else None
-            except (ValueError, TypeError):
-                threshold_value = None
+                name = param.get("name", None)
+                value = param.get("value", None)
+                threshold_type = name
+                threshold_value_raw = value
+
+            # Convert to float, handling empty strings and non-numeric values
+            if threshold_value_raw is not None:
+                try:
+                    if isinstance(threshold_value_raw, (int, float)):
+                        threshold_value = float(threshold_value_raw)
+                    elif isinstance(threshold_value_raw, str):
+                        threshold_value = (
+                            float(threshold_value_raw) if threshold_value_raw != "" else None
+                        )
+                    else:
+                        threshold_value = None
+                except (ValueError, TypeError):
+                    threshold_value = None
 
             break
 
