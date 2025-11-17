@@ -153,7 +153,7 @@ def import_mzid(mzid_path: Path, project_accession: str) -> ImportStats:
         stats.psm_count = len(parsed_data.psms)
         stats.mark_complete()
 
-        logger.info(stats.summary())
+        logger.debug(stats.summary())
         return stats
 
     except MzidParseError as e:

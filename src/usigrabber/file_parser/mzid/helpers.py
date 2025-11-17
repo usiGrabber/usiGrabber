@@ -25,6 +25,7 @@ def extract_unimod_id(mod_data: dict) -> int | None:
     """
     # Check if cvParam exists
     cv_params = mod_data.get("cvParam")
+    mod_name = mod_data.get("name")
 
     if cv_params:
         # cvParam can be a list or a single dict
@@ -43,9 +44,8 @@ def extract_unimod_id(mod_data: dict) -> int | None:
             name = param.get("name", "")
             if name:
                 # Fallback: resolve by modification name
-                unimod_db = get_unimod_db()
                 try:
-                    mod = unimod_db.get(name, False)
+                    mod = get_unimod_db().get(name, False)
                     if mod is not None:
                         try:
                             return int(cast(int, mod.id))
@@ -54,6 +54,14 @@ def extract_unimod_id(mod_data: dict) -> int | None:
                             continue
                 except KeyError:
                     continue
+    elif mod_name:
+        try:
+            mod = get_unimod_db().get(mod_name)
+            if mod is not None:
+                return int(cast(int, mod.id))
+        except KeyError:
+            pass
+
     else:
         logger.error("No cvParam found in modification data.")
 

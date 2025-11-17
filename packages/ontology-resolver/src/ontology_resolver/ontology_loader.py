@@ -10,7 +10,6 @@ from usigrabber.utils import get_cache_dir
 
 logger = logging.getLogger(__name__)
 ONTOLOGIES_TO_SHRINK = ["NCBITaxon"]
-ONTOLOGIES_CACHE_DIR_VARIABLE = "ONTOLOGIES_CACHE_DIR"
 
 
 class OntologyLoader:
@@ -19,7 +18,7 @@ class OntologyLoader:
 
     def __init__(self):
         self._cache_dir = get_cache_dir() / "ontologies"
-        self._cache_dir.mkdir(exist_ok=True)
+        self._cache_dir.mkdir(exist_ok=True, parents=True)
         logger.info(f"Using ontology cache dir: {self._cache_dir}")
 
     async def download_ontology(self, onto: str) -> Path:

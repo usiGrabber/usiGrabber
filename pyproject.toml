@@ -21,6 +21,7 @@ dependencies = [
     "rich>=13.9.4",
     "pronto>=2.7.1",
     "ontology-resolver",
+    "aioftp>=0.27.2",
     "psycopg>=3.2.12",
 ]
 
