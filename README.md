@@ -67,6 +67,10 @@ uv run usigrabber db reset --force
 
 # Drop all tables (WARNING: deletes all data)
 uv run usigrabber db drop --force
+
+# Profile database build
+uv run pyinstrument -o db_build_profile.html $(which usigrabber) build
+
 ```
 
 ### Configuration
