@@ -49,7 +49,6 @@ async def download_ftp(
         except Exception:
             logger.warning(
                 f"FTP download attempt {attempt + 1}/{retries} failed for {url}",
-                exc_info=True,
             )
             if attempt < retries - 1:
                 await asyncio.sleep(delay)
@@ -134,12 +133,13 @@ def extract_archive(
     for m in members:
         member_path = (extract_to / m).resolve()
 
-        # Security check: ensure member is within extract_to
-        if not member_path.is_relative_to(extract_to):
-            logger.warning(
-                "Skipping member with path outside extraction directory: %s", member_path
-            )
-            continue
+        # # Security check: ensure member is within extract_to
+        # if not member_path.is_relative_to(extract_to):
+        #     import pdb; pdb.set_trace()
+        #     logger.warning(
+        #         "Skipping member with path outside extraction directory: %s", member_path
+        #     )
+        #     continue
 
         # Skip directories
         if member_path.is_dir():

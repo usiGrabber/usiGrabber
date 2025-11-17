@@ -25,6 +25,7 @@ from usigrabber.file_parser.mzid.parsing_functions import (
     parse_peptides,
     parse_psms,
 )
+from usigrabber.utils.async_process_pool_executor import ProcessPoolWithBackpressure
 
 logger = logging.getLogger(__name__)
 
@@ -102,7 +103,9 @@ def parse_mzid_file(mzid_path: Path, project_accession: str) -> ParsedMzidData:
         raise MzidParseError(error_msg) from e
 
 
-def import_mzid(mzid_path: Path, project_accession: str) -> ImportStats:
+async def import_mzid(
+    mzid_path: Path, project_accession: str, process_pool: ProcessPoolWithBackpressure
+) -> ImportStats:
     """
     Import an mzIdentML file into the database.
 
@@ -130,12 +133,16 @@ def import_mzid(mzid_path: Path, project_accession: str) -> ImportStats:
 
     try:
         # Step 1: Parse the mzID file (pure parsing, no DB operations)
-        parsed_data = parse_mzid_file(mzid_path, project_accession)
+        parsed_data = await process_pool.submit(parse_mzid_file, mzid_path, project_accession)
 
         stats.mark_parsing_complete()
 
         # Step 2: Persist everything to the database
         engine = load_db_engine()
+
+        import pdb
+
+        pdb.set_trace()
         with Session(engine) as session:
             session.add(parsed_data.mzid_file)
             session.add_all(parsed_data.peptides)

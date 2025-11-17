@@ -14,6 +14,7 @@ from usigrabber.db import Project, create_db_and_tables, load_db_engine
 from usigrabber.db.cli import reset as db_reset
 from usigrabber.file_parser import MzidImportError, MzidParseError, import_mzid
 from usigrabber.utils import get_cache_dir
+from usigrabber.utils.async_process_pool_executor import ProcessPoolWithBackpressure
 from usigrabber.utils.file import download_ftp, extract_archive, temporary_path
 
 CACHE_DIR = get_cache_dir()
@@ -57,6 +58,26 @@ def build(
     ] = CACHE_DIR,
 ):
     asyncio.run(async_build(debug, reset, backends, no_ontology, cache_dir))
+
+
+async def parse_and_import_mzid(
+    mzid_path: Path, project_accession: str, process_pool: ProcessPoolWithBackpressure
+):
+    try:
+        stats = await import_mzid(mzid_path, project_accession, process_pool)
+        duration_str = (
+            f"{stats.duration_seconds:.1f}s" if stats.duration_seconds is not None else "N/A"
+        )
+        logger.info(f"Imported {stats.psm_count:,} PSMs from {mzid_path.name} ({duration_str})")
+    except MzidParseError as e:
+        logger.warning(f"Skipping malformed mzID file {mzid_path.name}: {e}")
+    except MzidImportError as e:
+        logger.error(
+            f"Failed to import mzID file {mzid_path.name}: {e}",
+            exc_info=True,
+            stack_info=True,
+            extra={"mzid_file": str(mzid_path), "project_accession": project_accession},
+        )
 
 
 async def async_build(
@@ -114,118 +135,93 @@ async def async_build(
         imported = errors = 0
         error_projects = []
         with Session(db_engine) as session:
-            async for project in backend.get_new_projects(existing_accessions):
-                # TODO: support other submission types
-                if project.get("submissionType") != "COMPLETE":
-                    continue
+            async with ProcessPoolWithBackpressure() as process_pool:
+                async for project in backend.get_new_projects(existing_accessions):
+                    # TODO: support other submission types
+                    if project.get("submissionType") != "COMPLETE":
+                        continue
 
-                try:
-                    await backend.dump_project_to_db(session, project)
-                except Exception as e:
-                    errors += 1
-                    error_projects.append((project.get("accession"), str(e)))
-                    session.rollback()
-                    continue
+                    try:
+                        await backend.dump_project_to_db(session, project)
+                    except Exception as e:
+                        errors += 1
+                        error_projects.append((project.get("accession"), str(e)))
+                        session.rollback()
+                        continue
 
-                session.commit()
-                imported += 1
-                # download files
-                files = backend.get_files_for_project(project["accession"])
+                    session.commit()
+                    imported += 1
+                    # download files
+                    files = backend.get_files_for_project(project["accession"])
 
-                # process files
-                if files["result"]:
-                    for file in files["result"]:
-                        # parse filename from file url
-                        file_url = file["filepath"]
-                        filename = os.path.basename(file_url)
+                    # process files
+                    if files["result"]:
+                        interesting_files: dict[str, list[Path]] = {
+                            ext: [] for ext in FILETYPE_WHITELIST
+                        }
 
-                        # find actual file extension, without archives
-                        file_base, file_ext = os.path.splitext(filename)
-                        while file_ext in {".zip", ".gz", ".tar", ".rar", ".7z"}:
-                            file_base, file_ext = os.path.splitext(file_base)
+                        for file in files["result"]:
+                            # parse filename from file url
+                            file_url = file["filepath"]
+                            filename = os.path.basename(file_url)
 
-                        if file_ext not in FILETYPE_WHITELIST:
-                            logger.debug(
-                                f"Skipping file {filename} with unsupported extension {file_ext}."
-                            )
-                            continue
+                            # find actual file extension, without archives
+                            file_base, file_ext = os.path.splitext(filename)
+                            while file_ext in {".zip", ".gz", ".tar", ".rar", ".7z"}:
+                                file_base, file_ext = os.path.splitext(file_base)
 
-                        logger.debug(
-                            f"Processing result file {filename} "
-                            + f"({file['file_size'] / (1024 * 1024):,.2f} MB)"
-                        )
-
-                        with temporary_path() as tmp_dir:
-                            try:
-                                path = await download_ftp(
-                                    url=file_url,
-                                    out_dir=tmp_dir,
-                                    file_name=filename,
-                                )
-                            except Exception:
-                                logger.error(
-                                    "Failed to download file %s for project %s.",
-                                    filename,
-                                    project["accession"],
-                                    exc_info=True,
+                            if file_ext not in FILETYPE_WHITELIST:
+                                logger.debug(
+                                    f"Skipping file {filename} with unsupported extension {file_ext}."
                                 )
                                 continue
 
-                            # contains all files extracted from archive
-                            extracted_files = extract_archive(
-                                archive_path=path, extract_to=tmp_dir / "extracted"
+                            logger.debug(
+                                f"Processing result file {filename} "
+                                + f"({file['file_size'] / (1024 * 1024):,.2f} MB)"
                             )
 
-                            interesting_files: dict[str, list[Path]] = {
-                                ext: [] for ext in FILETYPE_WHITELIST
-                            }
-                            for f in extracted_files:
-                                ext = os.path.splitext(str(f))[1]
-                                if ext in FILETYPE_WHITELIST:
-                                    interesting_files[ext].append(f)
-
-                            # access files based on priority
-                            for mzid_file in interesting_files[".mzid"]:
-                                # Process mzID file
+                            with temporary_path() as tmp_dir:
                                 try:
-                                    stats = import_mzid(mzid_file, project["accession"])
-                                    duration_str = (
-                                        f"{stats.duration_seconds:.1f}s"
-                                        if stats.duration_seconds is not None
-                                        else "N/A"
+                                    path = await download_ftp(
+                                        url=file_url,
+                                        out_dir=tmp_dir,
+                                        file_name=filename,
                                     )
-                                    logger.info(
-                                        f"Imported {stats.psm_count:,} PSMs from {mzid_file.name} "
-                                        f"({duration_str})"
-                                    )
-                                except MzidParseError as e:
-                                    logger.warning(
-                                        f"Skipping malformed mzID file {mzid_file.name}: {e}"
-                                    )
-                                    continue
-                                except MzidImportError as e:
+                                except Exception:
                                     logger.error(
-                                        f"Failed to import mzID file {mzid_file.name}: {e}",
+                                        "Failed to download file %s for project %s.",
+                                        filename,
+                                        project["accession"],
                                         exc_info=True,
-                                        stack_info=True,
-                                        extra={
-                                            "mzid_file": str(mzid_file),
-                                            "project_accession": project["accession"],
-                                        },
                                     )
-                                    errors += 1
                                     continue
-                            # TODO: add processing for other file types here
 
-                elif files["search"]:
-                    # TODO: support search files
-                    continue
-                else:
-                    logger.warning(
-                        "No results/search files found for project '%s' from backend %s.",
-                        project["accession"],
-                        backend_enum.name,
-                    )
+                                # contains all files extracted from archive
+                                extracted_files = extract_archive(
+                                    archive_path=path, extract_to=tmp_dir / "extracted"
+                                )
+
+                                for f in extracted_files:
+                                    ext = os.path.splitext(str(f))[1]
+                                    if ext in FILETYPE_WHITELIST:
+                                        interesting_files[ext].append(f)
+
+                        mzid_tasks = [
+                            parse_and_import_mzid(mzid_file, project["accession"], process_pool)
+                            for mzid_file in interesting_files[".mzid"]
+                        ]
+                        await asyncio.gather(*mzid_tasks)
+
+                    elif files["search"]:
+                        # TODO: support search files
+                        continue
+                    else:
+                        logger.warning(
+                            "No results/search files found for project '%s' from backend %s.",
+                            project["accession"],
+                            backend_enum.name,
+                        )
 
                 # TODO: set "complete" flag for project
 
