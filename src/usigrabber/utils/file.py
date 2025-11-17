@@ -25,6 +25,10 @@ async def download_ftp(
     retries: int = 3,
     delay: int = 5,
 ) -> Path:
+    """Download a file from an FTP URL asynchronously."""
+
+    logger.debug("Downloading FTP file from '%s'", url)
+
     parsed = urlparse(url)
     if parsed.scheme != "ftp":
         raise ValueError(f"URL scheme for {url} is not FTP, found {parsed.scheme}")
