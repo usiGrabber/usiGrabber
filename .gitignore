@@ -31,3 +31,5 @@ coverage.xml
 pytest.xml
 report.xml
 temp_test_data
+
+logs/

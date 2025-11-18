@@ -15,7 +15,7 @@
       "justMyCode": true,
       "env": {
         "DEBUG": "1",
-        "DB_ECHO_SQL": "1",
+        //"DB_ECHO_SQL": "1",
         "DB_URL": "sqlite://" // in-memory database for testing
       }
     },

@@ -149,8 +149,11 @@ class PrideBackend(BaseBackend):
                             superclasses = await ontology_helper.get_superclasses(cv_term)
                             supperclass_cv_terms = [x.id for x in superclasses[1:]]
                             cv_term_value = cv_data.get("value", None)
-                        except Exception as e:
-                            logger.error(f"Failed to resolve super classes for term {cv_term}:", e)
+                        except Exception:
+                            logger.error(
+                                f"Failed to resolve super classes for term {cv_term}:",
+                                exc_info=True,
+                            )
 
                     if cv_term is not None:
                         await injector.add(CVParam(term=cv_term, value=cv_term_value))
