@@ -199,6 +199,7 @@ def parse_peptides(
         sequence = peptide_elem.get("PeptideSequence", "")
 
         if not mzid_peptide_id or not sequence:
+            logger.warning(f"Skipping invalid Peptide element: {peptide_elem}")
             continue
 
         peptide = Peptide(sequence=sequence, length=len(sequence))
@@ -359,11 +360,10 @@ def link_modifications(
     Create PeptideModification records for all peptides with modifications.
 
     Args:
-                    session: SQLModel session
-                    peptide_mods: Mapping from database Peptide.id to list of modification data
+        peptide_mods: Mapping from database Peptide.id to list of modification data
 
     Returns:
-                    Number of modifications created
+        List of PeptideModification records created
     """
 
     peptide_mod_batch = []

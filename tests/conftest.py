@@ -77,3 +77,14 @@ def no_threshold_reader():
 def full_mzid_path():
     """Return path to a full example mzID file."""
     return Path("tests/fixtures/full_small.mzid")
+
+
+@pytest.fixture
+def full_mzid_reader():
+    """Return mzID reader for full example file.
+
+    Contains complete mzID data including software, thresholds, peptides,
+    modifications, peptide evidence, and PSMs.
+    """
+    path = Path("tests/fixtures/full_small.mzid")
+    return create_mzid_reader(path)
