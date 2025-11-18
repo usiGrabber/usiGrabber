@@ -229,7 +229,6 @@ async def async_build(
 
                 # TODO: set "complete" flag for project
 
-                break  # process only first project for testing
 
         if imported > 0 or errors > 0:
             logger.info("Finished importing from backend %s.", backend_enum.name)
