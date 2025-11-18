@@ -16,18 +16,20 @@ logger = logging.getLogger(__name__)
 
 def extract_unimod_id_and_name(mod_data: dict) -> tuple[int | None, str | None]:
     """
-    Extract UNIMOD ID from modification cvParam data.
+    Extract UNIMOD ID and name from modification data.
 
     Args:
-            mod_data: Modification dictionary containing cvParam information
+            mod_data: Modification dictionary
 
     Returns:
-            UNIMOD ID as integer, or None if not found
+            UNIMOD ID as integer, or None if not found. Also returns modification name.
+
     """
     # Check if cvParam exists
     cv_params = mod_data.get("cvParam")
 
     mod_name = mod_data.get("name")
+    uid: int | None = None
 
     if cv_params:
         # cvParam can be a list or a single dict
@@ -54,7 +56,7 @@ def extract_unimod_id_and_name(mod_data: dict) -> tuple[int | None, str | None]:
 
     if uid is None:
         logger.debug("No UNIMOD ID found for modification: %s", mod_data)
-    return uid
+    return uid, mod_name
 
 
 @lru_cache(maxsize=420)
@@ -75,7 +77,7 @@ def lookup_unimod_id_by_name(mod_name: str) -> int | None:
     except KeyError:
         pass
 
-    return None, mod_name
+    return None
 
 
 def extract_score_values(sii: dict) -> dict[str, Any]:
