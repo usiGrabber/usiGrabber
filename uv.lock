@@ -1,5 +1,5 @@
 version = 1
-revision = 2
+revision = 3
 requires-python = ">=3.12"
 
 [manifest]
@@ -237,6 +237,15 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/26/d8/30b745b965765c08ee132fd590fca46c31296e8f1a606de0c53cc6b5a68f/better_exceptions-0.3.3.tar.gz", hash = "sha256:e4e6bc18444d5f04e6e894b10381e5e921d3d544240418162c7db57e9eb3453b", size = 30156, upload-time = "2021-01-29T16:48:54.914Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/ed/50/abf6850135f1e95d321a525d0a36e05255a039b3fc118b7d88413e8a8207/better_exceptions-0.3.3-py3-none-any.whl", hash = "sha256:9c70b1c61d5a179b84cd2c9d62c3324b667d74286207343645ed4306fdaad976", size = 11857, upload-time = "2021-01-29T16:48:53.642Z" },
+]
+
+[[package]]
+name = "cachetools"
+version = "6.2.2"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/fb/44/ca1675be2a83aeee1886ab745b28cda92093066590233cc501890eb8417a/cachetools-6.2.2.tar.gz", hash = "sha256:8e6d266b25e539df852251cfd6f990b4bc3a141db73b939058d809ebd2590fc6", size = 31571, upload-time = "2025-11-13T17:42:51.465Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/e6/46/eb6eca305c77a4489affe1c5d8f4cae82f285d9addd8de4ec084a7184221/cachetools-6.2.2-py3-none-any.whl", hash = "sha256:6c09c98183bf58560c97b2abfcedcbaf6a896a490f534b031b661d3723b45ace", size = 11503, upload-time = "2025-11-13T17:42:50.232Z" },
 ]
 
 [[package]]
@@ -1629,6 +1638,7 @@ dependencies = [
     { name = "aioftp" },
     { name = "async-http-client" },
     { name = "better-exceptions" },
+    { name = "cachetools" },
     { name = "ijson" },
     { name = "lxml" },
     { name = "ontology-resolver" },
@@ -1659,6 +1669,7 @@ requires-dist = [
     { name = "aioftp", specifier = ">=0.27.2" },
     { name = "async-http-client", editable = "packages/async-http-client" },
     { name = "better-exceptions", specifier = ">=0.3.3" },
+    { name = "cachetools", specifier = ">=6.2.2" },
     { name = "ijson", specifier = ">=3.4.0.post0" },
     { name = "lxml", specifier = "==5.3.2" },
     { name = "ontology-resolver", editable = "packages/ontology-resolver" },
