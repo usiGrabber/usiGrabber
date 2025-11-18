@@ -1,4 +1,5 @@
 {
+  "version": "0.2.0",
   "configurations": [
     {
       "name": "Build database",
@@ -22,8 +23,8 @@
       "name": "Python Debugger: pytest",
       "type": "debugpy",
       "request": "launch",
-      "module": "pytest",
-      "args": ["${file}", "-v"],
+      "program": "${file}",
+      "purpose": ["debug-test"],
       "cwd": "${workspaceFolder}",
       "console": "integratedTerminal",
       "justMyCode": false
