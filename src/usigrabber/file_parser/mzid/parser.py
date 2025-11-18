@@ -51,7 +51,7 @@ def parse_mzid_file(mzid_path: Path, project_accession: str) -> ParsedMzidData:
         logger.error(error_msg)
         raise MzidParseError(error_msg)
 
-    logger.info(f"Parsing mzID file: {mzid_path.name}")
+    logger.debug(f"Parsing mzID file: {mzid_path.name}")
 
     try:
         # Parse mzID file with retrieve_refs=False
@@ -126,8 +126,7 @@ def import_mzid(mzid_path: Path, project_accession: str) -> ImportStats:
         file_name=mzid_path.name,
         project_accession=project_accession,
     )
-
-    logger.info(f"Importing mzID file: {mzid_path.name}")
+    logger.debug(f"Importing mzID file: {mzid_path.name}")
 
     try:
         # Step 1: Parse the mzID file (pure parsing, no DB operations)

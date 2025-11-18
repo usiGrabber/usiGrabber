@@ -13,7 +13,7 @@ _setup_done = False
 _setup_lock = threading.Lock()
 
 
-def system_setup(logger_name: str):
+def system_setup(logger_name: str = ""):
     """
     - Setups logger
     - Loads env variables
@@ -36,19 +36,22 @@ def system_setup(logger_name: str):
 
         load_dotenv()
 
-        logging_dir = Path(os.environ.get("LOGGING_DIR", "logs"))
+        logging_dir = Path(os.getenv("LOGGING_DIR", "logs"))
 
         logging_dir.mkdir(exist_ok=True)
 
-        # TODO: Remove this later: https://rednafi.com/python/no-hijack-root-logger/
+        # overwrite root logger, should only be called in application code
         logger = logging.getLogger(logger_name)
 
-        logger.setLevel(os.environ.get("LOGLEVEL", "INFO").upper())
         if logger.hasHandlers():
             logger.handlers.clear()
 
+        # mute noisy libraries
+        for child in ["sqlalchemy", "aioftp", "urllib3"]:
+            logging.getLogger(child).setLevel("WARNING")
+
         terminal_handler = logging.StreamHandler(sys.stdout)
-        terminal_handler.setLevel(logging.INFO)
+        terminal_handler.setLevel(os.getenv("LOGLEVEL", "INFO").upper())
         terminal_handler.setFormatter(CustomColorFormatter(use_colors=True))
         terminal_handler.addFilter(ExponentialBackoffFilter())
 
