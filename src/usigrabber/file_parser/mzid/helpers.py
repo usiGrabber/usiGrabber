@@ -13,7 +13,7 @@ from usigrabber.utils import get_unimod_db
 logger = logging.getLogger(__name__)
 
 
-def extract_unimod_id(mod_data: dict) -> int | None:
+def extract_unimod_id_and_name(mod_data: dict) -> tuple[int | None, str | None]:
     """
     Extract UNIMOD ID from modification cvParam data.
 
@@ -26,6 +26,8 @@ def extract_unimod_id(mod_data: dict) -> int | None:
     # Check if cvParam exists
     cv_params = mod_data.get("cvParam")
 
+    mod_name = mod_data.get("name")
+
     if cv_params:
         # cvParam can be a list or a single dict
         if not isinstance(cv_params, list):
@@ -37,7 +39,7 @@ def extract_unimod_id(mod_data: dict) -> int | None:
             if "UNIMOD:" in accession and len(accession) > 7:
                 try:
                     # Extract number from "UNIMOD:35" format
-                    return int(accession.split(":")[-1])
+                    return int(accession.split(":")[-1]), mod_name
                 except (ValueError, IndexError):
                     pass
             name = param.get("name", "")
@@ -48,7 +50,7 @@ def extract_unimod_id(mod_data: dict) -> int | None:
                     mod = unimod_db.get(name, False)
                     if mod is not None:
                         try:
-                            return int(cast(int, mod.id))
+                            return int(cast(int, mod.id)), name
                         except (TypeError, ValueError):
                             # If mod.id cannot be converted to int (e.g., a SQLAlchemy Column), skip
                             continue
@@ -57,7 +59,7 @@ def extract_unimod_id(mod_data: dict) -> int | None:
     else:
         logger.error("No cvParam found in modification data.")
 
-    return None
+    return None, mod_name
 
 
 def extract_score_values(sii: dict) -> dict[str, Any]:

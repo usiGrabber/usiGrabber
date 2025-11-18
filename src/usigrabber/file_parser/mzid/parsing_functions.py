@@ -24,7 +24,7 @@ from usigrabber.db.schema import (
 )
 from usigrabber.file_parser.mzid.helpers import (
     extract_score_values,
-    extract_unimod_id,
+    extract_unimod_id_and_name,
     parse_modification_location,
 )
 
@@ -371,26 +371,25 @@ def link_modifications(
     for peptide_id, mods in peptide_mods.items():
         for mod in mods:
             # Extract UNIMOD ID
-            unimod_id = extract_unimod_id(mod)
+            unimod_id, name = extract_unimod_id_and_name(mod)
 
             # Skip modifications without valid UNIMOD ID
             if unimod_id is None:
                 logger.warning(f"No UNIMOD ID found for modification: {mod}")
-                continue
 
             location, residues = parse_modification_location(mod)
 
             # Skip modifications without valid location
             if location is None:
                 logger.warning(f"No location found for modification: {mod}")
-                continue
 
             # Create modification record
             peptide_mod = PeptideModification(
                 peptide_id=peptide_id,
                 unimod_id=unimod_id,
+                name=name,
                 position=location,
-                modified_residue=residues or "",
+                modified_residue=residues,
             )
             peptide_mod_batch.append(peptide_mod)
 
