@@ -86,6 +86,17 @@ def test_parse_peptide_evidence_basic(full_mzid_reader):
 
     assert len(pe_id_map) == len(peptide_evidence)
 
+    pe_with_positions = [pe for pe in peptide_evidence if pe.start_position is not None]
+    assert len(pe_with_positions) > 0, "Some peptide evidence should have position info"
+
+    for pe in pe_with_positions:
+        if pe.start_position is not None:
+            assert pe.start_position > 0, "Start position should be positive"
+            if pe.end_position is not None:
+                assert pe.end_position >= pe.start_position, (
+                    "End position should be >= start position"
+                )
+
 
 def test_parse_peptide_evidence_with_empty_db_map(full_mzid_reader):
     """Test handling when db_sequence_map is empty."""

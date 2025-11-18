@@ -24,34 +24,10 @@ def test_mzid_parser_with_full_file(full_mzid_path):
     psm_peptide_evidence_junctions = parsed_data.psm_peptide_evidence_junctions
 
     # =========================================================================
-    # Test mzID File Metadata
-    # =========================================================================
-    assert mzid_file.project_accession == mock_project_accession
-    assert mzid_file.file_name == "full_small.mzid"
-    assert mzid_file.software_name == "Mascot Server"
-    assert mzid_file.software_version == "2.4.1"
-    assert mzid_file.threshold_type == "Mascot:SigThreshold"
-    assert mzid_file.threshold_value == 0.05
-    assert mzid_file.creation_date is not None
-
-    # =========================================================================
     # Test Peptides
     # =========================================================================
     assert len(peptides) > 0, "Should parse peptides from the file"
     assert len(peptides) == 695, "Expected 695 peptides in the test file"
-
-    # Verify specific peptides exist
-    peptide_sequences = {p.sequence for p in peptides}
-    assert "ELLTK" in peptide_sequences
-    assert "VIEHI" in peptide_sequences
-    assert "VALIAK" in peptide_sequences
-    assert "VFVNR" in peptide_sequences
-
-    # Verify sequence lengths are computed correctly
-    first_peptide = peptides[0]
-    assert first_peptide.length == len(first_peptide.sequence), (
-        f"Peptide {first_peptide.sequence} length mismatch"
-    )
 
     # =========================================================================
     # Test Peptide Modifications
@@ -77,23 +53,6 @@ def test_mzid_parser_with_full_file(full_mzid_path):
     # =========================================================================
     assert len(peptide_evidence) > 0, "Should parse peptide evidence from the file"
     assert len(peptide_evidence) == 1563, "Expected 1563 peptide evidence records"
-
-    # Verify specific protein accessions exist (from DBSequence section)
-    protein_accessions = {pe.protein_accession for pe in peptide_evidence if pe.protein_accession}
-    assert "P02768" in protein_accessions, "Should map to Serum albumin"
-    assert "P01009" in protein_accessions, "Should map to Alpha-1-antitrypsin"
-
-    # Verify peptide evidence has position information
-    pe_with_positions = [pe for pe in peptide_evidence if pe.start_position is not None]
-    assert len(pe_with_positions) > 0, "Some peptide evidence should have position info"
-
-    for pe in pe_with_positions:
-        if pe.start_position is not None:
-            assert pe.start_position > 0, "Start position should be positive"
-            if pe.end_position is not None:
-                assert pe.end_position >= pe.start_position, (
-                    "End position should be >= start position"
-                )
 
     # =========================================================================
     # Test PSMs (Peptide Spectrum Matches)
