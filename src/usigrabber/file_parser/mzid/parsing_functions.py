@@ -373,10 +373,6 @@ def link_modifications(
             # Extract UNIMOD ID
             unimod_id, name = extract_unimod_id_and_name(mod)
 
-            # Skip modifications without valid UNIMOD ID
-            if unimod_id is None:
-                logger.warning(f"No UNIMOD ID found for modification: {mod}")
-
             location, residues = parse_modification_location(mod)
 
             # Skip modifications without valid location
