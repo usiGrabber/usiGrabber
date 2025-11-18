@@ -71,3 +71,9 @@ def no_threshold_reader():
     """Return mzID reader for file with no Threshold element."""
     path = Path("tests/fixtures/threshold_no_threshold.mzid")
     return create_mzid_reader(path)
+
+
+@pytest.fixture
+def full_mzid_path():
+    """Return path to a full example mzID file."""
+    return Path("tests/fixtures/full_small.mzid")
