@@ -1,22 +1,32 @@
 {
-    "configurations": [
-        {
-            "name": "Build database",
-            "type": "debugpy",
-            "request": "launch",
-            "program": "${workspaceFolder}/src/usigrabber/__init__.py",
-            "args": [
-                "build",
-                "--debug", // technically optional due to envvar, but explicit is better
-            ],
-            "cwd": "${workspaceFolder}",
-            "console": "integratedTerminal",
-            "justMyCode": true,
-            "env": {
-                "DEBUG": "1",
-                "DB_ECHO_SQL": "1",
-                "DB_URL": "sqlite://", // in-memory database for testing
-            }
-        }
-    ]
+  "configurations": [
+    {
+      "name": "Build database",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/src/usigrabber/__init__.py",
+      "args": [
+        "build",
+        "--debug" // technically optional due to envvar, but explicit is better
+      ],
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "justMyCode": true,
+      "env": {
+        "DEBUG": "1",
+        "DB_ECHO_SQL": "1",
+        "DB_URL": "sqlite://" // in-memory database for testing
+      }
+    },
+    {
+      "name": "Python Debugger: pytest",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "pytest",
+      "args": ["${file}", "-v"],
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "justMyCode": false
+    }
+  ]
 }
