@@ -23,7 +23,7 @@ def test_extract_unimod_id_from_single_cvparam():
     mod_id, name = extract_unimod_id_and_name(mod_data)
 
     assert mod_id == 30
-    assert name == ""
+    assert name is None
 
 
 def test_extract_unimod_id_from_cvparam_list():
