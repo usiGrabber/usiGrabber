@@ -1,11 +1,10 @@
 """
-evidence.txt Parser Data Models
+txt.zip Parser Data Models
 """
 
 from typing import NamedTuple
 
 from usigrabber.db.schema import (
-    # EvidenceTxtFile,
     Peptide,
     PeptideEvidence,
     PeptideModification,
@@ -14,10 +13,9 @@ from usigrabber.db.schema import (
 )
 
 
-class ParsedEvidenceTxtData(NamedTuple):
+class ParsedTxtZipData(NamedTuple):
     """Container for all parsed data from an evidence.txt file."""
 
-    # evidence_txt_file: EvidenceTxtFile
     peptides: list[Peptide]
     peptide_modifications: list[PeptideModification]
     peptide_evidence: list[PeptideEvidence]

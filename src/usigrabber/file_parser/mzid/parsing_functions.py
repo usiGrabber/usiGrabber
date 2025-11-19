@@ -170,7 +170,7 @@ def parse_peptides(
 
     peptide_id_map: dict[str, uuid.UUID] = {}
     peptide_mods: dict[uuid.UUID, list[dict[str, Any]]] = {}
-    peptides_batch = []
+    peptides_batch: list[Peptide] = []
 
     for peptide_elem in reader.iterfind("Peptide"):
         mzid_peptide_id = peptide_elem.get("id", "")

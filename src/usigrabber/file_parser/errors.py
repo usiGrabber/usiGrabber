@@ -31,13 +31,13 @@ class MzidImportError(ImportError):
 
 
 # evidence.txt-specific errors
-class EvidenceTxtParseError(FileParserError):
+class TxtZipParseError(FileParserError):
     """Failed to parse evidence.txt file."""
 
     pass
 
 
-class EvidenceTxtImportError(ImportError):
+class TxtZipImportError(ImportError):
     """Failed to import evidence.txt data to database."""
 
     pass
