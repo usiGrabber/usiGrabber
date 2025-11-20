@@ -24,7 +24,7 @@ from usigrabber.db.schema import (
 )
 from usigrabber.file_parser.mzid.helpers import (
     extract_score_values,
-    extract_unimod_id,
+    extract_unimod_id_and_name,
     parse_modification_location,
 )
 
@@ -45,8 +45,8 @@ def parse_software_info(reader: mzid.MzIdentML) -> tuple[str | None, str | None]
             Tuple of (software_name, software_version), both can be None if not found
     """
     for software in reader.iterfind("AnalysisSoftware"):
-        software_name = software.get("name", None)
-        software_version = software.get("version", None)
+        software_name: str | None = software.get("name", None)
+        software_version: str | None = software.get("version", None)
         logger.debug(f"Parsed software: {software_name} v{software_version}")
         return software_name, software_version
 
@@ -57,38 +57,57 @@ def parse_threshold_info(reader: mzid.MzIdentML) -> tuple[str | None, float | No
     """
     Parse threshold information from SpectrumIdentificationProtocol.
 
+    When using retrieve_refs=False, pyteomics flattens the Threshold element
+    into a dictionary with threshold names as keys and values as values.
+    For example: {'Mascot:SigThreshold': 0.05, 'Mascot:SigThresholdType': 'homology'}
+
     Args:
                     reader: MzIdentML reader instance
 
     Returns:
                     Tuple of (threshold_type, threshold_value)
     """
-    threshold_type = None
-    threshold_value = None
+    threshold_type: str | None = None
+    threshold_value: float | None = None
 
     for protocol in reader.iterfind("SpectrumIdentificationProtocol"):
-        threshold = protocol.get("Threshold", {})
+        threshold: dict[str, Any] = protocol.get("Threshold", {})
         if threshold and len(threshold) > 0:
             # Threshold can contain cvParam or userParam with various threshold types
+            # In most cases, pyteomics flattens this into a dict with one key-value pair
             # Example: "Mascot:SigThreshold", "pep:FDR threshold", "distinct peptide-level FDRScore"
-            # Get first key-value pair
-            cv_param = threshold.get("cvParam", None)
-            user_param = threshold.get("userParam", None)
+            cv_param: dict[str, Any] | None = threshold.get("cvParam")
+            user_param: dict[str, Any] | None = threshold.get("userParam")
 
-            param = cv_param if cv_param else user_param
-            if param is None:
-                continue
+            threshold_value_raw: str | int | float | None = None
 
-            name = param.get("name", None)
-            value = param.get("value", None)
-            threshold_type = name
-            threshold_value_raw = value
+            if cv_param is None and user_param is None:
+                # This is a flattened structure - get the first key-value pair
+                for key, value in threshold.items():
+                    threshold_type = key
+                    threshold_value_raw = value
+                    break
+            else:
+                # This is a nested structure with cvParam/userParam
+                param = cv_param if cv_param else user_param
+                if param is None:
+                    continue
+                threshold_type = param.get("name")
+                threshold_value_raw = param.get("value")
 
-            # Convert to float, handling empty strings
-            try:
-                threshold_value = float(threshold_value_raw) if threshold_value_raw != "" else None
-            except (ValueError, TypeError):
-                threshold_value = None
+            # Convert to float, handling empty strings and non-numeric values
+            if threshold_value_raw is not None:
+                try:
+                    if isinstance(threshold_value_raw, (int, float)):
+                        threshold_value = float(threshold_value_raw)
+                    elif isinstance(threshold_value_raw, str):
+                        threshold_value = (
+                            float(threshold_value_raw) if threshold_value_raw != "" else None
+                        )
+                    else:
+                        threshold_value = None
+                except (ValueError, TypeError):
+                    threshold_value = None
 
             break
 
@@ -142,8 +161,8 @@ def parse_db_sequences(reader: mzid.MzIdentML) -> dict[str, str]:
     db_sequence_map: dict[str, str] = {}
 
     for db_seq in reader.iterfind("DBSequence"):
-        seq_id = db_seq.get("id", "")
-        accession = db_seq.get("accession", "")
+        seq_id: str = db_seq.get("id", "")
+        accession: str = db_seq.get("accession", "")
         if seq_id and accession:
             db_sequence_map[seq_id] = accession
 
@@ -170,13 +189,14 @@ def parse_peptides(
 
     peptide_id_map: dict[str, uuid.UUID] = {}
     peptide_mods: dict[uuid.UUID, list[dict[str, Any]]] = {}
-    peptides_batch = []
+    peptides_batch: list[Peptide] = []
 
     for peptide_elem in reader.iterfind("Peptide"):
-        mzid_peptide_id = peptide_elem.get("id", "")
-        sequence = peptide_elem.get("PeptideSequence", "")
+        mzid_peptide_id: str = peptide_elem.get("id", "")
+        sequence: str = peptide_elem.get("PeptideSequence", "")
 
         if not mzid_peptide_id or not sequence:
+            logger.warning(f"Skipping invalid Peptide element: {peptide_elem}")
             continue
 
         peptide = Peptide(sequence=sequence, length=len(sequence))
@@ -185,7 +205,9 @@ def parse_peptides(
         peptide_id_map[mzid_peptide_id] = peptide.id
 
         # Store modification data for later processing
-        modifications = peptide_elem.get("Modification")
+        modifications: dict[str, Any] | list[dict[str, Any]] | None = peptide_elem.get(
+            "Modification"
+        )
         if modifications:
             if not isinstance(modifications, list):
                 modifications = [modifications]
@@ -219,17 +241,17 @@ def parse_peptide_evidence(
 
     pe_id_map: dict[str, uuid.UUID] = {}
 
-    peptide_evidence_batch = []
+    peptide_evidence_batch: list[PeptideEvidence] = []
 
     for pe_elem in reader.iterfind("PeptideEvidence"):
-        mzid_pe_id = pe_elem.get("id", "")
-        db_sequence_ref = pe_elem.get("dBSequence_ref", "")
+        mzid_pe_id: str = pe_elem.get("id", "")
+        db_sequence_ref: str = pe_elem.get("dBSequence_ref", "")
 
         if not mzid_pe_id:
             continue
 
         # Resolve protein accession from DBSequence reference
-        protein_accession = db_sequence_map.get(db_sequence_ref)
+        protein_accession: str | None = db_sequence_map.get(db_sequence_ref)
 
         # Create peptide evidence record
         peptide_evidence = PeptideEvidence(
@@ -272,28 +294,28 @@ def parse_psms(
                     - List of PSMPeptideEvidence junction records
     """
 
-    psm_batch = []
-    junction_batch = []
+    psm_batch: list[PeptideSpectrumMatch] = []
+    junction_batch: list[PSMPeptideEvidence] = []
 
     for sir in reader.iterfind("SpectrumIdentificationResult"):
-        spectrum_id = sir.get("spectrumID", "")
+        spectrum_id: str = sir.get("spectrumID", "")
 
         # Get list of spectrum identification items (PSMs)
-        sii_list = sir.get("SpectrumIdentificationItem", [])
+        sii_list: dict[str, Any] | list[dict[str, Any]] = sir.get("SpectrumIdentificationItem", [])
         if not isinstance(sii_list, list):
             sii_list = [sii_list]
 
         for sii in sii_list:
             # Look up database peptide ID
-            peptide_ref = sii.get("peptide_ref", "")
-            db_peptide_id = peptide_id_map.get(peptide_ref)
+            peptide_ref: str = sii.get("peptide_ref", "")
+            db_peptide_id: uuid.UUID | None = peptide_id_map.get(peptide_ref)
 
             if not db_peptide_id:
                 logger.warning(f"Peptide_ref '{peptide_ref}' not found in map")
                 continue
 
             # Extract score values using helper function
-            score_values = extract_score_values(sii)
+            score_values: dict[str, float] = extract_score_values(sii)
 
             # Create PSM record
             psm = PeptideSpectrumMatch(
@@ -312,12 +334,12 @@ def parse_psms(
             psm_batch.append(psm)
 
             # Link PSM to peptide evidence via junction table
-            pe_refs = sii.get("PeptideEvidenceRef", [])
+            pe_refs: dict[str, Any] | list[dict[str, Any]] = sii.get("PeptideEvidenceRef", [])
             if not isinstance(pe_refs, list):
                 pe_refs = [pe_refs]
             for pe_ref in pe_refs:
-                pe_ref_id = pe_ref.get("peptideEvidence_ref", "")
-                db_pe_id = pe_id_map.get(pe_ref_id)
+                pe_ref_id: str = pe_ref.get("peptideEvidence_ref", "")
+                db_pe_id: uuid.UUID | None = pe_id_map.get(pe_ref_id)
 
                 if db_pe_id:
                     junction = PSMPeptideEvidence(
@@ -337,38 +359,32 @@ def link_modifications(
     Create PeptideModification records for all peptides with modifications.
 
     Args:
-                    session: SQLModel session
-                    peptide_mods: Mapping from database Peptide.id to list of modification data
+        peptide_mods: Mapping from database Peptide.id to list of modification data
 
     Returns:
-                    Number of modifications created
+        List of PeptideModification records created
     """
 
-    peptide_mod_batch = []
+    peptide_mod_batch: list[PeptideModification] = []
 
     for peptide_id, mods in peptide_mods.items():
         for mod in mods:
             # Extract UNIMOD ID
-            unimod_id = extract_unimod_id(mod)
-
-            # Skip modifications without valid UNIMOD ID
-            if unimod_id is None:
-                logger.warning(f"No UNIMOD ID found for modification: {mod}")
-                continue
+            unimod_id, name = extract_unimod_id_and_name(mod)
 
             location, residues = parse_modification_location(mod)
 
             # Skip modifications without valid location
             if location is None:
                 logger.warning(f"No location found for modification: {mod}")
-                continue
 
             # Create modification record
             peptide_mod = PeptideModification(
                 peptide_id=peptide_id,
                 unimod_id=unimod_id,
+                name=name,
                 position=location,
-                modified_residue=residues or "",
+                modified_residue=residues,
             )
             peptide_mod_batch.append(peptide_mod)
 

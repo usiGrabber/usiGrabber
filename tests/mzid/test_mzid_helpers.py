@@ -7,7 +7,7 @@ Tests edge cases, error handling, and data transformations.
 
 from usigrabber.file_parser.mzid.helpers import (
     extract_score_values,
-    extract_unimod_id,
+    extract_unimod_id_and_name,
     parse_modification_location,
 )
 
@@ -20,9 +20,10 @@ def test_extract_unimod_id_from_single_cvparam():
     """Test extracting UNIMOD ID from single cvParam with accession."""
     mod_data = {"cvParam": {"accession": "UNIMOD:30", "name": ""}}
 
-    result = extract_unimod_id(mod_data)
+    mod_id, name = extract_unimod_id_and_name(mod_data)
 
-    assert result == 30
+    assert mod_id == 30
+    assert name is None
 
 
 def test_extract_unimod_id_from_cvparam_list():
@@ -34,7 +35,7 @@ def test_extract_unimod_id_from_cvparam_list():
         ]
     }
 
-    result = extract_unimod_id(mod_data)
+    result, _ = extract_unimod_id_and_name(mod_data)
 
     assert result == 34
 
@@ -42,7 +43,7 @@ def test_extract_unimod_id_from_cvparam_list():
 def test_extract_unimod_id_with_invalid_accession():
     """Test handling of invalid UNIMOD accession format (too short)."""
     mod_data = {"cvParam": {"accession": "UNIMOD:", "name": "Oxidation"}}
-    result = extract_unimod_id(mod_data)
+    result, _ = extract_unimod_id_and_name(mod_data)
     assert result == 35  # Falls back to name-based resolution
 
 
@@ -50,7 +51,7 @@ def test_extract_unimod_id_with_non_numeric_accession():
     """Test handling of non-numeric UNIMOD accession."""
     mod_data = {"cvParam": {"accession": "UNIMOD:ABC", "name": "Oxidation"}}
 
-    result = extract_unimod_id(mod_data)
+    result, _ = extract_unimod_id_and_name(mod_data)
 
     assert result == 35
 
@@ -59,7 +60,7 @@ def test_extract_unimod_id_empty_mod_data():
     """Test handling empty modification data."""
     mod_data = {}
 
-    result = extract_unimod_id(mod_data)
+    result, _ = extract_unimod_id_and_name(mod_data)
 
     assert result is None
 

@@ -54,5 +54,9 @@ dev = [
 ]
 
 [tool.pytest.ini_options]
-testpaths = ["tests"]
+testpaths = [
+    "tests",
+    "packages/async-http-client/tests",
+    "packages/ontology-resolver/tests",
+]
 pythonpath = ["."]

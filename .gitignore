@@ -24,7 +24,7 @@ dev_*.db
 .cache
 
 # MzIdentML files
-*.mzid
+experimental/mzid/*.mzid
 # Pytest
 .coverage
 coverage.xml
