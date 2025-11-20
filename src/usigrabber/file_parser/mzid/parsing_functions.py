@@ -25,6 +25,7 @@ from usigrabber.db.schema import (
 from usigrabber.file_parser.mzid.helpers import (
     extract_score_values,
     extract_unimod_id_and_name,
+    extract_usi_fields,
     parse_modification_location,
 )
 
@@ -300,6 +301,9 @@ def parse_psms(
     for sir in reader.iterfind("SpectrumIdentificationResult"):
         spectrum_id: str = sir.get("spectrumID", "")
 
+        # Extract USI-related fields from the SpectrumIdentificationResult
+        index_type, index_number, ms_run = extract_usi_fields(sir)
+
         # Get list of spectrum identification items (PSMs)
         sii_list: dict[str, Any] | list[dict[str, Any]] = sir.get("SpectrumIdentificationItem", [])
         if not isinstance(sii_list, list):
@@ -329,6 +333,9 @@ def parse_psms(
                 score_values=score_values if score_values else None,
                 rank=sii.get("rank", None),
                 pass_threshold=sii.get("passThreshold", None),
+                index_type=index_type,
+                index_number=index_number,
+                ms_run=ms_run,
             )
 
             psm_batch.append(psm)

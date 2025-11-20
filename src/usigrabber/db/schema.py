@@ -256,6 +256,18 @@ class PeptideSpectrumMatch(SQLModel, table=True):
             "mzID passThreshold attribute."
         )
     )
+    index_type: str | None = Field(
+        default=None,
+        description="Type of spectrum index (e.g., 'scan', 'index'). Part of USI specification.",
+    )
+    index_number: int | None = Field(
+        default=None,
+        description="Spectrum index number. Part of USI specification.",
+    )
+    ms_run: str | None = Field(
+        default=None,
+        description="MS run identifier from raw file name. Part of USI specification.",
+    )
 
     # Relationships
     project: Project | None = Relationship(back_populates="peptide_spectrum_matches")
