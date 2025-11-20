@@ -5,20 +5,19 @@ from pathlib import Path
 from typing import Annotated
 
 import typer
-from rich.progress import Progress, SpinnerColumn, TextColumn
 from sqlalchemy import inspect
 from sqlmodel import Session, select
 
 from usigrabber.backends import BackendEnum
 from usigrabber.cli import app
 from usigrabber.db import Project, create_db_and_tables, load_db_engine
+from usigrabber.db.cli import reset as db_reset
 from usigrabber.file_parser import MzidImportError, MzidParseError, import_mzid
 from usigrabber.utils import get_cache_dir
 from usigrabber.utils.file import download_ftp, extract_archive, temporary_path
 
 CACHE_DIR = get_cache_dir()
 STANDARD_BACKENDS = [enum for enum in BackendEnum]
-
 logger = logging.getLogger(__name__)
 
 # empty string for folders (no extension)
@@ -31,10 +30,18 @@ def build(
         bool,
         typer.Option(help="Run in debug mode with verbose output.", envvar="DEBUG"),
     ] = False,
+    reset: Annotated[bool, typer.Option(help="Reset the database before building.")] = False,
     backends: Annotated[
         list[BackendEnum],
         typer.Option(help="Set of backends to fetch data from."),
     ] = STANDARD_BACKENDS,
+    no_ontology: Annotated[
+        bool,
+        typer.Option(
+            help="Disable ontology lookup.",
+            envvar="NO_ONTOLOGY",
+        ),
+    ] = False,
     cache_dir: Annotated[
         Path,
         typer.Option(
@@ -49,13 +56,15 @@ def build(
         ),
     ] = CACHE_DIR,
 ):
-    asyncio.run(async_build(cache_dir, backends, debug))
+    asyncio.run(async_build(debug, reset, backends, no_ontology, cache_dir))
 
 
 async def async_build(
-    cache_dir: Path = CACHE_DIR,
-    backends: list[BackendEnum] = STANDARD_BACKENDS,
     debug: bool = False,
+    reset: bool = False,
+    backends: list[BackendEnum] = STANDARD_BACKENDS,
+    no_ontology: bool = False,
+    cache_dir: Path = CACHE_DIR,
 ) -> None:
     """Build USI database."""
 
@@ -63,11 +72,21 @@ async def async_build(
 
     os.environ["CACHE_DIR"] = str(cache_dir)
 
+    if no_ontology:
+        os.environ["NO_ONTOLOGY"] = "1"
+
+    if os.getenv("NO_ONTOLOGY"):
+        logger.warning("Ontology lookup is disabled.")
+
     if debug:
         os.environ["DEBUG"] = "1"
 
     if os.getenv("DEBUG"):
         logger.info("Running in DEBUG mode.")
+
+    if reset:
+        logger.info("Resetting database before build.")
+        db_reset(force=True)
 
     # WORKFLOW
 
@@ -93,20 +112,8 @@ async def async_build(
         logger.debug("Fetching data from backend: %s", backend_enum.name)
 
         imported = errors = 0
-        completed = 0
         error_projects = []
-        with (
-            Progress(
-                SpinnerColumn(),
-                TextColumn("[progress.description]{task.description}"),
-                console=typer.echo(),
-            ) as progress,
-            Session(db_engine) as session,
-        ):
-            task = progress.add_task(
-                f"Importing projects... {completed}/?",
-                completed=0,
-            )
+        with Session(db_engine) as session:
             async for project in backend.get_new_projects(existing_accessions):
                 # TODO: support other submission types
                 if project.get("submissionType") != "COMPLETE":
@@ -118,22 +125,10 @@ async def async_build(
                     errors += 1
                     error_projects.append((project.get("accession"), str(e)))
                     session.rollback()
-                    progress.update(
-                        task,
-                        description=f"Importing projects... {completed}/?",
-                        completed=imported + errors,
-                    )
                     continue
 
                 session.commit()
                 imported += 1
-                completed = imported + errors
-                progress.update(
-                    task,
-                    description=f"Importing projects... {completed}/?",
-                    completed=imported + errors,
-                )
-
                 # download files
                 files = backend.get_files_for_project(project["accession"])
 
@@ -177,7 +172,9 @@ async def async_build(
                                 continue
 
                             # contains all files extracted from archive
-                            extracted_files = extract_archive(archive_path=path, extract_to=tmp_dir)
+                            extracted_files = extract_archive(
+                                archive_path=path, extract_to=tmp_dir / "extracted"
+                            )
 
                             interesting_files: dict[str, list[Path]] = {
                                 ext: [] for ext in FILETYPE_WHITELIST
@@ -231,6 +228,7 @@ async def async_build(
                     )
 
                 # TODO: set "complete" flag for project
+
 
         if imported > 0 or errors > 0:
             logger.info("Finished importing from backend %s.", backend_enum.name)

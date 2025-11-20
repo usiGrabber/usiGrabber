@@ -213,9 +213,12 @@ class PeptideModification(SQLModel, table=True):
 
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
     peptide_id: uuid.UUID = Field(foreign_key="peptides.id", index=True)
-    unimod_id: int = Field(description="Unimod id, e.g., '35' for 'UNIMOD:35' accession")
-    position: int = Field(description="Position in the peptide sequence (1-indexed)")
-    modified_residue: str = Field(description="The specific amino acid that was modified")
+    unimod_id: int | None = Field(description="Unimod id, e.g., '35' for 'UNIMOD:35' accession")
+    name: str | None = Field(
+        description="Modification name. Used as fallback if UNIMOD id not available."
+    )
+    position: int | None = Field(description="Position in the peptide sequence (1-indexed)")
+    modified_residue: str | None = Field(description="The specific amino acid that was modified")
 
     # Relationships
     peptide: Peptide | None = Relationship(back_populates="peptide_modifications")

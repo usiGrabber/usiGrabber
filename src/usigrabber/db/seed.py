@@ -207,6 +207,7 @@ def seed_minimal_data(engine: Engine) -> None:
         peptide_mod = PeptideModification(
             peptide_id=peptide1.id,
             unimod_id=35,
+            name=None,
             position=5,
             modified_residue="I",
         )

@@ -25,6 +25,10 @@ async def download_ftp(
     retries: int = 3,
     delay: int = 5,
 ) -> Path:
+    """Download a file from an FTP URL asynchronously."""
+
+    logger.debug("Downloading FTP file from '%s'", url)
+
     parsed = urlparse(url)
     if parsed.scheme != "ftp":
         raise ValueError(f"URL scheme for {url} is not FTP, found {parsed.scheme}")
@@ -75,15 +79,14 @@ def is_archive_file(path: Path) -> bool:
 
 
 def extract_archive(
-    archive_path: Path, extract_to: Path, delete_existing_files: bool = True
+    archive_path: Path,
+    extract_to: Path,
 ) -> list[Path]:
     """
     Recursively extract archives into extract_to.
     Returns a list of extracted file paths.
     """
     archive_path = archive_path.resolve()
-    if delete_existing_files and extract_to.exists():
-        shutil.rmtree(extract_to)
 
     extract_to.mkdir(parents=True, exist_ok=False)
 

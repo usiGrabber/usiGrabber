@@ -6,20 +6,8 @@ from pathlib import Path
 from typing import Any
 
 import ijson
-from dotenv import load_dotenv
-from rich.console import Console
 
-load_dotenv()
-
-# Create one shared console for everything
-console = Console()
-logging.basicConfig(
-    level=os.environ.get("LOGLEVEL", "INFO").upper(),
-)
 logger = logging.getLogger(__name__)
-# Suppress overly verbose logs from dependencies
-for name in ["sqlalchemy", "urllib3"]:
-    logging.getLogger(name).setLevel(logging.WARNING)
 
 
 def get_cache_dir() -> Path:
@@ -45,11 +33,8 @@ def get_unimod_db():
     if unimod_db is None:
         from pyteomics.mass.unimod import Unimod
 
-        cache_dir = get_cache_dir()
-        cache_dir.mkdir(parents=True, exist_ok=True)
-        db_path = cache_dir / "unimod.db"
-
-        unimod_db = Unimod("sqlite:///" + db_path.as_posix())
+        # Load the Unimod database in memory
+        unimod_db = Unimod()
 
     return unimod_db
 

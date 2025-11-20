@@ -24,10 +24,12 @@ dev_*.db
 .cache
 
 # MzIdentML files
-*.mzid
+experimental/mzid/*.mzid
 # Pytest
 .coverage
 coverage.xml
 pytest.xml
 report.xml
 temp_test_data
+
+logs/
