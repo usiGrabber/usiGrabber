@@ -15,7 +15,7 @@ _setup_done = False
 _setup_lock = threading.Lock()
 
 
-def system_setup(logger_name: str = ""):
+def system_setup(logger_name: str | None = None):
     """
     - Setups logger
     - Loads env variables
@@ -47,6 +47,8 @@ def system_setup(logger_name: str = ""):
 
         # overwrite root logger, should only be called in application code
         logger = logging.getLogger(logger_name)
+        LOGLEVEL = os.getenv("LOGLEVEL", "INFO").upper()
+        logger.setLevel(level=LOGLEVEL)
 
         if logger.hasHandlers():
             logger.handlers.clear()
@@ -56,7 +58,7 @@ def system_setup(logger_name: str = ""):
             logging.getLogger(child).setLevel("WARNING")
 
         terminal_handler = logging.StreamHandler(sys.stdout)
-        terminal_handler.setLevel(os.getenv("LOGLEVEL", "INFO").upper())
+        terminal_handler.setLevel(LOGLEVEL)
         terminal_handler.setFormatter(CustomColorFormatter(use_colors=True))
         terminal_handler.addFilter(ExponentialBackoffFilter())
 
