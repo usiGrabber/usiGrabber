@@ -12,7 +12,7 @@ from usigrabber.backends import BackendEnum
 from usigrabber.cli import app
 from usigrabber.db import Project, create_db_and_tables, load_db_engine
 from usigrabber.db.cli import reset as db_reset
-from usigrabber.file_parser import MzidImportError, MzidParseError, import_mzid
+from usigrabber.file_parser import MzidImportError, MzidParseError, import_mzid, import_mztab
 from usigrabber.utils import get_cache_dir
 from usigrabber.utils.file import download_ftp, extract_archive, temporary_path
 
@@ -21,7 +21,7 @@ STANDARD_BACKENDS = [enum for enum in BackendEnum]
 logger = logging.getLogger(__name__)
 
 # empty string for folders (no extension)
-FILETYPE_WHITELIST = {".mzid", ""}
+FILETYPE_WHITELIST = {".mzid", "", ".mztab"}
 
 
 @app.command()
@@ -184,6 +184,9 @@ async def async_build(
                                 if ext in FILETYPE_WHITELIST:
                                     interesting_files[ext].append(f)
 
+                            for mztab_file in interesting_files[".mztab"]:
+                                import_mztab(mztab_file, project["accession"])
+
                             # access files based on priority
                             for mzid_file in interesting_files[".mzid"]:
                                 # Process mzID file
@@ -228,7 +231,6 @@ async def async_build(
                     )
 
                 # TODO: set "complete" flag for project
-
 
         if imported > 0 or errors > 0:
             logger.info("Finished importing from backend %s.", backend_enum.name)
