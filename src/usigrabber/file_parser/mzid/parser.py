@@ -10,10 +10,10 @@ from pathlib import Path
 
 from pyteomics import mzid
 from pyteomics.auxiliary import PyteomicsError
+from sqlalchemy.engine.base import Engine
 from sqlalchemy.exc import SQLAlchemyError
 from sqlmodel import Session
 
-from usigrabber.db.engine import load_db_engine
 from usigrabber.file_parser.errors import MzidImportError, MzidParseError
 from usigrabber.file_parser.models import ImportStats
 from usigrabber.file_parser.mzid.models import ParsedMzidData
@@ -102,7 +102,7 @@ def parse_mzid_file(mzid_path: Path, project_accession: str) -> ParsedMzidData:
         raise MzidParseError(error_msg) from e
 
 
-def import_mzid(mzid_path: Path, project_accession: str) -> ImportStats:
+def import_mzid(engine: Engine, mzid_path: Path, project_accession: str) -> ImportStats:
     """
     Import an mzIdentML file into the database.
 
@@ -135,7 +135,6 @@ def import_mzid(mzid_path: Path, project_accession: str) -> ImportStats:
         stats.mark_parsing_complete()
 
         # Step 2: Persist everything to the database
-        engine = load_db_engine()
         with Session(engine) as session:
             session.add(parsed_data.mzid_file)
             session.add_all(parsed_data.peptides)

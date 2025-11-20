@@ -1,10 +1,12 @@
 import asyncio
 import logging
 import os
+import warnings
 from pathlib import Path
 from typing import Annotated
 
 import typer
+from sqlalchemy import exc as sa_exc
 from sqlalchemy import inspect
 from sqlmodel import Session, select
 
@@ -56,7 +58,9 @@ def build(
         ),
     ] = CACHE_DIR,
 ):
-    asyncio.run(async_build(debug, reset, backends, no_ontology, cache_dir))
+    # mute SQLAlchemy warnings from pyteomics library
+    with warnings.catch_warnings(action="ignore", category=sa_exc.SAWarning):
+        asyncio.run(async_build(debug, reset, backends, no_ontology, cache_dir))
 
 
 async def async_build(
@@ -132,37 +136,56 @@ async def async_build(
                 # download files
                 files = backend.get_files_for_project(project["accession"])
 
-                # process files
-                if files["result"]:
-                    for file in files["result"]:
-                        # parse filename from file url
-                        file_url = file["filepath"]
-                        filename = os.path.basename(file_url)
+                with temporary_path() as tmp_dir:
+                    # process files
+                    if files["result"]:
+                        files_to_be_downloaded: list[tuple[str, str]] = []
 
-                        # find actual file extension, without archives
-                        file_base, file_ext = os.path.splitext(filename)
-                        while file_ext in {".zip", ".gz", ".tar", ".rar", ".7z"}:
-                            file_base, file_ext = os.path.splitext(file_base)
+                        # filter files based on extension whitelist
+                        for file in files["result"]:
+                            # parse filename from file url
+                            file_url = file["filepath"]
+                            filename = os.path.basename(file_url)
 
-                        if file_ext not in FILETYPE_WHITELIST:
-                            logger.debug(
-                                f"Skipping file {filename} with unsupported extension {file_ext}."
+                            # find actual file extension, without archives
+                            file_base, file_ext = os.path.splitext(filename)
+                            while file_ext in {".zip", ".gz", ".tar", ".rar", ".7z"}:
+                                file_base, file_ext = os.path.splitext(file_base)
+
+                            if file_ext not in FILETYPE_WHITELIST:
+                                logger.debug(
+                                    "Skipping file %s with unsupported extension %s.",
+                                    filename,
+                                    file_ext,
+                                )
+                                continue
+
+                            files_to_be_downloaded.append((file_url, filename))
+
+                        if len(files_to_be_downloaded) == 0:
+                            logger.warning(
+                                "Found result files for project %s, but none match "
+                                "the supported file types.",
+                                project["accession"],
                             )
                             continue
 
-                        logger.debug(
-                            f"Processing result file {filename} "
-                            + f"({file['file_size'] / (1024 * 1024):,.2f} MB)"
-                        )
-
-                        with temporary_path() as tmp_dir:
-                            try:
-                                path = await download_ftp(
-                                    url=file_url,
-                                    out_dir=tmp_dir,
+                        # download all matching files asynchronously
+                        paths = await asyncio.gather(
+                            *[
+                                download_ftp(
+                                    url=url,
+                                    out_dir=tmp_dir / project["accession"] / str(idx),
                                     file_name=filename,
                                 )
-                            except Exception:
+                                for idx, (url, filename) in enumerate(files_to_be_downloaded)
+                            ],
+                            return_exceptions=True,
+                        )
+
+                        for idx, path in enumerate(paths):
+                            filename = files_to_be_downloaded[idx][1]
+                            if isinstance(path, BaseException):
                                 logger.error(
                                     "Failed to download file %s for project %s.",
                                     filename,
@@ -171,9 +194,14 @@ async def async_build(
                                 )
                                 continue
 
+                            logger.debug(
+                                f"Processing result file {filename} "
+                                + f"({files['result'][idx]['file_size'] / (1024 * 1024):,.2f} MB)"
+                            )
+
                             # contains all files extracted from archive
                             extracted_files = extract_archive(
-                                archive_path=path, extract_to=tmp_dir / "extracted"
+                                archive_path=path, extract_to=path.parent / "extracted"
                             )
 
                             interesting_files: dict[str, list[Path]] = {
@@ -188,7 +216,7 @@ async def async_build(
                             for mzid_file in interesting_files[".mzid"]:
                                 # Process mzID file
                                 try:
-                                    stats = import_mzid(mzid_file, project["accession"])
+                                    stats = import_mzid(db_engine, mzid_file, project["accession"])
                                     duration_str = (
                                         f"{stats.duration_seconds:.1f}s"
                                         if stats.duration_seconds is not None
@@ -217,18 +245,17 @@ async def async_build(
                                     continue
                             # TODO: add processing for other file types here
 
-                elif files["search"]:
-                    # TODO: support search files
-                    continue
-                else:
-                    logger.warning(
-                        "No results/search files found for project '%s' from backend %s.",
-                        project["accession"],
-                        backend_enum.name,
-                    )
+                    elif files["search"]:
+                        # TODO: support search files
+                        continue
+                    else:
+                        logger.warning(
+                            "No results/search files found for project '%s' from backend %s.",
+                            project["accession"],
+                            backend_enum.name,
+                        )
 
                 # TODO: set "complete" flag for project
-
 
         if imported > 0 or errors > 0:
             logger.info("Finished importing from backend %s.", backend_enum.name)
