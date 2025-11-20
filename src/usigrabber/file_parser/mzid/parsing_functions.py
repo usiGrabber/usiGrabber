@@ -90,10 +90,8 @@ def parse_threshold_info(reader: mzid.MzIdentML) -> tuple[str | None, float | No
             else:
                 # This is a nested structure with cvParam/userParam
                 param = cv_param if cv_param else user_param
-                name = param.get("name", None)
-                value = param.get("value", None)
-                threshold_type = name
-                threshold_value_raw = value
+                threshold_type = param.get("name", None)
+                threshold_value_raw = param.get("value", None)
 
             # Convert to float, handling empty strings and non-numeric values
             if threshold_value_raw is not None:
