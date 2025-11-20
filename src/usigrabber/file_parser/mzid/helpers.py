@@ -175,6 +175,13 @@ def extract_usi_fields(sir: dict) -> tuple[str | None, int | None, str | None]:
                 index_number = int(spectrum_id.split("=")[1])
             except (ValueError, IndexError):
                 pass
+        else:
+            # Fallback: try to parse integer directly
+            try:
+                index_number = int(spectrum_id)
+                index_type = "scan"
+            except ValueError:
+                pass
 
     spectrum_title: str | None = sir.get("spectrum title")
     scan_number_value: str | None = sir.get("scan number(s)")
