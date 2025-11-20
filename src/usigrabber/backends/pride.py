@@ -217,4 +217,5 @@ class PrideBackend(BaseBackend):
             if link:
                 session.add(ProjectOtherOmicsLink(project_accession=project.accession, link=link))
 
-        await cls._parse_and_add_cv_params(project.accession, session, project_data)
+        if not os.getenv("NO_ONTOLOGY"):
+            await cls._parse_and_add_cv_params(project.accession, session, project_data)

@@ -1,90 +1,20 @@
-"""
-Shared test fixtures and utilities for mzID parsing tests.
-"""
-
+import logging
 from pathlib import Path
 
 import pytest
-from pyteomics import mzid
+from dotenv import load_dotenv
+
+logger = logging.getLogger(__name__)
 
 
-def create_mzid_reader(mzid_path: Path) -> mzid.MzIdentML:
-    """
-    Create an MzIdentML reader from a file path.
+@pytest.fixture(scope="session", autouse=True)
+def load_env(request):
+    """Load environment variables from a .env file for tests."""
 
-    Args:
-            mzid_path: Path to the mzIdentML file
-
-    Returns:
-            MzIdentML reader instance with retrieve_refs=False
-    """
-    return mzid.MzIdentML(str(mzid_path), retrieve_refs=False)
-
-
-# ============================================================================
-# Fixtures for threshold parsing tests
-# ============================================================================
-
-
-@pytest.fixture
-def fdr_reader():
-    """Return mzID reader for file with FDR threshold.
-
-    Contains: "pep:FDR threshold" = "0.01"
-    """
-    path = Path("tests/fixtures/threshold_fdr.mzid")
-    return create_mzid_reader(path)
-
-
-@pytest.fixture
-def mascot_reader():
-    """Return mzID reader for file with Mascot threshold.
-
-    Contains: "Mascot:SigThreshold" = "0.05" (and other Mascot params)
-    """
-    path = Path("tests/fixtures/threshold_mascot.mzid")
-    return create_mzid_reader(path)
-
-
-@pytest.fixture
-def invalid_value_reader():
-    """Return mzID reader for file with invalid threshold value.
-
-    Contains: "pep:FDR threshold" = "not_a_number"
-    """
-    path = Path("tests/fixtures/threshold_invalid_value.mzid")
-    return create_mzid_reader(path)
-
-
-@pytest.fixture
-def empty_value_reader():
-    """Return mzID reader for file with empty threshold value.
-
-    Contains: "pep:FDR threshold" = ""
-    """
-    path = Path("tests/fixtures/threshold_empty_value.mzid")
-    return create_mzid_reader(path)
-
-
-@pytest.fixture
-def no_threshold_reader():
-    """Return mzID reader for file with no Threshold element."""
-    path = Path("tests/fixtures/threshold_no_threshold.mzid")
-    return create_mzid_reader(path)
-
-
-@pytest.fixture
-def full_mzid_path():
-    """Return path to a full example mzID file."""
-    return Path("tests/fixtures/full_small.mzid")
-
-
-@pytest.fixture
-def full_mzid_reader():
-    """Return mzID reader for full example file.
-
-    Contains complete mzID data including software, thresholds, peptides,
-    modifications, peptide evidence, and PSMs.
-    """
-    path = Path("tests/fixtures/full_small.mzid")
-    return create_mzid_reader(path)
+    env_path = Path(".env.test")
+    if env_path.exists():
+        load_dotenv(dotenv_path=env_path)
+    else:
+        logger.warning(
+            "Environment file .env.test not found. Skipping loading environment variables."
+        )

@@ -11,6 +11,7 @@ from sqlmodel import Session, select
 from usigrabber.backends import BackendEnum
 from usigrabber.cli import app
 from usigrabber.db import Project, create_db_and_tables, load_db_engine
+from usigrabber.db.cli import reset as db_reset
 from usigrabber.file_parser import MzidImportError, MzidParseError, import_mzid
 from usigrabber.utils import get_cache_dir
 from usigrabber.utils.file import download_ftp, extract_archive, temporary_path
@@ -29,10 +30,18 @@ def build(
         bool,
         typer.Option(help="Run in debug mode with verbose output.", envvar="DEBUG"),
     ] = False,
+    reset: Annotated[bool, typer.Option(help="Reset the database before building.")] = False,
     backends: Annotated[
         list[BackendEnum],
         typer.Option(help="Set of backends to fetch data from."),
     ] = STANDARD_BACKENDS,
+    no_ontology: Annotated[
+        bool,
+        typer.Option(
+            help="Disable ontology lookup.",
+            envvar="NO_ONTOLOGY",
+        ),
+    ] = False,
     cache_dir: Annotated[
         Path,
         typer.Option(
@@ -47,13 +56,15 @@ def build(
         ),
     ] = CACHE_DIR,
 ):
-    asyncio.run(async_build(cache_dir, backends, debug))
+    asyncio.run(async_build(debug, reset, backends, no_ontology, cache_dir))
 
 
 async def async_build(
-    cache_dir: Path = CACHE_DIR,
-    backends: list[BackendEnum] = STANDARD_BACKENDS,
     debug: bool = False,
+    reset: bool = False,
+    backends: list[BackendEnum] = STANDARD_BACKENDS,
+    no_ontology: bool = False,
+    cache_dir: Path = CACHE_DIR,
 ) -> None:
     """Build USI database."""
 
@@ -61,11 +72,21 @@ async def async_build(
 
     os.environ["CACHE_DIR"] = str(cache_dir)
 
+    if no_ontology:
+        os.environ["NO_ONTOLOGY"] = "1"
+
+    if os.getenv("NO_ONTOLOGY"):
+        logger.warning("Ontology lookup is disabled.")
+
     if debug:
         os.environ["DEBUG"] = "1"
 
     if os.getenv("DEBUG"):
         logger.info("Running in DEBUG mode.")
+
+    if reset:
+        logger.info("Resetting database before build.")
+        db_reset(force=True)
 
     # WORKFLOW
 
@@ -207,6 +228,7 @@ async def async_build(
                     )
 
                 # TODO: set "complete" flag for project
+
 
         if imported > 0 or errors > 0:
             logger.info("Finished importing from backend %s.", backend_enum.name)

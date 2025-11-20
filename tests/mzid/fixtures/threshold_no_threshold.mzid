@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<MzIdentML id="test_no_threshold" version="1.1.0"
+           xmlns="http://psidev.info/psi/pi/mzIdentML/1.1"
+           xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+           xsi:schemaLocation="http://psidev.info/psi/pi/mzIdentML/1.1 http://psidev.info/psi/pi/mzIdentML/1.1/mzIdentML1.1.0.xsd"
+           creationDate="2024-01-01T00:00:00">
+  <cvList>
+    <cv id="PSI-MS" fullName="Proteomics Standards Initiative Mass Spectrometry Vocabularies" uri="http://psidev.cvs.sourceforge.net/psidev/psi/psi-ms/mzML/controlledVocabulary/psi-ms.obo" version="3.24.0"></cv>
+  </cvList>
+  <AnalysisSoftwareList>
+    <AnalysisSoftware id="AS_test" name="TestSoftware" version="1.0">
+      <SoftwareName>
+        <cvParam accession="MS:1001207" name="TestSoftware" cvRef="PSI-MS" />
+      </SoftwareName>
+    </AnalysisSoftware>
+  </AnalysisSoftwareList>
+  <AnalysisProtocolCollection>
+    <SpectrumIdentificationProtocol analysisSoftware_ref="AS_test" id="SIP">
+      <SearchType>
+        <cvParam accession="MS:1001083" name="ms-ms search" cvRef="PSI-MS" />
+      </SearchType>
+    </SpectrumIdentificationProtocol>
+  </AnalysisProtocolCollection>
+</MzIdentML>
