@@ -61,3 +61,4 @@ testpaths = [
     "packages/ontology-resolver/tests",
 ]
 pythonpath = ["."]
+addopts = ["--log-cli-level=INFO"]

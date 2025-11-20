@@ -3,6 +3,7 @@ import logging
 import os
 import sys
 import threading
+from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -56,15 +57,28 @@ def system_setup(logger_name: str = ""):
         terminal_handler.addFilter(ExponentialBackoffFilter())
 
         # Handler for plain text file output (without colors)
-        file_handler = logging.FileHandler(logging_dir / "application.log", mode="w")
+        file_handler = RotatingFileHandler(
+            logging_dir / "application.log",
+            maxBytes=0,  # contol rotation manually
+            backupCount=5,  # keep last 5 logs
+        )
         file_handler.setLevel(logging.DEBUG)
         file_handler.setFormatter(CustomColorFormatter(use_colors=False))
         file_handler.addFilter(ExponentialBackoffFilter())
 
         # Handler for JSON file output (remains unchanged)
-        json_handler = logging.FileHandler(logging_dir / "application.jsonl", mode="w")
+        json_handler = RotatingFileHandler(
+            filename=logging_dir / "application.jsonl",
+            maxBytes=0,  # control rotation manually
+            backupCount=5,  # keep last 5 logs
+        )
         json_handler.setLevel(logging.DEBUG)
         json_handler.setFormatter(JsonFormatter())
+
+        # force new log files per run
+        # this will create one empty log in the beginning but that's acceptable
+        file_handler.doRollover()
+        json_handler.doRollover()
 
         logger.addHandler(terminal_handler)
         logger.addHandler(file_handler)
