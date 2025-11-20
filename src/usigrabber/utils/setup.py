@@ -8,6 +8,7 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
+from usigrabber.utils import get_cache_dir
 from usigrabber.utils.logging_helpers.filters import ExponentialBackoffFilter
 
 _setup_done = False
@@ -37,8 +38,11 @@ def system_setup(logger_name: str = ""):
 
         load_dotenv()
 
-        logging_dir = Path(os.getenv("LOGGING_DIR", "logs"))
+        # create necessary directories
+        cache_dir = get_cache_dir()
+        cache_dir.mkdir(exist_ok=True, parents=True)
 
+        logging_dir = Path(os.getenv("LOGGING_DIR", "logs"))
         logging_dir.mkdir(exist_ok=True)
 
         # overwrite root logger, should only be called in application code
