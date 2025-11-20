@@ -32,7 +32,7 @@ def fdr_reader():
 
     Contains: "pep:FDR threshold" = "0.01"
     """
-    path = Path("tests/fixtures/threshold_fdr.mzid")
+    path = Path("tests/mzid/fixtures/threshold_fdr.mzid")
     return create_mzid_reader(path)
 
 
@@ -42,7 +42,7 @@ def mascot_reader():
 
     Contains: "Mascot:SigThreshold" = "0.05" (and other Mascot params)
     """
-    path = Path("tests/fixtures/threshold_mascot.mzid")
+    path = Path("tests/mzid/fixtures/threshold_mascot.mzid")
     return create_mzid_reader(path)
 
 
@@ -52,7 +52,7 @@ def invalid_value_reader():
 
     Contains: "pep:FDR threshold" = "not_a_number"
     """
-    path = Path("tests/fixtures/threshold_invalid_value.mzid")
+    path = Path("tests/mzid/fixtures/threshold_invalid_value.mzid")
     return create_mzid_reader(path)
 
 
@@ -62,21 +62,21 @@ def empty_value_reader():
 
     Contains: "pep:FDR threshold" = ""
     """
-    path = Path("tests/fixtures/threshold_empty_value.mzid")
+    path = Path("tests/mzid/fixtures/threshold_empty_value.mzid")
     return create_mzid_reader(path)
 
 
 @pytest.fixture
 def no_threshold_reader():
     """Return mzID reader for file with no Threshold element."""
-    path = Path("tests/fixtures/threshold_no_threshold.mzid")
+    path = Path("tests/mzid/fixtures/threshold_no_threshold.mzid")
     return create_mzid_reader(path)
 
 
 @pytest.fixture
 def full_mzid_path():
     """Return path to a full example mzID file."""
-    return Path("tests/fixtures/full_small.mzid")
+    return Path("tests/mzid/fixtures/full_small.mzid")
 
 
 @pytest.fixture
@@ -86,5 +86,5 @@ def full_mzid_reader():
     Contains complete mzID data including software, thresholds, peptides,
     modifications, peptide evidence, and PSMs.
     """
-    path = Path("tests/fixtures/full_small.mzid")
+    path = Path("tests/mzid/fixtures/full_small.mzid")
     return create_mzid_reader(path)
