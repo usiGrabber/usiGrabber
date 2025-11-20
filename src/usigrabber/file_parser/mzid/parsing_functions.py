@@ -349,7 +349,7 @@ def parse_psms(
                     )
                     junction_batch.append(junction)
 
-        logger.debug(f"Parsed {len(psm_batch)} PSMs and {len(junction_batch)} junctions so far")
+    logger.debug(f"Parsed {len(psm_batch)} PSMs and {len(junction_batch)} junctions")
     return psm_batch, junction_batch
 
 
