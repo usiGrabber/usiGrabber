@@ -1,6 +1,4 @@
 import logging
-from os import listdir
-from os.path import isfile, join
 from pathlib import Path
 
 import pandas as pd
@@ -22,37 +20,33 @@ from usigrabber.file_parser.txt_zip.parsing_functions import (
 logger = logging.getLogger(__name__)
 
 
-def parse_txt_zip(txt_dir_path: Path, project_accession: str) -> ParsedTxtZipData:
-    if not txt_dir_path.exists():
-        error_msg = f"Directory not found: {txt_dir_path}"
-        logger.error(error_msg)
-        raise TxtZipParseError(error_msg)
+def parse_txt_zip(
+    evidence_path: Path, summary_path: Path, peptides_path: Path, project_accession: str
+) -> ParsedTxtZipData:
+    for path in (evidence_path, summary_path, peptides_path):
+        if not path.exists():
+            error_msg = f"Directory not found: {path}"
+            logger.error(error_msg)
+            raise TxtZipParseError(error_msg)
 
-    logger.info(f"Parsing txt directory: {txt_dir_path.name}")
+    logger.info(
+        f"Parsing txt files: {evidence_path.name}, {summary_path.name}, {peptides_path.name}"
+    )
 
     try:
-        evidence = summary = peptides = None
-        files = [f for f in listdir(txt_dir_path) if isfile(join(txt_dir_path, f))]
-        for file in files:
-            filepath = txt_dir_path / file
-            if file == "evidence.txt":
-                evidence: DataFrame = pd.read_csv(filepath, sep="\t")
-            elif file == "summary.txt":
-                summary: DataFrame = pd.read_csv(filepath, sep="\t")
-            elif file == "peptides.txt":
-                peptides: DataFrame = pd.read_csv(filepath, sep="\t")
-
-        assert evidence is not None, "evidence.txt file is required"
+        evidence: DataFrame = pd.read_csv(evidence_path, sep="\t")
+        summary: DataFrame = pd.read_csv(summary_path, sep="\t")
+        peptides: DataFrame = pd.read_csv(peptides_path, sep="\t")
 
         # Phase 1:
-        logger.debug("\nPhase 1: Parsing peptides...")
+        logger.debug("Phase 1: Parsing peptides...")
         peptide_id_map, peptide_mods, peptides_batch = parse_peptides(evidence, peptides)
 
-        logger.debug("\nPhase 2: Parsing peptide evidence...")
+        logger.debug("Phase 2: Parsing peptide evidence...")
         if peptides is not None:
             pe_id_map, peptide_evidence_batch = parse_peptide_evidence(peptides)
 
-        logger.debug("\nPhase 3: Parsing spectrum identification results...")
+        logger.debug("Phase 3: Parsing spectrum identification results...")
         psm_batch, junction_batch = parse_psms(
             evidence,
             summary,
@@ -61,7 +55,7 @@ def parse_txt_zip(txt_dir_path: Path, project_accession: str) -> ParsedTxtZipDat
             pe_id_map,
         )  # spectrum id?
 
-        logger.debug("\nPhase 4: Linking peptide modifications...")
+        logger.debug("Phase 4: Linking peptide modifications...")
         mod_batch = link_modifications(peptide_mods)
 
         # Return all parsed data
@@ -81,18 +75,22 @@ def parse_txt_zip(txt_dir_path: Path, project_accession: str) -> ParsedTxtZipDat
         raise TxtZipParseError(error_msg) from e
 
 
-def import_txt_zip(txt_dir_path: Path, project_accession: str):
+def import_txt_zip(
+    evidence_path: Path, summary_path: Path, peptides_path: Path, project_accession: str
+):
     # Initialize stats tracker
     stats = ImportStats(
-        file_name=txt_dir_path.name,
+        file_name=evidence_path.name,
         project_accession=project_accession,
     )
 
-    logger.info(f"Importing txt directory: {txt_dir_path.name}")
+    logger.info(
+        f"Importing txt txt files: {evidence_path.name}, {summary_path.name}, {peptides_path.name}"
+    )
 
     try:
         # Step 1: Parse the mzID file (pure parsing, no DB operations)
-        parsed_data = parse_txt_zip(txt_dir_path, project_accession)
+        parsed_data = parse_txt_zip(evidence_path, summary_path, peptides_path, project_accession)
 
         stats.mark_parsing_complete()
 

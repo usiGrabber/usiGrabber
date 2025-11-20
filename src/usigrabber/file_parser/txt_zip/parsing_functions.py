@@ -8,21 +8,23 @@ from usigrabber.db.engine import logger
 from usigrabber.db.schema import (
     Peptide,
     PeptideEvidence,
+    PeptideModification,
     PeptideSpectrumMatch,
+    PSMPeptideEvidence,
 )
 from usigrabber.file_parser.txt_zip.helpers import (
     clean_mod_list_of_numbers,
-    extract_mod_positions_residues,
+    extract_mods,
     extract_unimod_id,
-    get_unimod_mod_dict,
+    get_unimod_id,
 )
 
 
 def parse_peptides(
     evidence: pd.DataFrame, peptides: pd.DataFrame
-) -> tuple[dict[str, uuid.UUID], dict[uuid.UUID, list[dict[str, Any]]], list[Peptide]]:
+) -> tuple[dict[str, uuid.UUID], dict[uuid.UUID, list[tuple[int, str, str]]], list[Peptide]]:
     peptide_id_map: dict[str, uuid.UUID] = {}
-    peptide_mods: dict[uuid.UUID, list[dict[str, Any]]] = {}
+    peptide_mods: dict[uuid.UUID, list[tuple[int, str, str]]] = {}
     peptides_batch: list[Peptide] = []
 
     evidence = evidence.get(
@@ -41,25 +43,22 @@ def parse_peptides(
 
         evidences = evidence[evidence["Sequence"] == sequence]
         evidences = evidences.drop_duplicates()
-        for modification_elem in evidences.iterrows():
-            modification_elem = modification_elem[1]
-            modifications = modification_elem.get("Modifications", "")
+        for modified_elem in evidences.iterrows():
+            modified_elem = modified_elem[1]
+            modifications = modified_elem.get("Modifications", "")
             if modifications:
                 if modifications == "Unmodified":
                     pass
                 else:
                     mod_list: list[str] = modifications.split(",")
                     mod_list = clean_mod_list_of_numbers(mod_list)
-                    modified_sequence: str = modification_elem.get("Modified sequence", "")
-                    mods = extract_mod_positions_residues(modified_sequence, mod_list)
-                    mods = get_unimod_mod_dict(mods)
+                    modified_sequence: str = modified_elem.get("Modified sequence", "")
+                    mods = extract_mods(modified_sequence, mod_list)
 
                     peptide_mods[peptide.id] = []
                     for mod in mods:
-                        for position in mods[mod]:
-                            peptide_mods[peptide.id].append(
-                                dict(modification=mod, position=position)
-                            )
+                        for position_residues in mods[mod]:
+                            peptide_mods[peptide.id].append((*position_residues, mod))
 
     logger.debug(f"Created {len(peptides_batch)} peptide records")
     return peptide_id_map, peptide_mods, peptides_batch
@@ -82,38 +81,44 @@ def parse_peptide_evidence(peptides: pd.DataFrame) -> tuple[dict[str, list[uuid.
         ],
         default=pd.DataFrame(),
     )
-    peptides = peptides.astype({"Start position": int, "End position": int})
 
     for peptide_row in peptides.iterrows():
         peptide_row = peptide_row[1]
         sequence: str = peptide_row.get("Sequence", "")
+        pe_id_map[sequence] = []
 
         razor_protein: str = peptide_row.get("Leading razor protein", "")
         razor_protein = razor_protein.split(".")[0]
         proteins: str = peptide_row.get("Proteins", "")
-        protein_list = proteins.split(";")
+        protein_list = str(proteins).split(";")
         protein_list = [p.split(".")[0] for p in protein_list]
 
         for protein in protein_list:
+            start_position = peptide_row.get("Start position", None)
+            start_position = (
+                int(start_position) if (start_position and protein == razor_protein) else None
+            )
+            end_position = peptide_row.get("End position", None)
+            end_position = (
+                int(end_position) if (end_position and protein == razor_protein) else None
+            )
+            pre_residue = peptide_row.get("Amino acid before", None)
+            pre_residue = pre_residue if (pre_residue and protein == razor_protein) else None
+            post_residue = peptide_row.get("Amino acid after", None)
+            post_residue = post_residue if (post_residue and protein == razor_protein) else None
+
             peptide_evidence: PeptideEvidence = PeptideEvidence(
                 protein_accession=protein,
                 is_decoy=None,
-                start_position=peptide_row.get("Start position", None)
-                if protein == razor_protein
-                else None,
-                end_position=peptide_row.get("End position", None)
-                if protein == razor_protein
-                else None,
-                pre_residue=peptide_row.get("Amino acid before", None)
-                if protein == razor_protein
-                else None,
-                post_residue=peptide_row.get("Amino acid after", None)
-                if protein == razor_protein
-                else None,
+                start_position=start_position,
+                end_position=end_position,
+                pre_residue=pre_residue,
+                post_residue=post_residue,
             )
             peptide_evidence_batch.append(peptide_evidence)
             pe_id_map[sequence].append(peptide_evidence.id)
 
+    logger.debug(f"Created {len(peptide_evidence_batch)} peptide evidence records")
     return pe_id_map, peptide_evidence_batch
 
 
@@ -123,16 +128,16 @@ def parse_psms(
     project_accession: str,
     peptide_id_map: dict[str, uuid.UUID],
     pe_id_map: dict[str, list[uuid.UUID]],
-) -> tuple[list[Any], list[Any]]:
-    psm_batch = []
-    junction_batch = []
+) -> tuple[list[PeptideSpectrumMatch], list[PSMPeptideEvidence]]:
+    psm_batch: list[PeptideSpectrumMatch] = []
+    junction_batch: list[PSMPeptideEvidence] = []
 
     evidence = evidence.get(
         ["Sequence", "Raw file", "Charge", "m/z", "Mass", "MS/MS scan number"],
         default=pd.DataFrame(),
     )
     evidence = evidence.drop_duplicates()
-    evidence = evidence[evidence["MS/MS scan number"]]
+    evidence = evidence[evidence["MS/MS scan number"].notna()]
 
     summary = summary.get(
         ["Raw file", "Variable modifications", "Fixed modifications"],
@@ -159,8 +164,9 @@ def parse_psms(
                 modification_list.extend(var_mods.split(";"))
             if fix_mods:
                 modification_list.extend(fix_mods.split(";"))
+        unimod_id_list = []
         for mod in modification_list:
-            mod = extract_unimod_id(mod)
+            unimod_id_list.append(extract_unimod_id(mod))
 
         psm = PeptideSpectrumMatch(
             project_accession=project_accession,
@@ -170,7 +176,7 @@ def parse_psms(
             experimental_mz=psm_elem.get("m/z", None),
             calculated_mz=mass / charge if charge else None,
             pass_threshold=None,
-            # tested_for = modification_list
+            # tested_for = unimod_id_list
             # experiment_name = psm_elem.get("Raw file", None),
         )
 
@@ -178,24 +184,29 @@ def parse_psms(
 
         peptide_evidence_ids = pe_id_map.get(sequence, [])
         for pe_id in peptide_evidence_ids:
-            junction = dict(
+            junction = PSMPeptideEvidence(
                 psm_id=psm.id,
                 peptide_evidence_id=pe_id,
             )
             junction_batch.append(junction)
 
+    logger.debug(f"Parsed {len(psm_batch)} PSMs and {len(junction_batch)} junctions")
     return psm_batch, junction_batch
 
 
-def link_modifications(peptide_mods: dict[uuid.UUID, list[dict[str, Any]]]) -> list[Any]:
-    peptide_mod_batch = []
+def link_modifications(
+    peptide_mods: dict[uuid.UUID, list[tuple[int, str, str]]],
+) -> list[PeptideModification]:
+    peptide_mod_batch: list[PeptideModification] = []
 
     for peptide_id, mods in peptide_mods.items():
-        for mod in mods:
-            modification_record = dict(
+        for position_residues_name in mods:
+            modification_record = PeptideModification(
                 peptide_id=peptide_id,
-                unimod_id=mod["modification"],
-                position=mod["position"],
+                unimod_id=get_unimod_id(position_residues_name[2]),
+                name=position_residues_name[2],
+                position=position_residues_name[0],
+                modified_residue=position_residues_name[1],
             )
             peptide_mod_batch.append(modification_record)
 

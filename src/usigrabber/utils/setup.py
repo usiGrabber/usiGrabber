@@ -43,6 +43,7 @@ def system_setup(logger_name: str = ""):
 
         # overwrite root logger, should only be called in application code
         logger = logging.getLogger(logger_name)
+        logger.setLevel(os.getenv("LOGLEVEL", "INFO").upper())
 
         if logger.hasHandlers():
             logger.handlers.clear()

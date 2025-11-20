@@ -23,9 +23,7 @@ def remove_brackets_before_index(s: str, cut_index: int) -> str:
     return "".join(result)
 
 
-def extract_mod_positions_residues(
-    sequence: str, mods: list[str]
-) -> dict[str, list[tuple[int, str]]]:
+def extract_mods(sequence: str, mods: list[str]) -> dict[str, list[tuple[int, str]]]:
     mod_with_pos: dict[str, list[int]] = {mod: [] for mod in mods}
     seq = sequence.strip("_")
 
@@ -38,7 +36,7 @@ def extract_mod_positions_residues(
             seq_index = seq.find(f"({mod})")
             seq = seq[:seq_index] + seq[seq_index + len(f"({mod})") :]
 
-    mod_with_pos_residues: dict[str, list[tuple[int, str]]] = {}
+    mod_with_pos_residues: dict[str, list[tuple[int, str]]] = {mod: [] for mod in mods}
     for mod, positions in mod_with_pos.items():
         for position in positions:
             residue = ""
@@ -73,10 +71,5 @@ def extract_unimod_id(mod: str) -> int | None:
         pass
 
 
-def get_unimod_mod_dict(mods: dict[str, list[tuple[int, str]]]) -> dict[str, list[tuple[int, str]]]:
-    unimod_dict: dict[str, list[tuple[int, str]]] = {}
-    for mod in mods:
-        unimod_id = extract_unimod_id(mod)
-        if unimod_id is not None:
-            unimod_dict[str(unimod_id)] = mods[mod]
-    return unimod_dict
+def get_unimod_id(mod: str) -> int | None:
+    return extract_unimod_id(mod)
