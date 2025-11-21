@@ -67,6 +67,16 @@ async def download_ftp(
     raise RuntimeError("Unreachable: retry loop ended without returning or raising")
 
 
+async def download_ftp_with_semamphore(
+    semaphore: asyncio.Semaphore,
+    url: str,
+    out_dir: Path,
+) -> Path:
+    """Download a file from an FTP URL asynchronously with a semaphore."""
+    async with semaphore:
+        return await download_ftp(url, out_dir)
+
+
 def is_archive_file(path: Path) -> bool:
     """Return True only if this is an actual file archive, not a directory."""
     if path.is_dir():

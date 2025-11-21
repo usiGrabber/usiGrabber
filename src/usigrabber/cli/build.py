@@ -17,7 +17,7 @@ from usigrabber.db import Project, create_db_and_tables, load_db_engine
 from usigrabber.db.cli import reset as db_reset
 from usigrabber.file_parser import MzidImportError, MzidParseError, import_mzid
 from usigrabber.utils import get_cache_dir
-from usigrabber.utils.file import download_ftp, extract_archive, temporary_path
+from usigrabber.utils.file import download_ftp_with_semamphore, extract_archive, temporary_path
 
 CACHE_DIR = get_cache_dir()
 STANDARD_BACKENDS = [enum for enum in BackendEnum]
@@ -25,6 +25,8 @@ logger = logging.getLogger(__name__)
 
 # empty string for folders (no extension)
 FILETYPE_WHITELIST = {".mzid", ""}
+
+PARALLEL_DOWNLOADS = int(os.getenv("PARALLEL_DOWNLOADS", "10"))
 
 
 @app.command()
@@ -171,13 +173,14 @@ async def async_build(
                             )
                             continue
 
-                        # download all matching files asynchronously
+                        # download all matching files asynchronously (limit concurrency)
+                        sem = asyncio.Semaphore(PARALLEL_DOWNLOADS)
                         paths = await asyncio.gather(
                             *[
-                                download_ftp(
+                                download_ftp_with_semamphore(
+                                    semaphore=sem,
                                     url=file["filepath"],
                                     out_dir=tmp_dir / project["accession"] / str(idx),
-                                    file_name=os.path.basename(file["filepath"]),
                                 )
                                 for idx, file in enumerate(files_to_be_downloaded)
                             ],
