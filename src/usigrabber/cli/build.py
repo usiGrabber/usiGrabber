@@ -11,6 +11,7 @@ from sqlalchemy import inspect
 from sqlmodel import Session, select
 
 from usigrabber.backends import BackendEnum
+from usigrabber.backends.base import FileMetadata
 from usigrabber.cli import app
 from usigrabber.db import Project, create_db_and_tables, load_db_engine
 from usigrabber.db.cli import reset as db_reset
@@ -139,7 +140,7 @@ async def async_build(
                 with temporary_path() as tmp_dir:
                     # process files
                     if files["result"]:
-                        files_to_be_downloaded: list[tuple[str, str]] = []
+                        files_to_be_downloaded: list[FileMetadata] = []
 
                         # filter files based on extension whitelist
                         for file in files["result"]:
@@ -160,7 +161,7 @@ async def async_build(
                                 )
                                 continue
 
-                            files_to_be_downloaded.append((file_url, filename))
+                            files_to_be_downloaded.append(file)
 
                         if len(files_to_be_downloaded) == 0:
                             logger.warning(
@@ -174,17 +175,17 @@ async def async_build(
                         paths = await asyncio.gather(
                             *[
                                 download_ftp(
-                                    url=url,
+                                    url=file["filepath"],
                                     out_dir=tmp_dir / project["accession"] / str(idx),
-                                    file_name=filename,
+                                    file_name=os.path.basename(file["filepath"]),
                                 )
-                                for idx, (url, filename) in enumerate(files_to_be_downloaded)
+                                for idx, file in enumerate(files_to_be_downloaded)
                             ],
                             return_exceptions=True,
                         )
 
                         for idx, path in enumerate(paths):
-                            filename = files_to_be_downloaded[idx][1]
+                            filename = os.path.basename(files_to_be_downloaded[idx]["filepath"])
                             if isinstance(path, BaseException):
                                 logger.error(
                                     "Failed to download file %s for project %s.",
@@ -194,9 +195,12 @@ async def async_build(
                                 )
                                 continue
 
+                            filesize_in_mb = files_to_be_downloaded[idx]["file_size"] / (
+                                1024 * 1024
+                            )
                             logger.debug(
                                 f"Processing result file {filename} "
-                                + f"({files['result'][idx]['file_size'] / (1024 * 1024):,.2f} MB)"
+                                + f"({filesize_in_mb:,.2f} MB)"
                             )
 
                             # contains all files extracted from archive
