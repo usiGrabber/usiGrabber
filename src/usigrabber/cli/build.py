@@ -16,7 +16,7 @@ from usigrabber.file_parser import MzidImportError, MzidParseError, import_mzid
 from usigrabber.file_parser.errors import TxtZipImportError, TxtZipParseError
 from usigrabber.file_parser.txt_zip.parser import import_txt_zip
 from usigrabber.utils import get_cache_dir
-from usigrabber.utils.file import extract_archive, temporary_path
+from usigrabber.utils.file import download_ftp, extract_archive, temporary_path
 
 CACHE_DIR = get_cache_dir()
 STANDARD_BACKENDS = [enum for enum in BackendEnum]
@@ -162,17 +162,11 @@ async def async_build(
 
                         with temporary_path() as tmp_dir:
                             try:
-                                # path = await download_ftp(
-                                #     url=file_url,
-                                #     out_dir=tmp_dir,
-                                #     file_name=filename,
-                                # )
-                                path = (
-                                    f"C:/Users/Nils/Desktop/MP/usiGrabber/data/files"
-                                    f"/{project['accession']}"
-                                    f"_txt.zip"
+                                path = await download_ftp(
+                                    url=file_url,
+                                    out_dir=tmp_dir,
+                                    file_name=filename,
                                 )
-                                path = Path(path)
                             except Exception:
                                 logger.error(
                                     "Failed to download file %s for project %s.",
@@ -277,7 +271,6 @@ async def async_build(
                                     errors += 1
                                     continue
                             # TODO: add processing for other file types here
-                        break
 
                 # elif files["search"]:
                 #     # TODO: support search files

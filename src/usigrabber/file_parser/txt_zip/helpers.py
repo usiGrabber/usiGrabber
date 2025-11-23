@@ -25,7 +25,7 @@ def remove_brackets_before_index(s: str, cut_index: int) -> str:
 
 def extract_mods(sequence: str, mods: list[str]) -> dict[str, list[tuple[int, str]]]:
     mod_with_pos: dict[str, list[int]] = {mod: [] for mod in mods}
-    seq = sequence.strip("_")
+    seq = str(sequence).strip("_")
 
     for mod in mods:
         while seq.find(f"({mod})") != -1:
@@ -53,6 +53,7 @@ def extract_mods(sequence: str, mods: list[str]) -> dict[str, list[tuple[int, st
 def clean_mod_list_of_numbers(mod_list: list[str]) -> list[str]:
     cleaned_mods = []
     for mod in mod_list:
+        mod = str(mod)
         cleaned_mods.append(mod.lstrip(digits).lstrip(" "))
     return cleaned_mods
 
