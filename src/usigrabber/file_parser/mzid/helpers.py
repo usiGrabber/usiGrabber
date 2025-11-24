@@ -9,6 +9,7 @@ import logging
 from functools import lru_cache
 from typing import Any, cast
 
+from usigrabber.db.schema import IndexType
 from usigrabber.utils import get_unimod_db
 
 logger = logging.getLogger(__name__)
@@ -139,12 +140,12 @@ def normalize_residues(residues: Any) -> str:
     return str(residues) if residues else ""
 
 
-def extract_usi_fields(sir: dict) -> tuple[str | None, int | None, str | None]:
+def extract_usi_fields(sir: dict) -> tuple[IndexType | None, int | None, str | None]:
     """
     Extract USI-related fields from SpectrumIdentificationResult.
 
     Parses spectrum title (MS:1000796) or scan number (MS:1001115) cvParams to extract:
-    - index_type: Type of spectrum index ('scan' or 'index')
+    - index_type: Type of spectrum index (scan, index, nativeId, or trace)
     - index_number: Spectrum index number
     - ms_run: MS run identifier from raw file name
 
@@ -154,7 +155,7 @@ def extract_usi_fields(sir: dict) -> tuple[str | None, int | None, str | None]:
     Returns:
             Tuple of (index_type, index_number, ms_run)
     """
-    index_type: str | None = None
+    index_type: IndexType | None = None
     index_number: int | None = None
     ms_run: str | None = None
 
@@ -164,14 +165,14 @@ def extract_usi_fields(sir: dict) -> tuple[str | None, int | None, str | None]:
         # Check for "index=" pattern
         if spectrum_id.startswith("index="):
             try:
-                index_type = "index"
+                index_type = IndexType.index
                 index_number = int(spectrum_id.split("=")[1])
             except (ValueError, IndexError):
                 pass
         # Check for "scan=" pattern
         elif spectrum_id.startswith("scan="):
             try:
-                index_type = "scan"
+                index_type = IndexType.scan
                 index_number = int(spectrum_id.split("=")[1])
             except (ValueError, IndexError):
                 pass
@@ -179,7 +180,7 @@ def extract_usi_fields(sir: dict) -> tuple[str | None, int | None, str | None]:
             # Fallback: try to parse integer directly
             try:
                 index_number = int(spectrum_id)
-                index_type = "scan"
+                index_type = IndexType.scan
             except ValueError:
                 pass
 
@@ -198,7 +199,7 @@ def extract_usi_fields(sir: dict) -> tuple[str | None, int | None, str | None]:
                 scan_part = spectrum_title.split("scan=")[1]
                 scan_num_str = scan_part.split('"')[0].split()[0]
                 index_number = int(scan_num_str)
-                index_type = "scan"
+                index_type = IndexType.scan
             except (ValueError, IndexError):
                 pass
 
@@ -219,7 +220,7 @@ def extract_usi_fields(sir: dict) -> tuple[str | None, int | None, str | None]:
     # Parse scan number(s) (MS:1001115)
     if scan_number_value and index_type is None:
         try:
-            index_type = "scan"
+            index_type = IndexType.scan
             index_number = int(scan_number_value)
         except (ValueError, TypeError):
             pass

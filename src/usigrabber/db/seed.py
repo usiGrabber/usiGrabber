@@ -6,6 +6,7 @@ from sqlalchemy.engine.base import Engine
 from sqlmodel import Session
 
 from usigrabber.db.schema import (
+    IndexType,
     MzidFile,
     Peptide,
     PeptideEvidence,
@@ -142,7 +143,7 @@ def seed_minimal_data(engine: Engine) -> None:
             score_values={"MS-GF:SpecEValue": 1.2e-10, "MS-GF:QValue": 0.001},
             rank=1,
             pass_threshold=True,
-            index_type="scan",
+            index_type=IndexType.scan,
             index_number=1234,
             ms_run="mock_data_file",
         )
@@ -157,7 +158,7 @@ def seed_minimal_data(engine: Engine) -> None:
             score_values={"MS-GF:SpecEValue": 5.6e-8, "MS-GF:QValue": 0.005},
             rank=1,
             pass_threshold=True,
-            index_type="scan",
+            index_type=IndexType.scan,
             index_number=5678,
             ms_run="mock_data_file",
         )
@@ -172,7 +173,7 @@ def seed_minimal_data(engine: Engine) -> None:
             score_values={"MS-GF:SpecEValue": 2.3e-6, "MS-GF:QValue": 0.008},
             rank=1,
             pass_threshold=True,
-            index_type="scan",
+            index_type=IndexType.scan,
             index_number=9012,
             ms_run="mock_data_file",
         )

@@ -1,3 +1,4 @@
+from usigrabber.db.schema import IndexType
 from usigrabber.file_parser.mzid.parser import parse_mzid_file
 
 
@@ -153,7 +154,7 @@ def test_usi_fields_extraction(full_mzid_path):
 
     # Check that scan numbers are extracted from spectrum title cvParams
     # Example cvParam: MS:1000796 with value containing "scan=3285"
-    psms_with_scan = [psm for psm in psms if psm.index_type == "scan"]
+    psms_with_scan = [psm for psm in psms if psm.index_type == IndexType.scan]
     if len(psms_with_scan) > 0:
         sample_scan_psm = psms_with_scan[0]
         assert sample_scan_psm.index_number is not None, (
