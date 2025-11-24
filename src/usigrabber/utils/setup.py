@@ -8,13 +8,14 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
+from usigrabber.utils import get_cache_dir
 from usigrabber.utils.logging_helpers.filters import ExponentialBackoffFilter
 
 _setup_done = False
 _setup_lock = threading.Lock()
 
 
-def system_setup(logger_name: str = ""):
+def system_setup(logger_name: str | None = None):
     """
     - Setups logger
     - Loads env variables
@@ -37,12 +38,17 @@ def system_setup(logger_name: str = ""):
 
         load_dotenv()
 
-        logging_dir = Path(os.getenv("LOGGING_DIR", "logs"))
+        # create necessary directories
+        cache_dir = get_cache_dir()
+        cache_dir.mkdir(exist_ok=True, parents=True)
 
+        logging_dir = Path(os.getenv("LOGGING_DIR", "logs"))
         logging_dir.mkdir(exist_ok=True)
 
         # overwrite root logger, should only be called in application code
         logger = logging.getLogger(logger_name)
+        LOGLEVEL = os.getenv("LOGLEVEL", "INFO").upper()
+        logger.setLevel(level=LOGLEVEL)
 
         if logger.hasHandlers():
             logger.handlers.clear()
@@ -52,7 +58,7 @@ def system_setup(logger_name: str = ""):
             logging.getLogger(child).setLevel("WARNING")
 
         terminal_handler = logging.StreamHandler(sys.stdout)
-        terminal_handler.setLevel(os.getenv("LOGLEVEL", "INFO").upper())
+        terminal_handler.setLevel(LOGLEVEL)
         terminal_handler.setFormatter(CustomColorFormatter(use_colors=True))
         terminal_handler.addFilter(ExponentialBackoffFilter())
 
