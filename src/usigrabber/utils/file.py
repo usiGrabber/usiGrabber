@@ -47,7 +47,7 @@ async def download_ftp(
                 await client.download(parsed.path, str(out_path), write_into=True)
             return out_path
         except ConnectionResetError:
-            if attempt > 1:
+            if attempt > 2:
                 # first attempt often fails, so only log after 2nd attempt
                 logger.warning(
                     f"FTP connection reset on attempt {attempt + 1}/{retries} for {url}",
@@ -57,10 +57,11 @@ async def download_ftp(
             else:
                 raise
         except Exception:
-            logger.warning(
-                f"FTP download attempt {attempt + 1}/{retries} failed for {url}",
-                exc_info=True,
-            )
+            if attempt > 2:
+                logger.warning(
+                    f"FTP download attempt {attempt + 1}/{retries} failed for {url}",
+                    exc_info=True,
+                )
             if attempt < retries - 1:
                 await asyncio.sleep(delay)
             else:

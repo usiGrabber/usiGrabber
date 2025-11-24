@@ -179,18 +179,24 @@ async def download_samples() -> None:
 
     out_dir.mkdir(parents=True, exist_ok=False)
 
+    sample_paths: list[str] = df["ftp_location"].tolist()
+
     download_tasks = [
-        download_ftp_with_semamphore(semaphore, row["ftp_location"], out_dir)
-        for _, row in df.iterrows()
+        download_ftp_with_semamphore(semaphore, sample_path, out_dir)
+        for sample_path in sample_paths
     ]
 
-    paths: list[Path] = await asyncio.gather(*download_tasks)  # download all files concurrently
-
-    mzid_paths: list[Path] = []
+    # download all files concurrently
+    paths = await asyncio.gather(*download_tasks, return_exceptions=True)
 
     # iterate over files and extract archives
-    for path in paths:
-        print(f"Downloaded file to {path}")
+    mzid_paths: list[Path] = []
+    for idx, path in enumerate(paths):
+        if isinstance(path, BaseException):
+            print(f"Error downloading file '{sample_paths[idx]}': {path}")
+            continue
+
+        # print(f"Downloaded file to {path}")
 
         if path.suffix.lower() == ".mzid":
             # no extraction needed
