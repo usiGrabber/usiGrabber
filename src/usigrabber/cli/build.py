@@ -24,7 +24,7 @@ STANDARD_BACKENDS = [enum for enum in BackendEnum]
 logger = logging.getLogger(__name__)
 
 # empty string for folders (no extension)
-FILETYPE_WHITELIST = {".mzid", ""}
+FILETYPE_ALLOWLIST = {".mzid", ""}
 
 PARALLEL_DOWNLOADS = int(os.getenv("PARALLEL_DOWNLOADS", "10"))
 
@@ -144,7 +144,7 @@ async def async_build(
                     if files["result"]:
                         files_to_be_downloaded: list[FileMetadata] = []
 
-                        # filter files based on extension whitelist
+                        # filter files based on extension allowlist
                         for file in files["result"]:
                             # parse filename from file url
                             file_url = file["filepath"]
@@ -155,7 +155,7 @@ async def async_build(
                             while file_ext in {".zip", ".gz", ".tar", ".rar", ".7z"}:
                                 file_base, file_ext = os.path.splitext(file_base)
 
-                            if file_ext not in FILETYPE_WHITELIST:
+                            if file_ext not in FILETYPE_ALLOWLIST:
                                 logger.debug(
                                     "Skipping file %s with unsupported extension %s.",
                                     filename,
@@ -212,11 +212,11 @@ async def async_build(
                             )
 
                             interesting_files: dict[str, list[Path]] = {
-                                ext: [] for ext in FILETYPE_WHITELIST
+                                ext: [] for ext in FILETYPE_ALLOWLIST
                             }
                             for f in extracted_files:
                                 ext = os.path.splitext(str(f))[1]
-                                if ext in FILETYPE_WHITELIST:
+                                if ext in FILETYPE_ALLOWLIST:
                                     interesting_files[ext].append(f)
 
                             # access files based on priority
