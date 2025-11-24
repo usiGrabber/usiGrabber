@@ -183,6 +183,12 @@ class MzidFile(SQLModel, table=True):
         index=True,
         description="Threshold value (e.g., 0.01 for 1% FDR)",
     )
+    spectrum_id_format: str | None = Field(
+        default=None,
+        description=(
+            "SpectrumIDFormat accession (e.g., 'MS:1000774' for multiple peak list nativeID format)"
+        ),
+    )
     creation_date: datetime | None = None
 
     # Relationships

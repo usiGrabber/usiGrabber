@@ -8,6 +8,7 @@ returning the appropriate data structures.
 
 import logging
 import uuid
+import xml.etree.ElementTree as ET
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -52,6 +53,53 @@ def parse_software_info(reader: mzid.MzIdentML) -> tuple[str | None, str | None]
         return software_name, software_version
 
     return None, None
+
+
+def parse_spectra_data_info(mzid_path: Path) -> tuple[str | None, str | None]:
+    """
+    Parse SpectraData information to extract MS run name and SpectrumIDFormat.
+
+    Uses direct XML parsing because pyteomics with retrieve_refs=False doesn't
+    return nested elements like SpectrumIDFormat.
+
+    Args:
+        mzid_path: Path to the mzIdentML file
+
+    Returns:
+        Tuple of (ms_run_name, spectrum_id_format_accession)
+    """
+    ms_run_name: str | None = None
+    spectrum_id_format: str | None = None
+
+    try:
+        tree = ET.parse(mzid_path)
+        root = tree.getroot()
+
+        # Define namespace (mzIdentML uses the 1.1 namespace)
+        ns = {"mzid": "http://psidev.info/psi/pi/mzIdentML/1.1"}
+
+        # Find first SpectraData element
+        spectra_data = root.find(".//mzid:SpectraData", ns)
+        if spectra_data is not None:
+            # Extract the 'name' attribute (used as MS run identifier)
+            # If 'name' doesn't exist, use 'id' as fallback
+            ms_run_name = spectra_data.get("name") or spectra_data.get("id")
+
+            # Extract SpectrumIDFormat accession from nested cvParam
+            spectrum_id_format_cv = spectra_data.find(".//mzid:SpectrumIDFormat/mzid:cvParam", ns)
+            if spectrum_id_format_cv is not None:
+                spectrum_id_format = spectrum_id_format_cv.get("accession")
+
+        if ms_run_name or spectrum_id_format:
+            logger.debug(
+                f"Parsed SpectraData: ms_run='{ms_run_name}', "
+                f"spectrum_id_format='{spectrum_id_format}'"
+            )
+
+    except ET.ParseError as e:
+        logger.warning(f"Failed to parse SpectraData from XML: {e}")
+
+    return ms_run_name, spectrum_id_format
 
 
 def parse_threshold_info(reader: mzid.MzIdentML) -> tuple[str | None, float | None]:
@@ -119,9 +167,9 @@ def parse_mzid_metadata(
     reader: mzid.MzIdentML,
     mzid_path: Path,
     project_accession: str,
-) -> MzidFile:
+) -> tuple[MzidFile, str | None]:
     """
-    Parse mzID file metadata including software and threshold information.
+    Parse mzID file metadata including software, threshold, and SpectraData information.
 
     Args:
         reader: MzIdentML reader instance
@@ -129,10 +177,11 @@ def parse_mzid_metadata(
         project_accession: PRIDE project accession
 
     Returns:
-        MzidFile record with parsed metadata
+        Tuple of (MzidFile record with parsed metadata, ms_run_name from SpectraData)
     """
     software_name, software_version = parse_software_info(reader)
     threshold_type, threshold_value = parse_threshold_info(reader)
+    ms_run_name, spectrum_id_format = parse_spectra_data_info(mzid_path)
 
     mzid_file = MzidFile(
         project_accession=project_accession,
@@ -142,11 +191,12 @@ def parse_mzid_metadata(
         software_version=software_version,
         threshold_type=threshold_type,
         threshold_value=threshold_value,
+        spectrum_id_format=spectrum_id_format,
         creation_date=datetime.now(),
     )
 
     logger.debug(f"Created mzID file record (ID: {mzid_file.id})")
-    return mzid_file
+    return mzid_file, ms_run_name
 
 
 def parse_db_sequences(reader: mzid.MzIdentML) -> dict[str, str]:
@@ -278,6 +328,7 @@ def parse_psms(
     mzid_file_id: uuid.UUID,
     peptide_id_map: dict[str, uuid.UUID],
     pe_id_map: dict[str, uuid.UUID],
+    spectra_data_ms_run: str | None = None,
 ) -> tuple[list[PeptideSpectrumMatch], list[PSMPeptideEvidence]]:
     """
     Parse SpectrumIdentificationResult elements.
@@ -288,6 +339,7 @@ def parse_psms(
                     mzid_file_id: Database ID of the MzidFile record
                     peptide_id_map: Mapping from mzID peptide IDs to database Peptide.id
                     pe_id_map: Mapping from mzID peptide evidence IDs to database PeptideEvidence.id
+                    spectra_data_ms_run: MS run name from SpectraData element (fallback)
 
     Returns:
                     Tuple of:
@@ -303,6 +355,10 @@ def parse_psms(
 
         # Extract USI-related fields from the SpectrumIdentificationResult
         index_type, index_number, ms_run = extract_usi_fields(sir)
+
+        # Use SpectraData ms_run as fallback if not found in spectrum title
+        if ms_run is None and spectra_data_ms_run is not None:
+            ms_run = spectra_data_ms_run
 
         # Get list of spectrum identification items (PSMs)
         sii_list: dict[str, Any] | list[dict[str, Any]] = sir.get("SpectrumIdentificationItem", [])

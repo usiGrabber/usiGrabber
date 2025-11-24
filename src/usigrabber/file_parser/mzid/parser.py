@@ -56,7 +56,9 @@ def parse_mzid_file(mzid_path: Path, project_accession: str) -> ParsedMzidData:
     try:
         # Parse mzID file with retrieve_refs=False
         with mzid.MzIdentML(str(mzid_path), retrieve_refs=False) as reader:
-            mzid_file = parse_mzid_metadata(reader, mzid_path, project_accession)
+            mzid_file, spectra_data_ms_run = parse_mzid_metadata(
+                reader, mzid_path, project_accession
+            )
 
             # Phase 1: Parse DB sequences
             logger.debug("\nPhase 1: Parsing database sequences...")
@@ -78,6 +80,7 @@ def parse_mzid_file(mzid_path: Path, project_accession: str) -> ParsedMzidData:
                 mzid_file.id,
                 peptide_id_map,
                 pe_id_map,
+                spectra_data_ms_run,
             )
 
             # Phase 5: Link modifications
