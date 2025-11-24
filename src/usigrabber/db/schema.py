@@ -1,7 +1,18 @@
 import uuid
 from datetime import date, datetime
+from enum import Enum
 
 from sqlmodel import JSON, Column, Field, Relationship, SQLModel
+
+
+class IndexType(str, Enum):
+    """Type of spectrum index for USI specification."""
+
+    scan = "scan"
+    index = "index"
+    nativeId = "nativeId"
+    trace = "trace"
+
 
 # ============================================================================
 # Core Tables
@@ -255,6 +266,18 @@ class PeptideSpectrumMatch(SQLModel, table=True):
             "dynamic thresholds (e.g., Mascot identity/homology). Value comes from "
             "mzID passThreshold attribute."
         )
+    )
+    index_type: IndexType | None = Field(
+        default=None,
+        description="Type of spectrum index. Part of USI specification.",
+    )
+    index_number: int | None = Field(
+        default=None,
+        description="Spectrum index number. Part of USI specification.",
+    )
+    ms_run: str | None = Field(
+        default=None,
+        description="MS run identifier from raw file name. Part of USI specification.",
     )
 
     # Relationships
