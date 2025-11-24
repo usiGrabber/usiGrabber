@@ -213,9 +213,26 @@ async def download_samples() -> None:
             print(f"Unknown file type for {path}, skipping extraction.")
 
 
+def sample_stats() -> None:
+    df = pd.read_csv(SAMPLED_MZID_PATH)
+    total_size_bytes = df["file_size_bytes"].sum()
+    total_size_gb = total_size_bytes / (1024**3)
+    print(f"Total sampled mzid files: {len(df)} - Total size (GB): {total_size_gb:.2f}")
+
+    # find 10 largest files
+    largest_files = df.nlargest(10, "file_size_bytes")[["filename", "file_size_bytes"]]
+    print("10 largest sampled mzid files:")
+    for _, row in largest_files.iterrows():
+        size_gb = row["file_size_bytes"] / (1024**3)
+        print(f"\t- {row['filename']}: {size_gb:,.2f} GiB")
+
+
 async def main() -> None:
     # sample_mzid_files()
-    basic_stats()
+    # sample_stats()
+    # basic_stats()
+
+    await download_samples()
 
 
 if __name__ == "__main__":
