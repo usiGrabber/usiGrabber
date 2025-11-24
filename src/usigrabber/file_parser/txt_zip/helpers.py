@@ -1,3 +1,5 @@
+from collections import defaultdict
+from pathlib import Path
 from string import digits
 from typing import Any, cast
 
@@ -74,3 +76,22 @@ def extract_unimod_id(mod: str) -> int | None:
 
 def get_unimod_id(mod: str) -> int | None:
     return extract_unimod_id(mod)
+
+
+def get_txt_triples(files: list[Path]):
+    # group files by parent directory
+    grouped = defaultdict(list)
+    for f in files:
+        grouped[f.parent].append(f)
+
+    triplets = []
+
+    for _, flist in grouped.items():
+        evidence_files = [f for f in flist if f.name.endswith("evidence.txt")]
+        summary_files = [f for f in flist if f.name.endswith("summary.txt")]
+        peptides_files = [f for f in flist if f.name.endswith("peptides.txt")]
+
+        if len(evidence_files) == 1 and len(summary_files) == 1 and len(peptides_files) == 1:
+            triplets.append((evidence_files[0], summary_files[0], peptides_files[0]))
+
+    return triplets

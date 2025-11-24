@@ -64,6 +64,7 @@ class PrideBackend(BaseBackend):
                 files_info = response.json()
                 search_files: list[FileMetadata] = []
                 result_files: list[FileMetadata] = []
+                other_files: list[FileMetadata] = []
                 for file_info in files_info:
                     category = file_info["fileCategory"]["value"]
                     ftp_link = None
@@ -91,8 +92,10 @@ class PrideBackend(BaseBackend):
                         search_files.append(file)
                     elif category == "RESULT":
                         result_files.append(file)
+                    elif category == "OTHER":
+                        other_files.append(file)
 
-                return Files(search=search_files, result=result_files)
+                return Files(search=search_files, result=result_files, other=other_files)
             else:
                 logger.error(
                     "Could not retrieve files for accession %s: %s %s",
@@ -100,7 +103,7 @@ class PrideBackend(BaseBackend):
                     response.status_code,
                     response.reason,
                 )
-                return Files(search=[], result=[])
+                return Files(search=[], result=[], other=[])
 
     @classmethod
     async def _parse_and_add_cv_params(

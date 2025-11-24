@@ -15,7 +15,13 @@ from urllib.parse import urlparse
 import aioftp
 import typer
 
+from usigrabber.backends.base import FileMetadata
+
 logger = logging.getLogger(__name__)
+
+# empty string for folders (no extension)
+FILETYPE_WHITELIST = {".mzid", "", ".txt"}
+ARCHIVE_TYPES = {".zip", ".gz", ".tar", ".rar", ".7z"}
 
 
 async def download_ftp(
@@ -86,6 +92,10 @@ def extract_archive(
     Recursively extract archives into extract_to.
     Returns a list of extracted file paths.
     """
+    # Not an archive → return as-is
+    if not is_archive_file(archive_path):
+        return [archive_path]
+
     archive_path = archive_path.resolve()
 
     extract_to.mkdir(parents=True, exist_ok=False)
@@ -94,10 +104,6 @@ def extract_archive(
     if archive_path.is_dir():
         # Not a real archive; return directory contents but no extraction
         return [p for p in archive_path.iterdir()]
-
-    # Not an archive → return as-is
-    if not is_archive_file(archive_path):
-        return [archive_path]
 
     archive_str = str(archive_path).lower()
 
@@ -154,6 +160,56 @@ def extract_archive(
             extracted_members.append(member_path)
 
     return extracted_members
+
+
+async def get_interesting_files(
+    files: list[FileMetadata], accession: str, tmp_dir: Path
+) -> dict[str, list[Path]]:
+    interesting_files: dict[str, list[Path]] = {ext: [] for ext in FILETYPE_WHITELIST}
+    for file in files:
+        file_url = file["filepath"]
+        filename = os.path.basename(file_url)
+
+        # find actual file extension, without archives
+        file_base, file_ext = os.path.splitext(filename)
+        while file_ext in ARCHIVE_TYPES:
+            file_base, file_ext = os.path.splitext(file_base)
+
+        if (file_ext not in FILETYPE_WHITELIST) and ("txt.zip" not in str(filename)):
+            logger.debug(f"Skipping file {filename} with unsupported extension {file_ext}.")
+            continue
+        if file_ext == ".txt" and file_base not in ("evidence", "summary", "peptides"):
+            logger.debug(f"Skipping file {filename} as it is not interesting.")
+            continue
+
+        logger.debug(
+            f"Processing {file['category']} file {filename} "
+            + f"({file['file_size'] / (1024 * 1024):,.2f} MB)"
+        )
+
+        try:
+            path = await download_ftp(
+                url=file_url,
+                out_dir=tmp_dir,
+                file_name=filename,
+            )
+        except Exception:
+            logger.error(
+                "Failed to download file %s for project %s.",
+                filename,
+                accession,
+                exc_info=True,
+            )
+            continue
+
+        # contains all files extracted from archive
+        extracted_files = extract_archive(archive_path=path, extract_to=tmp_dir / "extracted")
+
+        for f in extracted_files:
+            ext = os.path.splitext(str(f))[1]
+            if ext in FILETYPE_WHITELIST:
+                interesting_files[ext].append(f)
+    return interesting_files
 
 
 @contextmanager

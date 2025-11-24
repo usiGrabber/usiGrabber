@@ -16,7 +16,6 @@ from usigrabber.file_parser.txt_zip.helpers import (
     clean_mod_list_of_numbers,
     extract_mods,
     extract_unimod_id,
-    get_unimod_id,
 )
 
 
@@ -70,7 +69,7 @@ def parse_peptide_evidence(peptides: pd.DataFrame) -> tuple[dict[str, list[uuid.
     peptide_evidence_batch = []
 
     peptides = peptides.get(
-        key=[
+        [
             "Sequence",
             "Amino acid before",
             "Amino acid after",
@@ -203,7 +202,7 @@ def link_modifications(
         for position_residues_name in mods:
             modification_record = PeptideModification(
                 peptide_id=peptide_id,
-                unimod_id=get_unimod_id(position_residues_name[2]),
+                unimod_id=extract_unimod_id(position_residues_name[2]),
                 name=position_residues_name[2],
                 position=position_residues_name[0],
                 modified_residue=position_residues_name[1],

@@ -9,6 +9,7 @@ from sqlmodel import Session
 from usigrabber.db.engine import load_db_engine
 from usigrabber.file_parser.errors import TxtZipImportError, TxtZipParseError
 from usigrabber.file_parser.models import ImportStats
+from usigrabber.file_parser.txt_zip.helpers import get_txt_triples
 from usigrabber.file_parser.txt_zip.models import ParsedTxtZipData
 from usigrabber.file_parser.txt_zip.parsing_functions import (
     link_modifications,
@@ -23,11 +24,11 @@ logger = logging.getLogger(__name__)
 def parse_txt_zip(
     evidence_path: Path, summary_path: Path, peptides_path: Path, project_accession: str
 ) -> ParsedTxtZipData:
-    for path in (evidence_path, summary_path, peptides_path):
-        if not path.exists():
-            error_msg = f"Directory not found: {path}"
-            logger.error(error_msg)
-            raise TxtZipParseError(error_msg)
+    # for path in (evidence_path, summary_path, peptides_path):
+    #     if not path.exists():
+    #         error_msg = f"Directory not found: {path}"
+    #         logger.error(error_msg)
+    #         raise TxtZipParseError(error_msg)
 
     logger.info(
         f"Parsing txt files: {evidence_path.name}, {summary_path.name}, {peptides_path.name}"
@@ -43,8 +44,7 @@ def parse_txt_zip(
         peptide_id_map, peptide_mods, peptides_batch = parse_peptides(evidence, peptides)
 
         logger.debug("Phase 2: Parsing peptide evidence...")
-        if peptides is not None:
-            pe_id_map, peptide_evidence_batch = parse_peptide_evidence(peptides)
+        pe_id_map, peptide_evidence_batch = parse_peptide_evidence(peptides)
 
         logger.debug("Phase 3: Parsing spectrum identification results...")
         psm_batch, junction_batch = parse_psms(
@@ -128,3 +128,46 @@ def import_txt_zip(
         logger.error(error_msg, exc_info=True)
         stats.mark_failed(error_msg)
         raise TxtZipImportError(error_msg) from e
+
+
+def import_all_txt_zip(
+    files: list[Path], accession: str, processed_files: int, errors: int, fully_processed: int
+) -> tuple[int, int, int]:
+    txt_triples = get_txt_triples(files)
+    for triple in txt_triples:
+        evidence_path, summary_path, peptides_path = triple
+        try:
+            stats = import_txt_zip(
+                evidence_path,
+                summary_path,
+                peptides_path,
+                accession,
+            )
+            duration_str = (
+                f"{stats.duration_seconds:.1f}s" if stats.duration_seconds is not None else "N/A"
+            )
+            logger.info(
+                f"Imported {stats.psm_count:,} PSMs from {evidence_path.name} ({duration_str})"
+            )
+            processed_files += 1
+        except TxtZipParseError as e:
+            logger.warning(f"Skipping malformed txt file {evidence_path.name}: {e}")
+            continue
+        except TxtZipImportError as e:
+            logger.error(
+                f"Failed to import txt file {evidence_path.name}: {e}",
+                exc_info=True,
+                stack_info=True,
+                extra={
+                    "txt_evidence_file": str(evidence_path),
+                    "txt_summary_file": str(summary_path),
+                    "txt_peptides_file": str(peptides_path),
+                    "project_accession": accession,
+                },
+            )
+            errors += 1
+            continue
+
+    if processed_files == len(txt_triples):
+        fully_processed = 1
+    return processed_files, errors, fully_processed
