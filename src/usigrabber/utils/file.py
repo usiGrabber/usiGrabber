@@ -239,7 +239,8 @@ async def get_interesting_files(
         logger.debug(f"Processing result file '{filename}' " + f"({filesize_in_mb:,.2f} MB)")
 
         # contains all files extracted from archive
-        extracted_files = extract_archive(archive_path=path, extract_to=path.parent / "extracted")
+        extract_dir = str(os.path.splitext(filename)) + "_extracted"
+        extracted_files = extract_archive(archive_path=path, extract_to=path.parent / extract_dir)
 
         for f in extracted_files:
             ext = os.path.splitext(str(f))[1]

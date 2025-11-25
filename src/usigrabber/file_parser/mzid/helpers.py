@@ -6,11 +6,10 @@ These functions extract and transform data from mzIdentML elements.
 """
 
 import logging
-from functools import lru_cache
-from typing import Any, cast
+from typing import Any
 
 from usigrabber.db.schema import IndexType
-from usigrabber.utils import get_unimod_db
+from usigrabber.utils import lookup_unimod_id_by_name
 
 logger = logging.getLogger(__name__)
 
@@ -58,27 +57,6 @@ def extract_unimod_id_and_name(mod_data: dict) -> tuple[int | None, str | None]:
     if uid is None:
         logger.debug("No UNIMOD ID found for modification: %s", mod_data)
     return uid, mod_name
-
-
-@lru_cache(maxsize=420)
-def lookup_unimod_id_by_name(mod_name: str) -> int | None:
-    """
-    Lookup UNIMOD ID by modification name with caching.
-
-    Args:
-            mod_name: Name of the modification
-
-    Returns:
-            UNIMOD ID as integer, or None if not found
-    """
-    try:
-        mod = get_unimod_db().get(mod_name, False)
-        if mod is not None:
-            return int(cast(int, mod.id))
-    except KeyError:
-        pass
-
-    return None
 
 
 def extract_score_values(sii: dict) -> dict[str, Any]:

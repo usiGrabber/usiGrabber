@@ -249,7 +249,7 @@ class PeptideSpectrumMatch(SQLModel, table=True):
         description="Optional: can be NULL for non-mzID sources",
     )
     peptide_id: uuid.UUID = Field(foreign_key="peptides.id", index=True)
-    spectrum_id: str = Field(index=True, description="Spectrum identifier/index")
+    spectrum_id: str | None = Field(index=True, description="Spectrum identifier/index")
     charge_state: int | None
     experimental_mz: float | None = Field(description="Experimental m/z value")
     calculated_mz: float | None = Field(description="Calculated m/z value")
@@ -285,6 +285,9 @@ class PeptideSpectrumMatch(SQLModel, table=True):
     mzid_file: MzidFile | None = Relationship(back_populates="peptide_spectrum_matches")
     peptide: Peptide | None = Relationship(back_populates="peptide_spectrum_matches")
     psm_peptide_evidences: list["PSMPeptideEvidence"] = Relationship(back_populates="psm")
+    search_modifications: list["SearchModification"] | None = Relationship(
+        back_populates="peptide_spectrum_matches"
+    )
 
 
 class PeptideEvidence(SQLModel, table=True):
@@ -330,6 +333,17 @@ class PSMPeptideEvidence(SQLModel, table=True):
     # Relationships
     psm: "PeptideSpectrumMatch" = Relationship(back_populates="psm_peptide_evidences")
     peptide_evidence: "PeptideEvidence" = Relationship(back_populates="psm_peptide_evidences")
+
+
+class SearchModification(SQLModel, table=True):
+    __tablename__ = "search_modifications"
+
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    psm_id: uuid.UUID = Field(foreign_key="peptide_spectrum_matches.id", index=True)
+    unimod_id: int = Field()
+
+    # Relationships
+    psm: "PeptideSpectrumMatch" = Relationship(back_populates="search_modification")
 
 
 # ============================================================================

@@ -122,11 +122,11 @@ async def async_build(
 
         imported = errors = 0
         error_projects = []
-        with Session(db_engine) as session, temporary_path() as tmp_dir:
+        with Session(db_engine) as session, temporary_path() as tmp_dir_default:
             async for project in backend.get_new_projects(existing_accessions):
-                tmp_dir = Path(tmp_dir / project["accession"])
+                tmp_dir = Path(tmp_dir_default / project["accession"])
                 (tmp_dir).mkdir()
-                fully_processed = 0
+                fully_processed: bool = False
 
                 try:
                     await backend.dump_project_to_db(session, project)
@@ -186,7 +186,7 @@ async def async_build(
                                 errors += 1
                                 continue
                         if processed_files == len(interesting_files[".mzid"]):
-                            fully_processed = 1
+                            fully_processed = True
                             continue
 
                     # Process mzTab file
@@ -201,10 +201,10 @@ async def async_build(
                     # except Exception as e:
                     #     pass
                     # if processed_files == len(interesting_files[".mztab"]):
-                    #     fully_processed = 1
+                    #     fully_processed = True
                     #     continue
 
-                if files["search"] and fully_processed == 0:
+                if files["search"] and not fully_processed:
                     interesting_files = await get_interesting_files(
                         files["search"], project["accession"], tmp_dir
                     )
@@ -221,7 +221,7 @@ async def async_build(
                         if fully_processed:
                             continue
 
-                if files["other"] and fully_processed == 0:
+                if files["other"] and not fully_processed:
                     interesting_files = await get_interesting_files(
                         files["other"], project["accession"], tmp_dir
                     )

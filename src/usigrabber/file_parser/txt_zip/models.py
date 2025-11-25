@@ -10,6 +10,7 @@ from usigrabber.db.schema import (
     PeptideModification,
     PeptideSpectrumMatch,
     PSMPeptideEvidence,
+    SearchModification,
 )
 
 
@@ -21,3 +22,4 @@ class ParsedTxtZipData(NamedTuple):
     peptide_evidence: list[PeptideEvidence]
     psms: list[PeptideSpectrumMatch]
     psm_peptide_evidence_junctions: list[PSMPeptideEvidence]
+    search_modifications: list[SearchModification]

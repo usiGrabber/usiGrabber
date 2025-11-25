@@ -52,7 +52,6 @@ def parse_txt_zip(
         summary: DataFrame = pd.read_csv(summary_path, sep="\t")
         peptides: DataFrame = pd.read_csv(peptides_path, sep="\t")
 
-        # Phase 1:
         logger.debug("Phase 1: Parsing peptides...")
         peptide_id_map, peptide_mods, peptides_batch = parse_peptides(evidence, peptides)
 
@@ -60,13 +59,13 @@ def parse_txt_zip(
         pe_id_map, peptide_evidence_batch = parse_peptide_evidence(peptides)
 
         logger.debug("Phase 3: Parsing spectrum identification results...")
-        psm_batch, junction_batch = parse_psms(
+        psm_batch, junction_batch, search_mod_batch = parse_psms(
             evidence,
             summary,
             project_accession,
             peptide_id_map,
             pe_id_map,
-        )  # spectrum id?
+        )
 
         logger.debug("Phase 4: Linking peptide modifications...")
         mod_batch = link_modifications(peptide_mods)
@@ -78,6 +77,7 @@ def parse_txt_zip(
             peptide_evidence=peptide_evidence_batch,
             psms=psm_batch,
             psm_peptide_evidence_junctions=junction_batch,
+            search_modifications=search_mod_batch,
         )
 
         return parsed_data
@@ -139,6 +139,7 @@ def import_txt_zip(
             session.add_all(parsed_data.psms)
             session.add_all(parsed_data.psm_peptide_evidence_junctions)
             session.add_all(parsed_data.peptide_modifications)
+            session.add_all(parsed_data.search_modifications)
             session.commit()
 
         # Update stats
@@ -197,7 +198,7 @@ def import_all_txt_zip(
     """
     txt_triples = get_txt_triples(files)
     processed_files = 0
-    fully_processed = 0
+    fully_processed: bool = False
     for triple in txt_triples:
         evidence_path, summary_path, peptides_path = triple
         try:
@@ -234,5 +235,5 @@ def import_all_txt_zip(
             continue
 
     if processed_files == len(txt_triples):
-        fully_processed = 1
+        fully_processed = True
     return processed_files, errors, fully_processed
