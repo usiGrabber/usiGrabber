@@ -10,10 +10,10 @@ from pathlib import Path
 
 from pyteomics import mzid
 from pyteomics.auxiliary import PyteomicsError
+from sqlalchemy.engine.base import Engine
 from sqlalchemy.exc import SQLAlchemyError
 from sqlmodel import Session
 
-from usigrabber.db.engine import load_db_engine
 from usigrabber.file_parser.errors import MzidImportError, MzidParseError
 from usigrabber.file_parser.models import ImportStats
 from usigrabber.file_parser.mzid.models import ParsedMzidData
@@ -51,27 +51,25 @@ def parse_mzid_file(mzid_path: Path, project_accession: str) -> ParsedMzidData:
         logger.error(error_msg)
         raise MzidParseError(error_msg)
 
-    logger.debug(f"Parsing mzID file: {mzid_path.name}")
-
     try:
         # Parse mzID file with retrieve_refs=False
         with mzid.MzIdentML(str(mzid_path), retrieve_refs=False) as reader:
             mzid_file = parse_mzid_metadata(reader, mzid_path, project_accession)
 
             # Phase 1: Parse DB sequences
-            logger.debug("\nPhase 1: Parsing database sequences...")
+            logger.debug("Phase 1: Parsing database sequences...")
             db_sequence_map = parse_db_sequences(reader)
 
             # Phase 2: Parse peptides
-            logger.debug("\nPhase 2: Parsing peptides...")
+            logger.debug("Phase 2: Parsing peptides...")
             peptide_id_map, peptide_mods, peptides_batch = parse_peptides(reader)
 
             # Phase 3: Parse peptide evidence
-            logger.debug("\nPhase 3: Parsing peptide evidence...")
+            logger.debug("Phase 3: Parsing peptide evidence...")
             pe_id_map, peptide_evidence_batch = parse_peptide_evidence(reader, db_sequence_map)
 
             # Phase 4: Parse PSMs
-            logger.debug("\nPhase 4: Parsing spectrum identification results...")
+            logger.debug("Phase 4: Parsing spectrum identification results...")
             psm_batch, junction_batch = parse_psms(
                 reader,
                 project_accession,
@@ -81,7 +79,7 @@ def parse_mzid_file(mzid_path: Path, project_accession: str) -> ParsedMzidData:
             )
 
             # Phase 5: Link modifications
-            logger.debug("\nPhase 5: Linking peptide modifications...")
+            logger.debug("Phase 5: Linking peptide modifications...")
             mod_batch = link_modifications(peptide_mods)
 
             # Return all parsed data
@@ -102,7 +100,7 @@ def parse_mzid_file(mzid_path: Path, project_accession: str) -> ParsedMzidData:
         raise MzidParseError(error_msg) from e
 
 
-def import_mzid(mzid_path: Path, project_accession: str) -> ImportStats:
+def import_mzid(engine: Engine, mzid_path: Path, project_accession: str) -> ImportStats:
     """
     Import an mzIdentML file into the database.
 
@@ -126,7 +124,7 @@ def import_mzid(mzid_path: Path, project_accession: str) -> ImportStats:
         file_name=mzid_path.name,
         project_accession=project_accession,
     )
-    logger.debug(f"Importing mzID file: {mzid_path.name}")
+    logger.debug(f"Importing mzID file: '{mzid_path.name}'")
 
     try:
         # Step 1: Parse the mzID file (pure parsing, no DB operations)
@@ -135,7 +133,6 @@ def import_mzid(mzid_path: Path, project_accession: str) -> ImportStats:
         stats.mark_parsing_complete()
 
         # Step 2: Persist everything to the database
-        engine = load_db_engine()
         with Session(engine) as session:
             session.add(parsed_data.mzid_file)
             session.add_all(parsed_data.peptides)
@@ -152,7 +149,7 @@ def import_mzid(mzid_path: Path, project_accession: str) -> ImportStats:
         stats.psm_count = len(parsed_data.psms)
         stats.mark_complete()
 
-        logger.debug(stats.summary())
+        logger.debug(stats.summary(), extra={"fileStats": stats.dict_summary()})
         return stats
 
     except MzidParseError as e:

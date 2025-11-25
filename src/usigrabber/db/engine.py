@@ -3,12 +3,9 @@ import os
 from typing import Any
 from urllib.parse import urlparse
 
-from dotenv import load_dotenv
 from sqlalchemy.engine.base import Engine
 from sqlmodel import create_engine
 from sqlmodel.pool import StaticPool
-
-load_dotenv()
 
 logger = logging.getLogger(__name__)
 

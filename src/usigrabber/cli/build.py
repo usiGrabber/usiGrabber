@@ -1,10 +1,12 @@
 import asyncio
 import logging
 import os
+import warnings
 from pathlib import Path
 from typing import Annotated
 
 import typer
+from sqlalchemy import exc as sa_exc
 from sqlalchemy import inspect
 from sqlmodel import Session, select
 
@@ -61,7 +63,9 @@ def build(
         ),
     ] = CACHE_DIR,
 ):
-    asyncio.run(async_build(debug, reset, backends, no_ontology, cache_dir))
+    # mute SQLAlchemy warnings from pyteomics library
+    with warnings.catch_warnings(action="ignore", category=sa_exc.SAWarning):
+        asyncio.run(async_build(debug, reset, backends, no_ontology, cache_dir))
 
 
 async def async_build(
@@ -153,7 +157,7 @@ async def async_build(
                         main_source_type = ".mzid"
                         for mzid_file in interesting_files[".mzid"]:
                             try:
-                                stats = import_mzid(mzid_file, project["accession"])
+                                stats = import_mzid(db_engine, mzid_file, project["accession"])
                                 duration_str = (
                                     f"{stats.duration_seconds:.1f}s"
                                     if stats.duration_seconds is not None
@@ -209,11 +213,10 @@ async def async_build(
                     if not main_source_type and interesting_files[".txt"]:
                         main_source_type = ".txt"
                         processed_files, errors, fully_processed = import_all_txt_zip(
+                            db_engine,
                             interesting_files[".txt"],
                             project["accession"],
-                            processed_files,
                             errors,
-                            fully_processed,
                         )
                         if fully_processed:
                             continue
@@ -227,11 +230,10 @@ async def async_build(
                     if not main_source_type and interesting_files[".txt"]:
                         main_source_type = ".txt"
                         processed_files, errors, fully_processed = import_all_txt_zip(
+                            db_engine,
                             interesting_files[".txt"],
                             project["accession"],
-                            processed_files,
                             errors,
-                            fully_processed,
                         )
                         if fully_processed:
                             continue

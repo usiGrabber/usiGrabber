@@ -20,8 +20,9 @@ from usigrabber.backends.base import FileMetadata
 logger = logging.getLogger(__name__)
 
 # empty string for folders (no extension)
-FILETYPE_WHITELIST = {".mzid", "", ".txt"}
+FILETYPE_ALLOWLIST = {".mzid", "", ".txt"}
 ARCHIVE_TYPES = {".zip", ".gz", ".tar", ".rar", ".7z"}
+PARALLEL_DOWNLOADS = int(os.getenv("PARALLEL_DOWNLOADS", "10"))
 
 
 async def download_ftp(
@@ -52,6 +53,16 @@ async def download_ftp(
             ) as client:
                 await client.download(parsed.path, str(out_path), write_into=True)
             return out_path
+        except ConnectionResetError:
+            if attempt > 1:
+                # first attempt often fails, so only log after 2nd attempt
+                logger.warning(
+                    f"FTP connection reset on attempt {attempt + 1}/{retries} for {url}",
+                )
+            if attempt < retries - 1:
+                await asyncio.sleep(delay)
+            else:
+                raise
         except Exception:
             logger.warning(
                 f"FTP download attempt {attempt + 1}/{retries} failed for {url}",
@@ -63,6 +74,16 @@ async def download_ftp(
                 raise
 
     raise RuntimeError("Unreachable: retry loop ended without returning or raising")
+
+
+async def download_ftp_with_semamphore(
+    semaphore: asyncio.Semaphore,
+    url: str,
+    out_dir: Path,
+) -> Path:
+    """Download a file from an FTP URL asynchronously with a semaphore."""
+    async with semaphore:
+        return await download_ftp(url, out_dir)
 
 
 def is_archive_file(path: Path) -> bool:
@@ -165,7 +186,8 @@ def extract_archive(
 async def get_interesting_files(
     files: list[FileMetadata], accession: str, tmp_dir: Path
 ) -> dict[str, list[Path]]:
-    interesting_files: dict[str, list[Path]] = {ext: [] for ext in FILETYPE_WHITELIST}
+    interesting_files: dict[str, list[Path]] = {ext: [] for ext in FILETYPE_ALLOWLIST}
+    files_to_be_downloaded: list[FileMetadata] = []
     for file in files:
         file_url = file["filepath"]
         filename = os.path.basename(file_url)
@@ -175,39 +197,53 @@ async def get_interesting_files(
         while file_ext in ARCHIVE_TYPES:
             file_base, file_ext = os.path.splitext(file_base)
 
-        if (file_ext not in FILETYPE_WHITELIST) and ("txt.zip" not in str(filename)):
+        if (file_ext not in FILETYPE_ALLOWLIST) and ("txt.zip" not in str(filename)):
             logger.debug(f"Skipping file {filename} with unsupported extension {file_ext}.")
             continue
         if file_ext == ".txt" and file_base not in ("evidence", "summary", "peptides"):
             logger.debug(f"Skipping file {filename} as it is not interesting.")
             continue
 
-        logger.debug(
-            f"Processing {file['category']} file {filename} "
-            + f"({file['file_size'] / (1024 * 1024):,.2f} MB)"
-        )
+        files_to_be_downloaded.append(file)
 
-        try:
-            path = await download_ftp(
-                url=file_url,
+    if len(files_to_be_downloaded) == 0:
+        logger.warning(
+            f"Found {files[0]['category']} files for project {accession},"
+            f"but none match the supported file types.",
+        )
+        return interesting_files
+
+    sem = asyncio.Semaphore(PARALLEL_DOWNLOADS)
+    paths = await asyncio.gather(
+        *[
+            download_ftp_with_semamphore(
+                semaphore=sem,
+                url=file["filepath"],
                 out_dir=tmp_dir,
-                file_name=filename,
             )
-        except Exception:
+            for _, file in enumerate(files_to_be_downloaded)
+        ],
+        return_exceptions=True,
+    )
+
+    for idx, path in enumerate(paths):
+        filename = os.path.basename(files_to_be_downloaded[idx]["filepath"])
+        if isinstance(path, BaseException):
             logger.error(
-                "Failed to download file %s for project %s.",
-                filename,
-                accession,
+                f"Failed to download file {filename} for project {accession}.",
                 exc_info=True,
             )
             continue
 
+        filesize_in_mb = files_to_be_downloaded[idx]["file_size"] / (1024 * 1024)
+        logger.debug(f"Processing result file '{filename}' " + f"({filesize_in_mb:,.2f} MB)")
+
         # contains all files extracted from archive
-        extracted_files = extract_archive(archive_path=path, extract_to=tmp_dir / "extracted")
+        extracted_files = extract_archive(archive_path=path, extract_to=path.parent / "extracted")
 
         for f in extracted_files:
             ext = os.path.splitext(str(f))[1]
-            if ext in FILETYPE_WHITELIST:
+            if ext in FILETYPE_ALLOWLIST:
                 interesting_files[ext].append(f)
     return interesting_files
 

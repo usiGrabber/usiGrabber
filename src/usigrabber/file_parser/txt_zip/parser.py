@@ -3,10 +3,10 @@ from pathlib import Path
 
 import pandas as pd
 from pandas.core.frame import DataFrame
+from sqlalchemy.engine.base import Engine
 from sqlalchemy.exc import SQLAlchemyError
 from sqlmodel import Session
 
-from usigrabber.db.engine import load_db_engine
 from usigrabber.file_parser.errors import TxtZipImportError, TxtZipParseError
 from usigrabber.file_parser.models import ImportStats
 from usigrabber.file_parser.txt_zip.helpers import get_txt_triples
@@ -24,11 +24,24 @@ logger = logging.getLogger(__name__)
 def parse_txt_zip(
     evidence_path: Path, summary_path: Path, peptides_path: Path, project_accession: str
 ) -> ParsedTxtZipData:
-    # for path in (evidence_path, summary_path, peptides_path):
-    #     if not path.exists():
-    #         error_msg = f"Directory not found: {path}"
-    #         logger.error(error_msg)
-    #         raise TxtZipParseError(error_msg)
+    """
+    Parse maxquant output txt.zip files by a triple of evidence, summary and peptides
+    .txt-files and return all parsed data structures.
+
+    This function performs pure parsing with no database operations.
+
+    Args:
+            evidence_path: Path to the evidence.txt file
+            summary_path: Path to the summary.txt file
+            peptides_path: Path to the peptides.txt file
+            project_accession: PRIDE project accession
+
+    Returns:
+            ParsedTxtZipData containing all parsed records
+
+    Raises:
+            TxtZipParseError: If files cannot be read or parsed
+    """
 
     logger.info(
         f"Parsing txt files: {evidence_path.name}, {summary_path.name}, {peptides_path.name}"
@@ -70,14 +83,39 @@ def parse_txt_zip(
         return parsed_data
 
     except Exception as e:
-        error_msg = f"Failed to parse evidence.txt file: {e}"
+        error_msg = f"Failed to parse a file from txt.zip: {e}"
         logger.error(error_msg, exc_info=True)
         raise TxtZipParseError(error_msg) from e
 
 
 def import_txt_zip(
-    evidence_path: Path, summary_path: Path, peptides_path: Path, project_accession: str
+    engine: Engine,
+    evidence_path: Path,
+    summary_path: Path,
+    peptides_path: Path,
+    project_accession: str,
 ):
+    """
+    Import an maxquant output txt.zip file into the database.
+
+    This function orchestrates parsing and database persistence:
+    1. Parses the interesting txt files using parse_txt_zip()
+    2. Persists all parsed data to the database in a single transaction
+
+    Args:
+            engine: the running db_engine
+            evidence_path: Path to the evidence.txt file
+            summary_path: Path to the summary.txt file
+            peptides_path: Path to the peptides.txt file
+            project_accession: PRIDE project accession
+
+    Returns:
+            ImportStats object containing import statistics and status
+
+    Raises:
+            TxtZipParseError: If a file cannot be read or parsed
+            TxtZipImportError: If database operations fail
+    """
     # Initialize stats tracker
     stats = ImportStats(
         file_name=evidence_path.name,
@@ -95,7 +133,6 @@ def import_txt_zip(
         stats.mark_parsing_complete()
 
         # Step 2: Persist everything to the database
-        engine = load_db_engine()
         with Session(engine) as session:
             session.add_all(parsed_data.peptides)
             session.add_all(parsed_data.peptide_evidence)
@@ -131,17 +168,45 @@ def import_txt_zip(
 
 
 def import_all_txt_zip(
-    files: list[Path], accession: str, processed_files: int, errors: int, fully_processed: int
+    engine: Engine,
+    files: list[Path],
+    project_accession: str,
+    errors: int,
 ) -> tuple[int, int, int]:
+    """
+    Import all available txt.zip files into the database as it is possible
+    to encounter multiple in one project.
+
+    This function orchestrates import_txt_zip for all available, valid triplets
+    of interesting .txt-files
+
+    Args:
+            engine: the running db_engine
+            files: all files currently marked as interesting
+            project_accession: PRIDE project accession
+            errors: the number of already encountered errors
+
+    Returns:
+            processed_files: the number of already processed files
+            errors: the number of already encountered errors
+            fully_processed: flag, whether the project is already fully processed
+
+    Raises:
+            MzidParseError: If file cannot be read or parsed
+            MzidImportError: If database operations fail
+    """
     txt_triples = get_txt_triples(files)
+    processed_files = 0
+    fully_processed = 0
     for triple in txt_triples:
         evidence_path, summary_path, peptides_path = triple
         try:
             stats = import_txt_zip(
+                engine,
                 evidence_path,
                 summary_path,
                 peptides_path,
-                accession,
+                project_accession,
             )
             duration_str = (
                 f"{stats.duration_seconds:.1f}s" if stats.duration_seconds is not None else "N/A"
@@ -162,7 +227,7 @@ def import_all_txt_zip(
                     "txt_evidence_file": str(evidence_path),
                     "txt_summary_file": str(summary_path),
                     "txt_peptides_file": str(peptides_path),
-                    "project_accession": accession,
+                    "project_accession": project_accession,
                 },
             )
             errors += 1

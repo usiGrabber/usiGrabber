@@ -57,8 +57,7 @@ dev = [
 [tool.pytest.ini_options]
 testpaths = [
     "tests",
-    "packages/async-http-client/tests",
-    "packages/ontology-resolver/tests",
+    "packages/*/tests",
 ]
 pythonpath = ["."]
 addopts = ["--log-cli-level=INFO"]

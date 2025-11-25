@@ -6,6 +6,7 @@ Data models for tracking import statistics and results.
 
 from dataclasses import dataclass, field
 from datetime import datetime
+from typing import Any
 
 
 @dataclass
@@ -70,3 +71,23 @@ class ImportStats:
             f"  - {self.psm_count:,} PSMs\n"
             f"Parsing took {parsing_duration}/{duration}."
         )
+
+    def dict_summary(self) -> dict[str, Any]:
+        """Generate dictionary summary for structured logging."""
+        return {
+            "file_name": self.file_name,
+            "project_accession": self.project_accession,
+            "peptide_count": self.peptide_count,
+            "modification_count": self.modification_count,
+            "peptide_evidence_count": self.peptide_evidence_count,
+            "psm_count": self.psm_count,
+            "start_time": self.start_time.isoformat(),
+            "parsing_complete_time": self.parsing_complete_time.isoformat()
+            if self.parsing_complete_time
+            else None,
+            "end_time": self.end_time.isoformat() if self.end_time else None,
+            "success": self.success,
+            "error_message": self.error_message,
+            "duration_seconds": self.duration_seconds,
+            "parsing_duration_seconds": self.parsing_duration_seconds,
+        }
