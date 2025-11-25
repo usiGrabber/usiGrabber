@@ -286,7 +286,7 @@ class PeptideSpectrumMatch(SQLModel, table=True):
     peptide: Peptide | None = Relationship(back_populates="peptide_spectrum_matches")
     psm_peptide_evidences: list["PSMPeptideEvidence"] = Relationship(back_populates="psm")
     search_modifications: list["SearchModification"] | None = Relationship(
-        back_populates="peptide_spectrum_matches"
+        back_populates="peptide_spectrum_match"
     )
 
 
@@ -343,7 +343,9 @@ class SearchModification(SQLModel, table=True):
     unimod_id: int = Field()
 
     # Relationships
-    psm: "PeptideSpectrumMatch" = Relationship(back_populates="search_modification")
+    peptide_spectrum_match: "PeptideSpectrumMatch" = Relationship(
+        back_populates="search_modifications"
+    )
 
 
 # ============================================================================
