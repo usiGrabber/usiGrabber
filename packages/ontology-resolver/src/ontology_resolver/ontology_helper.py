@@ -54,7 +54,7 @@ class OntologyHelper(metaclass=OntologyHelperSingletonMeta):
         """
         Includes the term itself
         """
-        # We need to parse and rebuild the term because parse_ontology
+        # We need to parse and rebuild the term because parse_accession
         # might correct CV prefix of the accession
         cv_prefix, number = self.parse_accession(accession)
         new_accession = self.build_accession(cv_prefix, number)

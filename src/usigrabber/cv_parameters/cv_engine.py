@@ -12,8 +12,8 @@ from usigrabber.utils import logger
 class CVParam:
     accession: str
     """
-	Accession with a format like: MS:1000463
-	"""
+    Accession with a format like: MS:1000463
+    """
     value: str | float | int | None = None
 
 
@@ -55,6 +55,13 @@ def parse_cv_tuple(cv_data: dict) -> CVTuple | None:
         return None
     if "value" not in cv_data or not isinstance(cv_data["value"], dict):
         logger.warning(f"Pride CV Tuple (value) is malformed: {cv_data}")
+        return None
+
+    if "accession" not in cv_data["key"]:
+        logger.warning(f"Pride CV Tuple key missing accession: {cv_data}")
+        return None
+    if "accession" not in cv_data["value"]:
+        logger.warning(f"Pride CV Tuple value missing accession: {cv_data}")
         return None
 
     key = CVParam(accession=cv_data["key"]["accession"], value=cv_data["key"].get("value"))
