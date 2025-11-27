@@ -68,14 +68,15 @@ class PrideBackend(BaseBackend):
                     yield project
 
     @classmethod
-    def get_files_for_project(
+    async def get_files_for_project(
         cls,
         project_accession: str,
     ) -> Files:
         url = f"{cls.BASE_URL}/projects/{project_accession}/files/all"
-        with requests.get(url) as response:
-            if response.status_code == 200:
-                files_info = response.json()
+        async with AsyncHttpClient() as client:
+            response = await client.get_response(url)
+            if response.status == 200:
+                files_info = await response.json()
                 search_files: list[FileMetadata] = []
                 result_files: list[FileMetadata] = []
                 for file_info in files_info:

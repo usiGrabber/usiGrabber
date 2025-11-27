@@ -27,7 +27,7 @@ async def download_ftp(
 ) -> Path:
     """Download a file from an FTP URL asynchronously."""
 
-    logger.debug("Downloading FTP file from '%s'", url)
+    import time
 
     parsed = urlparse(url)
     if parsed.scheme != "ftp":
@@ -37,33 +37,132 @@ async def download_ftp(
     out_path = out_dir / filename
     out_dir.mkdir(parents=True, exist_ok=True)
 
+    logger.info(
+        "Downloading FTP file from '%s'",
+        url,
+        extra={"event": "download_start", "url": url, "host": parsed.hostname},
+    )
+
+    start_time = time.time()
     for attempt in range(retries):
         try:
+            # Log connection open
+            logger.info(
+                f"Opening FTP connection to {parsed.hostname}",
+                extra={
+                    "event": "connection_open",
+                    "protocol": "ftp",
+                    "host": parsed.hostname,
+                },
+            )
+
             async with aioftp.Client.context(
                 parsed.hostname,
                 user=parsed.username or "anonymous",
                 password=parsed.password or "anonymous@",
             ) as client:
                 await client.download(parsed.path, str(out_path), write_into=True)
+
+                # Log connection close
+                logger.info(
+                    f"Closing FTP connection to {parsed.hostname}",
+                    extra={
+                        "event": "connection_close",
+                        "protocol": "ftp",
+                        "host": parsed.hostname,
+                    },
+                )
+
+            elapsed_time = time.time() - start_time
+            logger.info(
+                f"Successfully downloaded {filename}",
+                extra={
+                    "event": "download_success",
+                    "url": url,
+                    "host": parsed.hostname,
+                    "response_time": elapsed_time,
+                    "attempts": attempt + 1,
+                },
+            )
             return out_path
         except ConnectionResetError:
+            # Connection failed, log close
+            logger.info(
+                f"FTP connection closed (reset) for {parsed.hostname}",
+                extra={
+                    "event": "connection_close",
+                    "protocol": "ftp",
+                    "host": parsed.hostname,
+                },
+            )
+
             if attempt > 1:
                 # first attempt often fails, so only log after 2nd attempt
                 logger.warning(
                     f"FTP connection reset on attempt {attempt + 1}/{retries} for {url}",
+                    extra={
+                        "event": "download_error",
+                        "error_type": "ConnectionResetError",
+                        "url": url,
+                        "host": parsed.hostname,
+                        "attempt": attempt + 1,
+                        "max_retries": retries,
+                    },
                 )
             if attempt < retries - 1:
                 await asyncio.sleep(delay)
             else:
+                elapsed_time = time.time() - start_time
+                logger.error(
+                    f"FTP download failed after {retries} attempts",
+                    extra={
+                        "event": "download_failure",
+                        "error_type": "ConnectionResetError",
+                        "url": url,
+                        "host": parsed.hostname,
+                        "response_time": elapsed_time,
+                        "attempts": retries,
+                    },
+                )
                 raise
-        except Exception:
+        except Exception as e:
+            # Connection failed, log close
+            logger.info(
+                f"FTP connection closed (error) for {parsed.hostname}",
+                extra={
+                    "event": "connection_close",
+                    "protocol": "ftp",
+                    "host": parsed.hostname,
+                },
+            )
+
             logger.warning(
                 f"FTP download attempt {attempt + 1}/{retries} failed for {url}",
                 exc_info=True,
+                extra={
+                    "event": "download_error",
+                    "error_type": type(e).__name__,
+                    "url": url,
+                    "host": parsed.hostname,
+                    "attempt": attempt + 1,
+                    "max_retries": retries,
+                },
             )
             if attempt < retries - 1:
                 await asyncio.sleep(delay)
             else:
+                elapsed_time = time.time() - start_time
+                logger.error(
+                    f"FTP download failed after {retries} attempts",
+                    extra={
+                        "event": "download_failure",
+                        "error_type": type(e).__name__,
+                        "url": url,
+                        "host": parsed.hostname,
+                        "response_time": elapsed_time,
+                        "attempts": retries,
+                    },
+                )
                 raise
 
     raise RuntimeError("Unreachable: retry loop ended without returning or raising")

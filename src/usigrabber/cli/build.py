@@ -2,6 +2,7 @@ import asyncio
 import logging
 import multiprocessing
 import os
+import threading
 import time
 import warnings
 from collections import deque
@@ -10,9 +11,9 @@ from enum import StrEnum
 from pathlib import Path
 from typing import Annotated
 
-import enlighten
 import typer
 from pydantic import BaseModel
+from pyinstrument import Profiler
 from sqlalchemy import exc as sa_exc
 from sqlalchemy import inspect
 from sqlmodel import Session
@@ -28,6 +29,13 @@ from usigrabber.utils.file import (
     download_ftp_with_semamphore,
     extract_archive,
     temporary_path,
+)
+from usigrabber.utils.logging_helpers.aggregator.dashboard import (
+    DashboardDisplay,
+    create_default_dashboard,
+)
+from usigrabber.utils.logging_helpers.aggregator.running_aggregator import (
+    RunningLogAggregator,
 )
 from usigrabber.utils.setup import system_setup
 
@@ -48,6 +56,33 @@ def init_worker():
     global db_engine
     system_setup(is_main_process=False)
     db_engine = load_db_engine()  # created ONCE per worker
+
+
+def run_dashboard_monitor(
+    aggregator: RunningLogAggregator, display: DashboardDisplay, stop_event: threading.Event
+):
+    """
+    Background thread that continuously updates and displays metrics.
+
+    Args:
+        aggregator: The log aggregator to read metrics from
+        display: The dashboard display to render metrics
+        stop_event: Event to signal when to stop monitoring
+    """
+    while not stop_event.is_set():
+        try:
+            # Update metrics from log files
+            aggregator.update()
+
+            # Get all metrics and display
+            metrics = aggregator.get_all_metrics()
+            display.display(metrics)
+
+            # Wait before next update
+            stop_event.wait(display.refresh_interval)
+        except Exception as e:
+            logger.error(f"Error in dashboard monitor: {e}", exc_info=True)
+            time.sleep(display.refresh_interval)
 
 
 class ObservabilityConfiguration(BaseModel):
@@ -104,6 +139,14 @@ def build(
     max_workers: int | None = None,
     # max_workers: Annotated[int | None, typer.Option("Number of processes to use. None uses all CPU cores")] = None,
     projects_per_worker: int = 1,
+    enable_dashboard: Annotated[
+        bool,
+        typer.Option(help="Enable live metrics dashboard."),
+    ] = True,
+    dashboard_refresh: Annotated[
+        float,
+        typer.Option(help="Dashboard refresh interval in seconds."),
+    ] = 2.0,
 ):
     if reset:
         logger.info("Resetting database before build.")
@@ -122,75 +165,110 @@ def build(
 
     logger.info(f"Using {max_workers} workers. Main process: {os.getpid()}")
 
-    if max_workers == 1:
-        global db_engine
-        db_engine = load_db_engine()
-        for backend in backends:
-            project_offset = 0
-            while True:
-                status = build_backend_partially(
-                    backend, project_offset, projects_per_worker, config
-                )
-                project_offset += projects_per_worker
-                if status == SubBuildStatus.BACKEND_DONE:
-                    logger.info(f"Backend {backend.name} done")
-                    break
+    # Set up dashboard monitoring in main process
+    dashboard_thread = None
+    stop_dashboard = threading.Event()
 
-    else:
-        manager = enlighten.get_manager()
-        success_pbar = manager.counter(total=None, desc="Fetching projects", color="green")
-        failures_pbar = success_pbar.add_subcounter("red")
+    if enable_dashboard and max_workers > 1:
+        # Initialize aggregator and dashboard
+        log_dir = Path(os.getenv("LOGGING_DIR", "logs"))
+        aggregator = RunningLogAggregator(log_dir=str(log_dir))
 
-        backend_queue = deque(backends)
-        futures = set()
-        project_offset = 0
-        current_backend: None | BackendEnum = backend_queue.popleft()
-        with ProcessPoolExecutor(max_workers=max_workers, initializer=init_worker) as executor:
-            # --- Fill the worker slots initially ---
-            while len(futures) < max_workers and current_backend:
-                fut: Future[SubBuildStatus] = executor.submit(
-                    build_backend_partially,
-                    current_backend,
-                    project_offset,
-                    projects_per_worker,
-                    config,
-                )
-                project_offset += projects_per_worker
-                futures.add(fut)
+        # Create default pipelines and categories with renderers
+        pipelines, categories = create_default_dashboard()
 
-            # --- Main loop: process results as they come in ---
-            while futures:
-                done, futures = wait(futures, return_when=FIRST_COMPLETED, timeout=30)
-                for finished in done:
-                    try:
-                        status = finished.result()
-                        success_pbar.update()
-                    except Exception as e:
-                        logger.exception(e)
-                        status = SubBuildStatus.FAILED
-                        failures_pbar.update()
+        # Register pipelines
+        for pipeline in pipelines:
+            aggregator.register_pipeline(pipeline)
 
+        # Start dashboard in background thread
+        display = DashboardDisplay(
+            categories=categories, refresh_interval=dashboard_refresh, width=100
+        )
+        dashboard_thread = threading.Thread(
+            target=run_dashboard_monitor,
+            args=(aggregator, display, stop_dashboard),
+            daemon=True,
+        )
+        dashboard_thread.start()
+        logger.info("Live dashboard monitoring started")
+
+    try:
+        if max_workers == 1:
+            global db_engine
+            db_engine = load_db_engine()
+            for backend in backends:
+                project_offset = 0
+                while True:
+                    status = build_backend_partially(
+                        backend, project_offset, projects_per_worker, config
+                    )
+                    project_offset += projects_per_worker
                     if status == SubBuildStatus.BACKEND_DONE:
-                        if len(backend_queue) == 0:
-                            current_backend = None
-                            project_offset = 0
-                        else:
-                            current_backend = backend_queue.popleft()
+                        logger.info(f"Backend {backend.name} done")
+                        break
+        else:
+            # manager = enlighten.get_manager()
+            # success_pbar = manager.counter(total=None, desc="Fetching projects", color="green")
+            # failures_pbar = success_pbar.add_subcounter("red")
 
-                    if current_backend:
-                        fut = executor.submit(
-                            build_backend_partially,
-                            current_backend,
-                            project_offset,
-                            projects_per_worker,
-                            config,
-                        )
-                        project_offset += projects_per_worker
-                        futures.add(fut)
+            backend_queue = deque(backends)
+            futures = set()
+            project_offset = 0
+            current_backend: None | BackendEnum = backend_queue.popleft()
+            with ProcessPoolExecutor(max_workers=max_workers, initializer=init_worker) as executor:
+                # --- Fill the worker slots initially ---
+                while len(futures) < max_workers and current_backend:
+                    fut: Future[SubBuildStatus] = executor.submit(
+                        build_backend_partially,
+                        current_backend,
+                        project_offset,
+                        projects_per_worker,
+                        config,
+                    )
+                    project_offset += projects_per_worker
+                    futures.add(fut)
 
-                # loop restarts to wait for next finished future
+                # --- Main loop: process results as they come in ---
+                while futures:
+                    done, futures = wait(futures, return_when=FIRST_COMPLETED, timeout=30)
+                    for finished in done:
+                        try:
+                            status = finished.result()
+                            logger.info(f"Project finished: {status}")
+                            # success_pbar.update()
+                        except Exception as e:
+                            logger.exception(e)
+                            status = SubBuildStatus.FAILED
+                            # failures_pbar.update()
 
-        logger.info("All work completed.")
+                        if status == SubBuildStatus.BACKEND_DONE:
+                            if len(backend_queue) == 0:
+                                current_backend = None
+                                project_offset = 0
+                            else:
+                                current_backend = backend_queue.popleft()
+
+                        if current_backend:
+                            fut = executor.submit(
+                                build_backend_partially,
+                                current_backend,
+                                project_offset,
+                                projects_per_worker,
+                                config,
+                            )
+                            project_offset += projects_per_worker
+                            futures.add(fut)
+
+                    # loop restarts to wait for next finished future
+
+                logger.info("All work completed.")
+    finally:
+        # Stop dashboard monitoring
+        if dashboard_thread is not None:
+            logger.info("Stopping dashboard monitoring...")
+            stop_dashboard.set()
+            dashboard_thread.join(timeout=5)
 
 
 def build_backend_partially(
@@ -198,9 +276,9 @@ def build_backend_partially(
 ) -> SubBuildStatus:
     pid = os.getpid()
     logger.info(f"⏰ {time.time():.2f} - Worker {pid} START: {backend.name} offset={project_start}")
-    with warnings.catch_warnings(action="ignore", category=sa_exc.SAWarning):
+    with warnings.catch_warnings(action="ignore", category=sa_exc.SAWarning), Profiler() as p:
         result = asyncio.run(async_build(backend, project_start, project_limit, config))
-
+    p.write_html(f"logs/profiles/{project_start}-{project_limit}.html")
     logger.info(
         f"⏰ {time.time():.2f} - Worker {pid} DONE: {backend.name} offset={project_start} status={result}"
     )
@@ -249,23 +327,55 @@ async def async_build(
     with Session(db_engine) as session:
         async for project in backend.get_projects(project_start, project_limit):
             try:
-                logger.info(f"{project}")
+                project_accession = project.get("accession", "unknown")
+                logger.info(
+                    f"Processing project {project_accession}",
+                    extra={
+                        "event": "project_start",
+                        "project_accession": project_accession,
+                        "backend": backend_enum.name,
+                    },
+                )
                 # TODO: support other submission types
 
                 if project.get("submissionType") != "COMPLETE":
-                    logger.info(f"Skipping {project['accession']} because it is not COMPLETE")
+                    logger.info(
+                        f"Skipping {project_accession} because it is not COMPLETE",
+                        extra={
+                            "event": "project_skipped",
+                            "project_accession": project_accession,
+                            "reason": "not_complete",
+                            "submission_type": project.get("submissionType"),
+                        },
+                    )
                     continue
 
                 try:
                     await backend.dump_project_to_db(session, project)
+                    logger.debug(
+                        f"Project {project_accession} metadata saved to DB",
+                        extra={
+                            "event": "project_metadata_saved",
+                            "project_accession": project_accession,
+                        },
+                    )
                 except Exception as e:
                     errors += 1
                     error_projects.append((project.get("accession"), str(e)))
+                    logger.error(
+                        f"Failed to save project {project_accession} metadata",
+                        exc_info=True,
+                        extra={
+                            "event": "project_metadata_error",
+                            "project_accession": project_accession,
+                            "error_type": type(e).__name__,
+                        },
+                    )
                     session.rollback()
                     continue
 
                 # download files
-                files = backend.get_files_for_project(project["accession"])
+                files = await backend.get_files_for_project(project["accession"])
 
                 with temporary_path() as tmp_dir:
                     # process files
@@ -359,12 +469,21 @@ async def async_build(
                                     )
                                     logger.info(
                                         f"Imported {stats.psm_count:,} PSMs from '{mzid_file.name}'"
-                                        f" ({duration_str})"
+                                        f" ({duration_str})",
+                                        extra={
+                                            "event": "mzid_imported",
+                                            "project_accession": project["accession"],
+                                            "mzid_file": mzid_file.name,
+                                            "psm_count": stats.psm_count,
+                                            "parse_time": stats.duration_seconds,
+                                        },
                                     )
                                 except MzidParseError as e:
                                     logger.warning(
                                         f"Skipping malformed mzID file '{mzid_file.name}': {e}",
                                         extra={
+                                            "event": "mzid_parse_error",
+                                            "error_type": "MzidParseError",
                                             "mzid_file": str(mzid_file),
                                             "project_accession": project["accession"],
                                         },
@@ -376,6 +495,8 @@ async def async_build(
                                         exc_info=True,
                                         stack_info=True,
                                         extra={
+                                            "event": "mzid_import_error",
+                                            "error_type": "MzidImportError",
                                             "mzid_file": str(mzid_file),
                                             "project_accession": project["accession"],
                                         },
@@ -396,9 +517,26 @@ async def async_build(
 
                 session.commit()
                 imported += 1
+                logger.info(
+                    f"Project {project_accession} completed successfully",
+                    extra={
+                        "event": "project_completed",
+                        "project_accession": project_accession,
+                        "backend": backend_enum.name,
+                    },
+                )
             except Exception as e:
-                logger.exception(e)
-                session.rollback()
+                logger.error(
+                    f"Project {project_accession} failed with error",
+                    exc_info=True,
+                    extra={
+                        "event": "project_failed",
+                        "project_accession": project_accession,
+                        "error_type": type(e).__name__,
+                        "backend": backend_enum.name,
+                    },
+                )
+                raise e
             finally:
                 processed_projects += 1
 

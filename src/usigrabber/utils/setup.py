@@ -37,18 +37,19 @@ def system_setup(is_main_process: bool, logger_name: str | None = None):
 
     logging_dir.mkdir(exist_ok=True)
 
-        # create necessary directories
-        cache_dir = get_cache_dir()
-        cache_dir.mkdir(exist_ok=True, parents=True)
+    # create necessary directories
+    cache_dir = get_cache_dir()
+    cache_dir.mkdir(exist_ok=True, parents=True)
 
-        logging_dir = Path(os.getenv("LOGGING_DIR", "logs"))
-        logging_dir.mkdir(exist_ok=True)
+    logging_dir = Path(os.getenv("LOGGING_DIR", "logs"))
+    logging_dir.mkdir(exist_ok=True)
 
-        # overwrite root logger, should only be called in application code
-        logger = logging.getLogger(logger_name)
-        LOGLEVEL = os.getenv("LOGLEVEL", "INFO").upper()
-        logger.setLevel(level=LOGLEVEL)
     # overwrite root logger, should only be called in application code
+    logger = logging.getLogger(logger_name if logger_name else "")
+    LOGLEVEL = os.getenv("LOGLEVEL", "INFO").upper()
+    logger.setLevel(
+        level=LOGLEVEL
+    )  # overwrite root logger, should only be called in application code
     logger = logging.getLogger(logger_name)
 
     if logger.hasHandlers():

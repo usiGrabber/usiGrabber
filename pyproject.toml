@@ -54,6 +54,7 @@ dev = [
     "ruff>=0.14.1",
     "pyinstrument>=5.1.1",
     "py-spy>=0.4.1",
+    "memray>=1.19.1",
 ]
 
 [tool.pytest.ini_options]

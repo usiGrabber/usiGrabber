@@ -81,3 +81,8 @@ Copy this file to `.env` and modify the settings as needed.
 ## Working with mzIdentML Files
 
 Example mzIdentML (.mzid) files for testing and development can be obtained from the HUPO-PSI mzIdentML repository: https://github.com/HUPO-PSI/mzIdentML/tree/master/examples
+
+### Memory Profiling
+```bash
+memray run -follow-fork --output track.bin src/usigrabber/__init__.py build --reset --max-workers 2
+```

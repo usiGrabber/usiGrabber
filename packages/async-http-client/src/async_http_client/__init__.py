@@ -83,16 +83,115 @@ class AsyncHttpClient:
         - Parses json automatically (if content type header is set to application/json)
         - To force json parsing set `parse_json` to True
         """
-        response = await self.get_response(url, params=params, **kwargs)
-        if response.status not in valid_response_codes:
-            raise ValueError(
-                f"Response: {response.status} from {url}",
-                "not in valid responses ({valid_response_codes}):",
+        import time
+        from urllib.parse import urlparse
+
+        start_time = time.time()
+        parsed_url = urlparse(url)
+        host = parsed_url.hostname or url
+
+        try:
+            # Log connection open
+            logger.info(
+                f"Opening HTTP connection to {host}",
+                extra={
+                    "event": "connection_open",
+                    "protocol": "http",
+                    "host": host,
+                },
             )
-        if response.content_type == "application/json" or parse_json:
-            return await response.json()
-        else:
-            return await response.text()
+
+            response = await self.get_response(url, params=params, **kwargs)
+
+            # Check if response came from cache
+            is_cached = (
+                getattr(response, "from_cache", False)
+                or getattr(response, "is_expired", False) is False
+            )
+
+            elapsed_time = time.time() - start_time
+
+            if response.status not in valid_response_codes:
+                logger.error(
+                    f"HTTP request failed with status {response.status}",
+                    extra={
+                        "event": "http_error",
+                        "url": url,
+                        "host": host,
+                        "status_code": response.status,
+                        "response_time": elapsed_time,
+                        "is_cached": is_cached,
+                    },
+                )
+                raise ValueError(
+                    f"Response: {response.status} from {url}",
+                    "not in valid responses ({valid_response_codes}):",
+                )
+
+            # Log successful request
+            if is_cached:
+                logger.info(
+                    f"HTTP cache hit for {url}",
+                    extra={
+                        "event": "http_cache_hit",
+                        "url": url,
+                        "host": host,
+                        "response_time": elapsed_time,
+                    },
+                )
+            else:
+                logger.info(
+                    f"HTTP request successful to {url}",
+                    extra={
+                        "event": "http_success",
+                        "url": url,
+                        "host": host,
+                        "status_code": response.status,
+                        "response_time": elapsed_time,
+                        "is_cached": False,
+                    },
+                )
+
+            # Log connection close
+            logger.info(
+                f"Closing HTTP connection to {host}",
+                extra={
+                    "event": "connection_close",
+                    "protocol": "http",
+                    "host": host,
+                },
+            )
+
+            if response.content_type == "application/json" or parse_json:
+                return await response.json()
+            else:
+                return await response.text()
+
+        except Exception as e:
+            elapsed_time = time.time() - start_time
+
+            # Log connection close on error
+            logger.info(
+                f"Closing HTTP connection to {host} (error)",
+                extra={
+                    "event": "connection_close",
+                    "protocol": "http",
+                    "host": host,
+                },
+            )
+
+            logger.error(
+                f"HTTP request failed: {type(e).__name__}",
+                exc_info=True,
+                extra={
+                    "event": "http_failure",
+                    "error_type": type(e).__name__,
+                    "url": url,
+                    "host": host,
+                    "response_time": elapsed_time,
+                },
+            )
+            raise
 
     async def post(self, url: str, data: Any = None, json: Any = None, **kwargs: Any):
         """Perform a POST request (not cached by default)."""
