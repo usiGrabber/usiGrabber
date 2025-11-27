@@ -1,3 +1,4 @@
+from usigrabber.db.schema import IndexType
 from usigrabber.file_parser.mzid.parser import parse_mzid_file
 
 
@@ -127,3 +128,47 @@ def test_mzid_parser_with_full_file(full_mzid_path):
     # All PSMs should reference valid peptides
     for psm in psms:
         assert psm.peptide_id in peptide_ids, "PSM should reference a valid peptide"
+
+
+def test_usi_fields_extraction(full_mzid_path):
+    """
+    Test that USI-related fields (index_type, index_number, ms_run) are correctly extracted
+    from the mzID file.
+
+    The full_small.mzid file contains:
+    - spectrumID attributes like "index=3066"
+    - cvParams with MS:1000796 (spectrum title) containing scan numbers and file names
+    """
+    mock_project_accession = "PXD000001"
+    parsed_data = parse_mzid_file(full_mzid_path, mock_project_accession)
+    psms = parsed_data.psms
+
+    # At least some PSMs should have USI fields populated
+    psms_with_index_type = [psm for psm in psms if psm.index_type is not None]
+    psms_with_index_number = [psm for psm in psms if psm.index_number is not None]
+    psms_with_ms_run = [psm for psm in psms if psm.ms_run is not None]
+
+    assert len(psms_with_index_type) > 0, "Should extract index_type from at least some PSMs"
+    assert len(psms_with_index_number) > 0, "Should extract index_number from at least some PSMs"
+    assert len(psms_with_ms_run) > 0, "Should extract ms_run from at least some PSMs"
+
+    # Check that scan numbers are extracted from spectrum title cvParams
+    # Example cvParam: MS:1000796 with value containing "scan=3285"
+    psms_with_scan = [psm for psm in psms if psm.index_type == IndexType.scan]
+    if len(psms_with_scan) > 0:
+        sample_scan_psm = psms_with_scan[0]
+        assert sample_scan_psm.index_number is not None, (
+            "PSMs with index_type='scan' should have index_number"
+        )
+        assert sample_scan_psm.index_number > 0, "Scan numbers should be positive integers"
+
+    # Check that MS run is extracted from File field in spectrum title
+    # Example: File:"OTE0019_York_060813_JH16.raw"
+    if len(psms_with_ms_run) > 0:
+        sample_ms_run_psm = psms_with_ms_run[0]
+        assert sample_ms_run_psm.ms_run is not None
+        assert len(sample_ms_run_psm.ms_run) > 0, "MS run should not be empty string"
+        # MS run should not contain .raw extension
+        assert ".raw" not in sample_ms_run_psm.ms_run.lower(), (
+            "MS run should have .raw extension removed"
+        )
