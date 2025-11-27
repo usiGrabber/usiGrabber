@@ -5,19 +5,15 @@ from sqlmodel import Session, and_, or_, select
 
 from usigrabber.db import CvParam as DBCVParam
 from usigrabber.db import Project
+from usigrabber.utils import logger
 
 
 @dataclass
 class CVParam:
-    term: str
+    accession: str
     """
-	Term with a format like: MS:1000463
+	Accession with a format like: MS:1000463
 	"""
-    cv_label: str | None = None
-    """
-	Optionally if the CV part of the term is differnt. Can be dangerous to use
-	"""
-    name: str | None = None
     value: str | float | int | None = None
 
 
@@ -25,6 +21,49 @@ class CVParam:
 class CVTuple:
     key: CVParam
     value: CVParam
+
+
+def parse_cv_param(cv_data: dict) -> CVParam | None:
+    """Parse and validate a CV parameter from PRIDE project data.
+
+    Args:
+        cv_data: Dictionary containing CV parameter fields (accession, value)
+
+    Returns:
+        CVParam if validation succeeds, None otherwise
+    """
+    cv_accession = cv_data.get("accession")
+    if not isinstance(cv_accession, str):
+        logger.error(f"Pride CV Param accession is malformed: {cv_data}")
+        return None
+
+    cv_value = cv_data.get("value")
+    return CVParam(accession=cv_accession, value=cv_value)
+
+
+def parse_cv_tuple(cv_data: dict) -> CVTuple | None:
+    """Parse and validate a CV tuple from PRIDE project data.
+
+    Args:
+        cv_data: Dictionary containing 'key' and 'value' fields with CV parameters
+
+    Returns:
+        CVTuple if validation succeeds, None otherwise
+    """
+    if "key" not in cv_data or not isinstance(cv_data["key"], dict):
+        logger.warning(f"Pride CV Tuple (key) is malformed: {cv_data}")
+        return None
+    if "value" not in cv_data or not isinstance(cv_data["value"], dict):
+        logger.warning(f"Pride CV Tuple (value) is malformed: {cv_data}")
+        return None
+
+    key = CVParam(accession=cv_data["key"]["accession"], value=cv_data["key"].get("value"))
+    value = CVParam(
+        accession=cv_data["value"]["accession"],
+        value=cv_data["value"].get("value"),
+    )
+
+    return CVTuple(key, value)
 
 
 class CVInjector:
@@ -60,28 +99,37 @@ class CVInjector:
 
     async def _flush_data_to_db(self) -> None:
         assert self._session
+
+        # Early return if buffer is empty
+        if not self._cv_param_buffer:
+            return
+
         filters = []
         for cv in self._cv_param_buffer:
             if cv.value is None:
-                filters.append(and_(DBCVParam.name == cv.name, DBCVParam.value.is_(None)))  # pyright: ignore[reportAttributeAccessIssue, reportOptionalMemberAccess] (is_ does not have the correct linter error)
+                filters.append(and_(DBCVParam.accession == cv.accession, DBCVParam.value.is_(None)))  # pyright: ignore[reportAttributeAccessIssue, reportOptionalMemberAccess] (is_ does not have the correct linter error)
             else:
-                filters.append(and_(DBCVParam.name == cv.name, DBCVParam.value == cv.value))
+                filters.append(
+                    and_(DBCVParam.accession == cv.accession, DBCVParam.value == cv.value)
+                )
 
         statement = select(DBCVParam).where(or_(*filters))
         existing = self._session.exec(statement)
         existing_params = list(existing.all())
 
         # Map existing for fast lookup
-        existing_map = {(cv.name, cv.value): cv for cv in existing_params}
+        existing_map = {(cv.accession, cv.value): cv for cv in existing_params}
 
         # Step 3: Prepare CvParams to add
         new_cvs = []
         for cv in self._cv_param_buffer:
-            name, value = cv.term, cv.value
+            name, value = cv.accession, cv.value
             db_value = str(value) if value is not None else None
             key = (name, db_value)
             if key not in existing_map:
-                cv_param = DBCVParam(name=name, value=str(value) if value is not None else None)
+                cv_param = DBCVParam(
+                    accession=name, value=str(value) if value is not None else None
+                )
                 self._session.add(cv_param)
 
                 existing_map[key] = cv_param
