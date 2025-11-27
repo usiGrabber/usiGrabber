@@ -25,6 +25,7 @@ dependencies = [
     "aioftp>=0.27.2",
     "better-exceptions>=0.3.3",
     "cachetools>=6.2.2",
+    "enlighten>=1.14.1",
 ]
 
 [project.scripts]
@@ -52,6 +53,7 @@ dev = [
     "basedpyright>=1.31.7",
     "ruff>=0.14.1",
     "pyinstrument>=5.1.1",
+    "py-spy>=0.4.1",
 ]
 
 [tool.pytest.ini_options]

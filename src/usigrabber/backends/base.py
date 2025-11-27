@@ -37,6 +37,19 @@ class BaseBackend(ABC):
 
     @classmethod
     @abstractmethod
+    async def get_projects(
+        cls, offset: int, limit: None | int
+    ) -> AsyncGenerator[dict[str, Any], None]:
+        """
+        Iterates over a project of all projects
+
+        The limit is the number of projects to get (not offset + limit!)
+
+        If the limit is None fetch all projects starting from the offset
+        """
+
+    @classmethod
+    @abstractmethod
     def get_files_for_project(cls, project_accession: str) -> Files:
         """
         Retrieve file information for a specific project.

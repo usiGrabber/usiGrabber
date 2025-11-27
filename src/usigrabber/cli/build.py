@@ -1,23 +1,35 @@
 import asyncio
 import logging
+import multiprocessing
 import os
+import time
 import warnings
+from collections import deque
+from concurrent.futures import FIRST_COMPLETED, Future, ProcessPoolExecutor, wait
+from enum import StrEnum
 from pathlib import Path
 from typing import Annotated
 
+import enlighten
 import typer
+from pydantic import BaseModel
 from sqlalchemy import exc as sa_exc
 from sqlalchemy import inspect
-from sqlmodel import Session, select
+from sqlmodel import Session
 
 from usigrabber.backends import BackendEnum
 from usigrabber.backends.base import FileMetadata
 from usigrabber.cli import app
-from usigrabber.db import Project, create_db_and_tables, load_db_engine
+from usigrabber.db import create_db_and_tables, load_db_engine
 from usigrabber.db.cli import reset as db_reset
 from usigrabber.file_parser import MzidImportError, MzidParseError, import_mzid
 from usigrabber.utils import get_cache_dir
-from usigrabber.utils.file import download_ftp_with_semamphore, extract_archive, temporary_path
+from usigrabber.utils.file import (
+    download_ftp_with_semamphore,
+    extract_archive,
+    temporary_path,
+)
+from usigrabber.utils.setup import system_setup
 
 CACHE_DIR = get_cache_dir()
 STANDARD_BACKENDS = [enum for enum in BackendEnum]
@@ -27,6 +39,35 @@ logger = logging.getLogger(__name__)
 FILETYPE_ALLOWLIST = {".mzid", ""}
 
 PARALLEL_DOWNLOADS = int(os.getenv("PARALLEL_DOWNLOADS", "10"))
+
+
+db_engine = None  # This is loaded once per worker
+
+
+def init_worker():
+    global db_engine
+    system_setup(is_main_process=False)
+    db_engine = load_db_engine()  # created ONCE per worker
+
+
+class ObservabilityConfiguration(BaseModel):
+    debug: bool
+
+
+class OntologyConfiguration(BaseModel):
+    skip_ontos: bool
+
+
+class BuildConfiguration(BaseModel):
+    observability: ObservabilityConfiguration
+    cache_dir: Path
+    ontologies: OntologyConfiguration
+
+
+class SubBuildStatus(StrEnum):
+    FAILED = "Failed"
+    SUCCESSFUL = "Successful"
+    BACKEND_DONE = "Backend fully processed"
 
 
 @app.command()
@@ -60,70 +101,159 @@ def build(
             resolve_path=True,
         ),
     ] = CACHE_DIR,
+    max_workers: int | None = None,
+    # max_workers: Annotated[int | None, typer.Option("Number of processes to use. None uses all CPU cores")] = None,
+    projects_per_worker: int = 1,
 ):
-    # mute SQLAlchemy warnings from pyteomics library
+    if reset:
+        logger.info("Resetting database before build.")
+        db_reset(force=True)
+
+    config = BuildConfiguration(
+        observability=ObservabilityConfiguration(debug=debug),
+        cache_dir=cache_dir,
+        ontologies=OntologyConfiguration(skip_ontos=no_ontology),
+    )
+
+    # Don't make this global! This would break and python processes
+    multiprocessing.set_start_method("spawn")
+    if max_workers is None:
+        max_workers = multiprocessing.cpu_count()
+
+    logger.info(f"Using {max_workers} workers. Main process: {os.getpid()}")
+
+    if max_workers == 1:
+        global db_engine
+        db_engine = load_db_engine()
+        for backend in backends:
+            project_offset = 0
+            while True:
+                status = build_backend_partially(
+                    backend, project_offset, projects_per_worker, config
+                )
+                project_offset += projects_per_worker
+                if status == SubBuildStatus.BACKEND_DONE:
+                    logger.info(f"Backend {backend.name} done")
+                    break
+
+    else:
+        manager = enlighten.get_manager()
+        success_pbar = manager.counter(total=None, desc="Fetching projects", color="green")
+        failures_pbar = success_pbar.add_subcounter("red")
+
+        backend_queue = deque(backends)
+        futures = set()
+        project_offset = 0
+        current_backend: None | BackendEnum = backend_queue.popleft()
+        with ProcessPoolExecutor(max_workers=max_workers, initializer=init_worker) as executor:
+            # --- Fill the worker slots initially ---
+            while len(futures) < max_workers and current_backend:
+                fut: Future[SubBuildStatus] = executor.submit(
+                    build_backend_partially,
+                    current_backend,
+                    project_offset,
+                    projects_per_worker,
+                    config,
+                )
+                project_offset += projects_per_worker
+                futures.add(fut)
+
+            # --- Main loop: process results as they come in ---
+            while futures:
+                done, futures = wait(futures, return_when=FIRST_COMPLETED, timeout=30)
+                for finished in done:
+                    try:
+                        status = finished.result()
+                        success_pbar.update()
+                    except Exception as e:
+                        logger.exception(e)
+                        status = SubBuildStatus.FAILED
+                        failures_pbar.update()
+
+                    if status == SubBuildStatus.BACKEND_DONE:
+                        if len(backend_queue) == 0:
+                            current_backend = None
+                            project_offset = 0
+                        else:
+                            current_backend = backend_queue.popleft()
+
+                    if current_backend:
+                        fut = executor.submit(
+                            build_backend_partially,
+                            current_backend,
+                            project_offset,
+                            projects_per_worker,
+                            config,
+                        )
+                        project_offset += projects_per_worker
+                        futures.add(fut)
+
+                # loop restarts to wait for next finished future
+
+        logger.info("All work completed.")
+
+
+def build_backend_partially(
+    backend: BackendEnum, project_start: int, project_limit: int | None, config: BuildConfiguration
+) -> SubBuildStatus:
+    pid = os.getpid()
+    logger.info(f"⏰ {time.time():.2f} - Worker {pid} START: {backend.name} offset={project_start}")
     with warnings.catch_warnings(action="ignore", category=sa_exc.SAWarning):
-        asyncio.run(async_build(debug, reset, backends, no_ontology, cache_dir))
+        result = asyncio.run(async_build(backend, project_start, project_limit, config))
+
+    logger.info(
+        f"⏰ {time.time():.2f} - Worker {pid} DONE: {backend.name} offset={project_start} status={result}"
+    )
+    return result
 
 
 async def async_build(
-    debug: bool = False,
-    reset: bool = False,
-    backends: list[BackendEnum] = STANDARD_BACKENDS,
-    no_ontology: bool = False,
-    cache_dir: Path = CACHE_DIR,
-) -> None:
+    backend_enum: BackendEnum,
+    project_start: int,
+    project_limit: int | None,
+    config: BuildConfiguration,
+) -> SubBuildStatus:
     """Build USI database."""
-
+    global db_engine
     logger.info("Building database.")
 
-    os.environ["CACHE_DIR"] = str(cache_dir)
+    os.environ["CACHE_DIR"] = str(config.cache_dir)
 
-    if no_ontology:
+    if config.ontologies.skip_ontos:
         os.environ["NO_ONTOLOGY"] = "1"
 
     if os.getenv("NO_ONTOLOGY"):
         logger.warning("Ontology lookup is disabled.")
 
-    if debug:
+    if config.observability.debug:
         os.environ["DEBUG"] = "1"
 
     if os.getenv("DEBUG"):
         logger.info("Running in DEBUG mode.")
 
-    if reset:
-        logger.info("Resetting database before build.")
-        db_reset(force=True)
-
-    # WORKFLOW
-
     # set up database connection
-    db_engine = load_db_engine()
+    assert db_engine is not None, "DB ENGINE NEEDS TO BE INITIALIZED IN WORKER"
     inspector = inspect(db_engine)
+
     if len(inspector.get_table_names()) == 0:
         logger.info("No preexisting database found. Database will be initialized.")
         create_db_and_tables(db_engine)
 
-    # get all existing project accessions in the database
+    logger.info(f"Fetching {project_start}, limit: {project_limit} on {backend_enum.name}")
+
+    backend = backend_enum.value
+    imported = errors = 0
+    processed_projects = 0
+    error_projects = []
+
     with Session(db_engine) as session:
-        statement = select(Project.accession)
-        existing_accessions: set[str] = set(session.exec(statement).all())
-
-    logger.info(
-        "Found %s existing accessions in the database.",
-        len(existing_accessions),
-    )
-
-    for backend_enum in backends:
-        backend = backend_enum.value
-        logger.debug("Fetching data from backend: %s", backend_enum.name)
-
-        imported = errors = 0
-        error_projects = []
-        with Session(db_engine) as session:
-            async for project in backend.get_new_projects(existing_accessions):
+        async for project in backend.get_projects(project_start, project_limit):
+            try:
+                logger.info(f"{project}")
                 # TODO: support other submission types
+
                 if project.get("submissionType") != "COMPLETE":
+                    logger.info(f"Skipping {project['accession']} because it is not COMPLETE")
                     continue
 
                 try:
@@ -134,8 +264,6 @@ async def async_build(
                     session.rollback()
                     continue
 
-                session.commit()
-                imported += 1
                 # download files
                 files = backend.get_files_for_project(project["accession"])
 
@@ -223,7 +351,7 @@ async def async_build(
                             for mzid_file in interesting_files[".mzid"]:
                                 # Process mzID file
                                 try:
-                                    stats = import_mzid(db_engine, mzid_file, project["accession"])
+                                    stats = import_mzid(session, mzid_file, project["accession"])
                                     duration_str = (
                                         f"{stats.duration_seconds:.1f}s"
                                         if stats.duration_seconds is not None
@@ -266,19 +394,16 @@ async def async_build(
                             backend_enum.name,
                         )
 
-                # TODO: set "complete" flag for project
+                session.commit()
+                imported += 1
+            except Exception as e:
+                logger.exception(e)
+                session.rollback()
+            finally:
+                processed_projects += 1
 
-        if imported > 0 or errors > 0:
-            logger.info("Finished importing from backend %s.", backend_enum.name)
-            logger.info(
-                "Successfully imported %s projects, encountered %s errors (%.1f%%).",
-                imported,
-                errors,
-                (imported / (imported + errors) * 100),
-            )
-            if error_projects:
-                logger.warning("\nFailed Projects:")
-                for accession, error in error_projects[:10]:  # Show first 10
-                    logger.warning("  • %s: %s", accession, error[:80])
-                if len(error_projects) > 10:
-                    logger.warning("  ... and %d more", len(error_projects) - 10)
+            # TODO: set "complete" flag for project
+    if processed_projects == 0:
+        logger.info(f"No projects were processed. Returning status: {SubBuildStatus.BACKEND_DONE}")
+        return SubBuildStatus.BACKEND_DONE
+    return SubBuildStatus.SUCCESSFUL

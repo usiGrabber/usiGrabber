@@ -15,8 +15,9 @@ select = [
     # isort
     "I",
     # https://docs.astral.sh/ruff/rules/missing-newline-at-end-of-file/
-    "W292" 
+    "W292"
 ]
+ignore = ["E501"]
 
 
 [format]

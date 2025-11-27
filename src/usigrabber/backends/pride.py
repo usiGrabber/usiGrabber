@@ -26,6 +26,18 @@ class PrideBackend(BaseBackend):
             return response.text == "PUBLIC"
 
     @classmethod
+    async def get_projects(
+        cls, offset: int, limit: int | None
+    ) -> AsyncGenerator[dict[str, Any], None]:
+        i = 0
+        async for project in cls.get_new_projects(existing_accessions={}):
+            if i >= offset:
+                if limit is not None and i >= offset + limit:
+                    break
+                yield project
+            i += 1
+
+    @classmethod
     async def get_new_projects(
         cls,
         existing_accessions: set[str],
@@ -43,11 +55,13 @@ class PrideBackend(BaseBackend):
             url = f"{cls.BASE_URL}/projects/all"
 
             async with AsyncHttpClient() as client:
+                logger.info(f"Downloading file: {file_path}")
                 await client.stream_file(
                     url,
                     download_file_name=file_path,
                 )
 
+        logger.info(f"Reading file: {file_path}")
         with open(file_path, encoding="utf-8") as in_f:
             for project in ijson.items(in_f, "item"):
                 if project["accession"] not in existing_accessions:

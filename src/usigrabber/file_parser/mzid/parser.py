@@ -100,15 +100,16 @@ def parse_mzid_file(mzid_path: Path, project_accession: str) -> ParsedMzidData:
         raise MzidParseError(error_msg) from e
 
 
-def import_mzid(engine: Engine, mzid_path: Path, project_accession: str) -> ImportStats:
+def import_mzid(session: Session, mzid_path: Path, project_accession: str) -> ImportStats:
     """
     Import an mzIdentML file into the database.
 
     This function orchestrates parsing and database persistence:
     1. Parses the mzID file using parse_mzid_file()
-    2. Persists all parsed data to the database in a single transaction
+    2. Adds all parsed data to the provided database session.
 
     Args:
+            session: The database session to use for the import.
             mzid_path: Path to the mzIdentML file
             project_accession: PRIDE project accession
 
@@ -132,15 +133,13 @@ def import_mzid(engine: Engine, mzid_path: Path, project_accession: str) -> Impo
 
         stats.mark_parsing_complete()
 
-        # Step 2: Persist everything to the database
-        with Session(engine) as session:
-            session.add(parsed_data.mzid_file)
-            session.add_all(parsed_data.peptides)
-            session.add_all(parsed_data.peptide_evidence)
-            session.add_all(parsed_data.psms)
-            session.add_all(parsed_data.psm_peptide_evidence_junctions)
-            session.add_all(parsed_data.peptide_modifications)
-            session.commit()
+        # Step 2: Add everything to the database session
+        session.add(parsed_data.mzid_file)
+        session.add_all(parsed_data.peptides)
+        session.add_all(parsed_data.peptide_evidence)
+        session.add_all(parsed_data.psms)
+        session.add_all(parsed_data.psm_peptide_evidence_junctions)
+        session.add_all(parsed_data.peptide_modifications)
 
         # Update stats
         stats.peptide_count = len(parsed_data.peptides)

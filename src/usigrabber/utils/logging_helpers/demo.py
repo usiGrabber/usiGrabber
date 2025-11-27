@@ -2,11 +2,10 @@ import logging
 
 from usigrabber.utils.setup import system_setup
 
-system_setup()
-
-logger = logging.getLogger(__name__)
-
 if __name__ == "__main__":
+    system_setup(is_main_process=True)
+    logger = logging.getLogger(__name__)
+
     # Use extra for structured data!
     logger.info("Starting the application with the new formatter.", extra={"project_id": 1234})
 
