@@ -23,9 +23,9 @@ from usigrabber.utils import lookup_unimod_id_by_name
 
 def parse_peptides(
     evidence: pd.DataFrame, peptides: pd.DataFrame
-) -> tuple[dict[str, uuid.UUID], dict[uuid.UUID, list[tuple[int, str, str]]], list[Peptide]]:
+) -> tuple[dict[str, uuid.UUID], dict[uuid.UUID, list[list[tuple[int, str, str]]]], list[Peptide]]:
     peptide_id_map: dict[str, uuid.UUID] = {}
-    peptide_mods: dict[uuid.UUID, list[tuple[int, str, str]]] = {}
+    peptide_mods: dict[uuid.UUID, list[list[tuple[int, str, str]]]] = {}
     peptides_batch: list[Peptide] = []
 
     evidence = evidence.get(
@@ -54,21 +54,22 @@ def parse_peptides(
         peptide_id_map[sequence] = peptide.id
 
         evidences = evidence_mod_map.get(sequence, set())
+
         for modified_elem in evidences:
             modifications = modified_elem[0]
             if modifications:
                 if modifications == "Unmodified":
-                    pass
-                else:
-                    mod_list: list[str] = modifications.split(",")
-                    mod_list = clean_mod_list_of_numbers(mod_list)
-                    modified_sequence = modified_elem[1]
-                    mods = extract_mods(modified_sequence, mod_list)
+                    continue
+                mod_list: list[str] = modifications.split(",")
+                mod_list = clean_mod_list_of_numbers(mod_list)
+                modified_sequence = modified_elem[1]
+                mods = extract_mods(modified_sequence, mod_list)
 
-                    peptide_mods[peptide.id] = []
-                    for mod in mods:
-                        for position_residues in mods[mod]:
-                            peptide_mods[peptide.id].append((*position_residues, mod))
+                mods_for_peptide: list[tuple[int, str, str]] = []
+                for mod in mods:
+                    for position_residues in mods[mod]:
+                        mods_for_peptide.append((*position_residues, mod))
+                peptide_mods.setdefault(peptide.id, []).append(mods_for_peptide)
 
     logger.debug(f"Created {len(peptides_batch)} peptide records")
     return peptide_id_map, peptide_mods, peptides_batch
@@ -197,7 +198,7 @@ def parse_psms(
             experimental_mz=psm_elem.get("m/z", None),
             calculated_mz=mass / charge if charge else None,
             pass_threshold=None,
-            index_type=IndexType["scan"],
+            index_type=IndexType.scan,
             index_number=scan_id,
             ms_run=psm_elem.get("Raw file", None),
         )
@@ -224,20 +225,21 @@ def parse_psms(
 
 
 def link_modifications(
-    peptide_mods: dict[uuid.UUID, list[tuple[int, str, str]]],
+    peptide_mods: dict[uuid.UUID, list[list[tuple[int, str, str]]]],
 ) -> list[PeptideModification]:
     peptide_mod_batch: list[PeptideModification] = []
 
-    for peptide_id, mods in peptide_mods.items():
-        for position_residues_name in mods:
-            modification_record = PeptideModification(
-                peptide_id=peptide_id,
-                unimod_id=lookup_unimod_id_by_name(position_residues_name[2]),
-                name=position_residues_name[2],
-                position=position_residues_name[0],
-                modified_residue=position_residues_name[1],
-            )
-            peptide_mod_batch.append(modification_record)
+    for peptide_id, mods_list in peptide_mods.items():
+        for mods in mods_list:
+            for position_residues_name in mods:
+                modification_record = PeptideModification(
+                    peptide_id=peptide_id,
+                    unimod_id=lookup_unimod_id_by_name(position_residues_name[2]),
+                    name=position_residues_name[2],
+                    position=position_residues_name[0],
+                    modified_residue=position_residues_name[1],
+                )
+                peptide_mod_batch.append(modification_record)
 
     logger.debug(f"Created {len(peptide_mod_batch)} peptide modification records")
     return peptide_mod_batch

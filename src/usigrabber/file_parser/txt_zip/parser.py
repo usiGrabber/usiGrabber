@@ -173,7 +173,7 @@ def import_all_txt_zip(
     files: list[Path],
     project_accession: str,
     errors: int,
-) -> tuple[int, int, int]:
+) -> tuple[int, int, bool]:
     """
     Import all available txt.zip files into the database as it is possible
     to encounter multiple in one project.
