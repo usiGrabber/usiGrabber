@@ -125,7 +125,7 @@ async def async_build(
         with Session(db_engine) as session, temporary_path() as tmp_dir_default:
             async for project in backend.get_new_projects(existing_accessions):
                 tmp_dir = Path(tmp_dir_default / project["accession"])
-                (tmp_dir).mkdir()
+                tmp_dir.mkdir()
                 fully_processed: bool = False
 
                 try:
@@ -238,7 +238,7 @@ async def async_build(
                         if fully_processed:
                             continue
 
-                if not files:
+                if not (files["result"] or files["search"] or files["other"]):
                     logger.warning(
                         f"No results/search files found for project '{project['accession']}'"
                         f"from backend {backend_enum.name}.",
@@ -250,7 +250,7 @@ async def async_build(
                     )
                 elif not fully_processed:
                     logger.warning(
-                        f"'{main_source_type}' files could not be completely parsed for project"
+                        f"'{main_source_type}' files could not be completely parsed for project "
                         f"'{project['accession']}' from backend {backend_enum.name}.",
                     )
 

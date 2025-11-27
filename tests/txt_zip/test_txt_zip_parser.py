@@ -79,8 +79,7 @@ def test_txt_zip_parser():
     # Test PSMs (Peptide Spectrum Matches)
     # =========================================================================
     assert len(psms) > 0, "Should parse PSMs from the file"
-    print("psms:", len(psms))
-    # assert len(psms) == 695, "Expected 695 PSMs in the test file"
+    assert len(psms) == 1640, "Expected 1640 PSMs in the test file"
 
     # All PSMs should have required fields
     for psm in psms:

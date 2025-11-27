@@ -23,6 +23,7 @@ logger = logging.getLogger(__name__)
 FILETYPE_ALLOWLIST = {".mzid", "", ".txt"}
 ARCHIVE_TYPES = {".zip", ".gz", ".tar", ".rar", ".7z"}
 PARALLEL_DOWNLOADS = int(os.getenv("PARALLEL_DOWNLOADS", "10"))
+INTERESTING_TXT_FILES = {"evidence", "summary", "peptides"}
 
 
 async def download_ftp(
@@ -76,7 +77,7 @@ async def download_ftp(
     raise RuntimeError("Unreachable: retry loop ended without returning or raising")
 
 
-async def download_ftp_with_semamphore(
+async def download_ftp_with_semaphore(
     semaphore: asyncio.Semaphore,
     url: str,
     out_dir: Path,
@@ -198,9 +199,10 @@ async def get_interesting_files(
             file_base, file_ext = os.path.splitext(file_base)
 
         if (file_ext not in FILETYPE_ALLOWLIST) and ("txt.zip" not in str(filename)):
+            # txt.zip can be zipped itself, why we check for it specifically here
             logger.debug(f"Skipping file {filename} with unsupported extension {file_ext}.")
             continue
-        if file_ext == ".txt" and file_base not in ("evidence", "summary", "peptides"):
+        if file_ext == ".txt" and file_base not in INTERESTING_TXT_FILES:
             logger.debug(f"Skipping file {filename} as it is not interesting.")
             continue
 
@@ -216,7 +218,7 @@ async def get_interesting_files(
     sem = asyncio.Semaphore(PARALLEL_DOWNLOADS)
     paths = await asyncio.gather(
         *[
-            download_ftp_with_semamphore(
+            download_ftp_with_semaphore(
                 semaphore=sem,
                 url=file["filepath"],
                 out_dir=tmp_dir,
@@ -239,7 +241,7 @@ async def get_interesting_files(
         logger.debug(f"Processing result file '{filename}' " + f"({filesize_in_mb:,.2f} MB)")
 
         # contains all files extracted from archive
-        extract_dir = str(os.path.splitext(filename)) + "_extracted"
+        extract_dir = os.path.splitext(filename)[0] + "_extracted"
         extracted_files = extract_archive(archive_path=path, extract_to=path.parent / extract_dir)
 
         for f in extracted_files:

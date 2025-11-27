@@ -186,9 +186,7 @@ def parse_psms(
                 modification_list.extend(var_mods.split(";"))
             if fix_mods:
                 modification_list.extend(fix_mods.split(";"))
-        unimod_id_list = []
-        for mod in modification_list:
-            unimod_id_list.append(lookup_unimod_id_by_name(mod))
+        unimod_id_list: list[int] = [lookup_unimod_id_by_name(mod) for mod in modification_list]
 
         psm = PeptideSpectrumMatch(
             project_accession=project_accession,

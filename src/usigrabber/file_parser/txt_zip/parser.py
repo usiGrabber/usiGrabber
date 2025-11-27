@@ -123,7 +123,7 @@ def import_txt_zip(
     )
 
     logger.info(
-        f"Importing txt txt files: {evidence_path.name}, {summary_path.name}, {peptides_path.name}"
+        f"Importing txt files: {evidence_path.name}, {summary_path.name}, {peptides_path.name}"
     )
 
     try:
@@ -193,8 +193,8 @@ def import_all_txt_zip(
             fully_processed: flag, whether the project is already fully processed
 
     Raises:
-            MzidParseError: If file cannot be read or parsed
-            MzidImportError: If database operations fail
+            TxtZipParseError: If a file cannot be read or parsed
+            TxtZipImportError: If database operations fail
     """
     txt_triples = get_txt_triples(files)
     processed_files = 0
