@@ -4,18 +4,19 @@ from typing import Self, assert_never
 from sqlmodel import Session, and_, or_, select
 
 from usigrabber.db import CvParam as DBCVParam
+from usigrabber.db import Project
 
 
 @dataclass
 class CVParam:
     term: str
     """
-    Term with a format like: MS:1000463
-    """
+	Term with a format like: MS:1000463
+	"""
     cv_label: str | None = None
     """
-    Optionally if the CV part of the term is differnt. Can be dangerous to use
-    """
+	Optionally if the CV part of the term is differnt. Can be dangerous to use
+	"""
     name: str | None = None
     value: str | float | int | None = None
 
@@ -86,6 +87,18 @@ class CVInjector:
                 existing_map[key] = cv_param
                 new_cvs.append(cv_param)
         self._session.flush()  # Assigns ID
+
+        # Step 4: Link all cv_params to project
+        # Get the project and append cv_params to its cv_params list
+        project = self._session.get(Project, self._project_accession)
+        if project:
+            # Get existing cv_param IDs for this project to avoid duplicates
+            existing_cv_param_ids = {cv.id for cv in project.cv_params}
+            # Append only new cv_params
+            for cv_param in existing_map.values():
+                if cv_param.id not in existing_cv_param_ids:
+                    project.cv_params.append(cv_param)
+
         self._cv_param_buffer = []
 
     async def add(self, data: CVTuple | CVParam):
