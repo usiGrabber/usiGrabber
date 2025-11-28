@@ -1,14 +1,16 @@
 import asyncio
 import gzip
 import logging
+import ntpath
 import os
+import posixpath
 import shutil
 import tarfile
 import tempfile
 import zipfile
 from collections.abc import Generator
 from contextlib import contextmanager
-from pathlib import Path
+from pathlib import Path, PurePosixPath, PureWindowsPath
 from typing import Any
 from urllib.parse import urlparse
 
@@ -181,6 +183,24 @@ def extract_archive(
 def temporary_path(*, suffix="", prefix="tmp", dir=None) -> Generator[Path, Any, None]:
     with tempfile.TemporaryDirectory(suffix=suffix, prefix=prefix, dir=dir) as tmpdir:
         yield Path(tmpdir)
+
+
+def is_windows_path(raw) -> bool:
+    """
+    Detect if a given path is a Windows path.
+    Credit: https://stackoverflow.com/a/79816962/7432003
+    """
+    return len(PureWindowsPath(raw).parts) > len(PurePosixPath(raw).parts)
+
+
+def parse_basename(raw_path: str) -> str:
+    """
+    Standard `os.path.basename` only supports the current OS running the program.
+    This function uses the underlying Windows/POSIX function to parse the basename correctly.
+    """
+    if is_windows_path(raw_path):
+        return ntpath.basename(raw_path)
+    return posixpath.basename(raw_path)
 
 
 def main(
