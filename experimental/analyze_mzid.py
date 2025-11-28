@@ -1,5 +1,6 @@
 import asyncio
 import csv
+import multiprocessing
 import os
 import random
 import shutil
@@ -8,13 +9,17 @@ from pathlib import Path
 import ijson
 import matplotlib.pyplot as plt
 import pandas as pd
+from pyteomics import mzid
+from tqdm import tqdm
 
+from usigrabber.file_parser.mzid.parsing_functions import parse_spectra_data
 from usigrabber.utils import get_cache_dir
 from usigrabber.utils.file import download_ftp_with_semamphore, extract_archive
 from usigrabber.utils.setup import system_setup
 
 ALL_MZID_PATH = get_cache_dir() / "pride" / "all_mzid_files.csv"
 SAMPLED_MZID_PATH = get_cache_dir() / "pride" / "sampled_mzid_files.csv"
+SAMPLED_MZID_DIR = get_cache_dir() / "pride" / "sampled_mzid_files"
 
 
 def sample_mzid_files(n: int = 250) -> None:
@@ -159,30 +164,29 @@ async def download_samples() -> None:
     semaphore = asyncio.Semaphore(20)  # limit to 5 concurrent downloads
     df = pd.read_csv(SAMPLED_MZID_PATH)
 
-    out_dir = get_cache_dir() / "pride" / "sampled_mzid_files"
-    if out_dir.exists():
+    if SAMPLED_MZID_DIR.exists():
         while True:
             resp = (
                 input(
-                    f"Output directory {out_dir} already exists. "
+                    f"Output directory {SAMPLED_MZID_DIR} already exists. "
                     "Do you want to delete it and re-download files? (y/n): "
                 )
                 .strip()
                 .lower()
             )
             if resp == "y":
-                shutil.rmtree(out_dir)
+                shutil.rmtree(SAMPLED_MZID_DIR)
                 break
             elif resp == "n":
                 print("Aborting download.")
                 return
 
-    out_dir.mkdir(parents=True, exist_ok=False)
+    SAMPLED_MZID_DIR.mkdir(parents=True, exist_ok=False)
 
     sample_paths: list[str] = df["ftp_location"].tolist()
 
     download_tasks = [
-        download_ftp_with_semamphore(semaphore, sample_path, out_dir)
+        download_ftp_with_semamphore(semaphore, sample_path, SAMPLED_MZID_DIR)
         for sample_path in sample_paths
     ]
 
@@ -233,12 +237,103 @@ def sample_stats() -> None:
         print(f"\t- {row['filename']}: {size_gb:,.2f} GiB")
 
 
+PSM_COLUMNS = ["spectrumID", "scan number(s)", "spectrum title", "name", "location"]
+
+
+def _analyze_single_mzid(mzid_file: Path) -> tuple[bool, list | str]:
+    """Analyze a single mzid file and return success status and result.
+
+    Returns:
+        tuple: (success: bool, result: list of values or error message)
+    """
+    try:
+        psm = next(mzid.read(str(mzid_file), retrieve_refs=False))
+        spectra_data = parse_spectra_data(mzid_file)
+
+        row = [
+            mzid_file.name,
+            str(mzid_file),
+        ]
+        for col in PSM_COLUMNS[:-1]:
+            row.append(psm.get(col))
+
+        # location
+        spectra_ref: str | None = psm.get("spectraData_ref")
+        if spectra_data and spectra_ref and spectra_data.get(spectra_ref):
+            row.append(spectra_data[spectra_ref][0])
+        else:
+            row.append(None)
+        return (True, row)
+    except KeyError as e:
+        return (False, f"KeyError reading PSM from {mzid_file.name}: {e}")
+    except Exception as e:
+        return (False, f"Error reading {mzid_file.name}: {e}")
+
+
+def analyze_samples() -> None:
+    # collect all mzid files (skip directories)
+    mzid_files = [f for f in SAMPLED_MZID_DIR.rglob("*.mzid") if f.is_file()]
+
+    if not mzid_files:
+        print("No mzid files found to analyze")
+        return
+
+    print(f"Found {len(mzid_files)} mzid files to analyze")
+
+    # determine number of processes (use all available cores)
+    num_processes = 8  # multiprocessing.cpu_count()
+    print(f"Using {num_processes} processes")
+
+    # create output file and write header
+    output_path = SAMPLED_MZID_PATH.parent / "mzid_analysis_results.csv"
+
+    with open(output_path, "w", newline="", encoding="utf-8") as out_f:
+        writer = csv.writer(out_f)
+        writer.writerow(
+            [
+                "filename",
+                "file_path",
+            ]
+            + PSM_COLUMNS
+        )
+
+        # process files in parallel and write results as they complete
+        success_count = 0
+        error_count = 0
+
+        flush_every = 10  # flush output every N writes
+        flush_counter = 0
+
+        with multiprocessing.Pool(processes=num_processes) as pool:
+            # Use imap_unordered to process results as they complete
+            for success, result in tqdm(
+                pool.imap_unordered(_analyze_single_mzid, mzid_files), total=len(mzid_files)
+            ):
+                if success:
+                    writer.writerow(result)
+                    flush_counter += 1
+                    if flush_counter >= flush_every:
+                        out_f.flush()
+                        flush_counter = 0
+
+                    success_count += 1
+                    # print(f"Wrote analysis for {result[0]}")
+                else:
+                    error_count += 1
+                    tqdm.write(f"Error: {result}")
+
+        print(f"\nAnalysis complete: {success_count} successful, {error_count} errors")
+        print(f"Results written to {output_path}")
+
+
 async def main() -> None:
     # sample_mzid_files()
     # sample_stats()
     # basic_stats()
 
-    await download_samples()
+    # await download_samples()
+
+    analyze_samples()
 
 
 if __name__ == "__main__":
