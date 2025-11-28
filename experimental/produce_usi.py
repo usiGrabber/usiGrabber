@@ -23,7 +23,7 @@ def main():
         # exclude known broken projects
         statement = (
             select(PSM)
-            .where(PSM.project.has("accession" != "PXD005152"))
+            .where(PSM.project.has("accession" != "PXD005152"))  # type: ignore
             .order_by(func.random())
             .limit(1)
         )
