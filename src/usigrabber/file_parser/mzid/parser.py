@@ -96,16 +96,20 @@ class MzidFileParser(BaseFileParser):
                 session.commit()
                 if parsed.peptides:
                     session.execute(insert(Peptide), parsed.peptides)
+                    stats.peptide_count = len(parsed.peptides)
                 if parsed.peptide_evidence:
                     session.execute(insert(PeptideEvidence), parsed.peptide_evidence)
+                    stats.peptide_evidence_count = len(parsed.peptide_evidence)
                 if parsed.psms:
                     session.execute(insert(PeptideSpectrumMatch), parsed.psms)
+                    stats.psm_count = len(parsed.psms)
                 if parsed.psm_peptide_evidence_junctions:
                     session.execute(
                         insert(PSMPeptideEvidence), parsed.psm_peptide_evidence_junctions
                     )
                 if parsed.peptide_modifications:
                     session.execute(insert(PeptideModification), parsed.peptide_modifications)
+                    stats.modification_count = len(parsed.peptide_modifications)
                 session.commit()
             logger.debug(f"Successfully imported mzID data for file '{stats.file_name}'")
         except Exception as e:

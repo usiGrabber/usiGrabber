@@ -5,13 +5,12 @@ from pyteomics import mztab
 from pyteomics.auxiliary import PyteomicsError
 from sqlalchemy import insert
 from sqlalchemy.engine.base import Engine
-from usigrabber.file_parser.mztab.models import ParsedMztabData
-from usigrabber.file_parser.mztab.parsing_functions import extract_mztab_data
 
 from usigrabber.db.schema import Peptide, PeptideSpectrumMatch
 from usigrabber.file_parser.base import BaseFileParser, register_parser
 from usigrabber.file_parser.errors import MztabImportError, MztabParseError
-from usigrabber.file_parser.models import ImportStats
+from usigrabber.file_parser.models import ImportStats, ParsedMztabData
+from usigrabber.file_parser.parsing_functions import extract_mztab_data
 
 logger = logging.getLogger(__name__)
 
