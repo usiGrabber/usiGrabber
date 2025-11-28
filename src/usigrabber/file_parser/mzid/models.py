@@ -25,3 +25,8 @@ class ParsedMzidData(NamedTuple):
     peptide_evidence: list[PeptideEvidence]
     psms: list[PeptideSpectrumMatch]
     psm_peptide_evidence_junctions: list[PSMPeptideEvidence]
+
+
+class ParsedMztabData(NamedTuple):
+    peptides: list[dict]
+    psms: list[dict]
