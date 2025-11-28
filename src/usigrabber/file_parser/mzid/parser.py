@@ -54,7 +54,8 @@ def parse_mzid_file(mzid_path: Path, project_accession: str) -> ParsedMzidData:
 
     try:
         spectra_data_map = parse_spectra_data(mzid_path)
-        assert len(spectra_data_map) > 0, "No SpectraData found in mzID file " + str(mzid_path.name)
+        if len(spectra_data_map) == 0:
+            raise MzidParseError(f"No SpectraData found in mzID file {mzid_path.name}")
 
         # Parse mzID file with retrieve_refs=False
         with mzid.MzIdentML(str(mzid_path), retrieve_refs=False) as reader:

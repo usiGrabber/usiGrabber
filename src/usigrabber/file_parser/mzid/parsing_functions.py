@@ -41,6 +41,9 @@ SPECTRUM_ID_FORMAT_MAPPING = {
     "MS:1000768": IndexType.scan,
     "MS:1001530": IndexType.nativeId,
 }
+
+# Set to track already logged exceptions
+# WARNING: not thread-safe, but acceptable for this use case
 exceptions = set()
 
 
@@ -49,7 +52,7 @@ def get_spectrum_id_format(cv_param: str) -> IndexType | None:
     Map SpectrumIDFormat accession to human-readable format.
 
     Args:
-        accession: SpectrumIDFormat accession
+        cv_param: SpectrumIDFormat cvParam accession
 
     Returns:
         Human-readable format string or None if not found
@@ -72,7 +75,7 @@ def parse_spectra_data(mzid_path: Path) -> dict[str, tuple[str, IndexType | None
         mzid_path: Path to the mzIdentML file
 
     Returns:
-        Dictionary mapping spectra_id to tuple of (ms_run_name, spectrum_id_format_accession)
+        Dictionary mapping spectra_id to tuple of (ms_run_name, IndexType enum value or None)
     """
     spectra_data_dict: dict[str, tuple[str, IndexType | None]] = {}
 

@@ -50,7 +50,7 @@ async def download_ftp(
             return out_path
         except ConnectionResetError:
             if attempt > 2:
-                # first attempt often fails, so only log after 2nd attempt
+                # first few attempts often fail, so only log after 2nd attempt
                 logger.warning(
                     f"FTP connection reset on attempt {attempt + 1}/{retries} for {url}",
                 )

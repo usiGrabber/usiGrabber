@@ -4,7 +4,7 @@ from pyteomics import usi
 from sqlmodel import Session, func, select
 
 from usigrabber.db import load_db_engine
-from usigrabber.db.schema import PeptideSpectrumMatch as PSM
+from usigrabber.db.schema import PeptideSpectrumMatch, Project
 
 
 def get_spectrum(usi_str: str):
@@ -22,8 +22,8 @@ def main():
         # get a random PSM from the database
         # exclude known broken projects
         statement = (
-            select(PSM)
-            .where(PSM.project.has("accession" != "PXD005152"))  # type: ignore
+            select(PeptideSpectrumMatch)
+            .where(PeptideSpectrumMatch.project.has(Project.accession != "PXD005152"))  # type: ignore
             .order_by(func.random())
             .limit(1)
         )
@@ -39,7 +39,10 @@ def main():
         ):
             print("Insufficient data to generate USI.")
             return
-        usi = f"mzspec:{psm.project.accession}:{psm.ms_run}:{psm.index_type.value}:{psm.index_number}:{psm.peptide.sequence}/{psm.charge_state}"
+        usi = (
+            f"mzspec:{psm.project.accession}:{psm.ms_run}:"
+            + "{psm.index_type.value}:{psm.index_number}:{psm.peptide.sequence}/{psm.charge_state}"
+        )
 
         print("Retrieving spectrum for USI:", usi)
         spectrum = get_spectrum(usi)

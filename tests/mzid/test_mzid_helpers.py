@@ -1,3 +1,5 @@
+from usigrabber.file_parser.mzid.helpers import IndexType
+
 """
 Tests for mzID helper functions
 
@@ -153,22 +155,22 @@ def test_parse_modification_location_empty_dict():
 
 def test_extract_index_type_and_number() -> None:
     index_type, index_number = extract_index_type_and_number({"spectrumID": "scan=1234"})
-    assert index_type == "scan"
+    assert index_type == IndexType.scan
     assert index_number == 1234
 
     index_type, index_number = extract_index_type_and_number({"spectrumID": "index=1234"})
-    assert index_type == "index"
+    assert index_type == IndexType.index
     assert index_number == 1234
 
 
-def test_extract_index_type_and_number_from_spectrum_tile() -> None:
+def test_extract_index_type_and_number_from_spectrum_title() -> None:
     spectrum_title = (
         r"OTE0019_York_060813_JH16.3285.3285.2 File:\"OTE0019_York_060813_JH16.raw\", "
         + r"NativeID:\"controllerType=0 controllerNumber=1 scan=3285\""
     )
 
     index_type, index_number = extract_index_type_and_number({"spectrum title": spectrum_title})
-    assert index_type == "scan"
+    assert index_type == IndexType.scan
     assert index_number == 3285
 
 
