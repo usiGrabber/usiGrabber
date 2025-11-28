@@ -9,10 +9,60 @@ from ontology_resolver.ontology_helper import OntologyHelper
 from sqlmodel import Session
 
 from usigrabber.backends.base import BaseBackend, FileMetadata, Files
-from usigrabber.cv_parameters.cv_engine import CVInjector, CVParam, parse_cv_param, parse_cv_tuple
+from usigrabber.cv_parameters.cv_engine import CVInjector, CVParam, CVTuple
 from usigrabber.db import Project, ProjectCountry, ProjectKeyword, ProjectTag, Reference
 from usigrabber.db.schema import ProjectAffiliation, ProjectOtherOmicsLink
 from usigrabber.utils import get_cache_dir, logger, parse_date
+
+
+def parse_cv_param(cv_data: dict) -> CVParam | None:
+    """Parse and validate a CV parameter from PRIDE project data.
+
+    Args:
+            cv_data: Dictionary containing CV parameter fields (accession, value)
+
+    Returns:
+            CVParam if validation succeeds, None otherwise
+    """
+    cv_accession = cv_data.get("accession")
+    if not isinstance(cv_accession, str):
+        logger.error(f"Pride CV Param accession is malformed: {cv_data}")
+        return None
+
+    cv_value = cv_data.get("value")
+    return CVParam(accession=cv_accession, value=cv_value)
+
+
+def parse_cv_tuple(cv_data: dict) -> CVTuple | None:
+    """Parse and validate a CV tuple from PRIDE project data.
+
+    Args:
+            cv_data: Dictionary containing 'key' and 'value' fields with CV parameters
+
+    Returns:
+            CVTuple if validation succeeds, None otherwise
+    """
+    if "key" not in cv_data or not isinstance(cv_data["key"], dict):
+        logger.warning(f"Pride CV Tuple (key) is malformed: {cv_data}")
+        return None
+    if "value" not in cv_data or not isinstance(cv_data["value"], dict):
+        logger.warning(f"Pride CV Tuple (value) is malformed: {cv_data}")
+        return None
+
+    if "accession" not in cv_data["key"]:
+        logger.warning(f"Pride CV Tuple key missing accession: {cv_data}")
+        return None
+    if "accession" not in cv_data["value"]:
+        logger.warning(f"Pride CV Tuple value missing accession: {cv_data}")
+        return None
+
+    key = CVParam(accession=cv_data["key"]["accession"], value=cv_data["key"].get("value"))
+    value = CVParam(
+        accession=cv_data["value"]["accession"],
+        value=cv_data["value"].get("value"),
+    )
+
+    return CVTuple(key, value)
 
 
 class PrideBackend(BaseBackend):
