@@ -6,6 +6,7 @@ These functions extract and transform data from mzIdentML elements.
 """
 
 import logging
+import re
 from functools import lru_cache
 from typing import Any, cast
 
@@ -193,9 +194,9 @@ def extract_index_type_and_number(sir: dict) -> tuple[IndexType | None, int | No
 
         # Extract scan number from NativeID if present (overwrites existing spectrum id)
         try:
-            scan_part = spectrum_title.split("scan=")[1]
-            scan_num_str = scan_part.split('"')[0].split()[0]
-            index_number = int(scan_num_str)
+            match = re.search(r"scan=(\d+)", spectrum_title)
+            if match:
+                index_number = int(match.group(1))
             index_type = IndexType.scan
         except (ValueError, IndexError):
             pass
@@ -203,8 +204,8 @@ def extract_index_type_and_number(sir: dict) -> tuple[IndexType | None, int | No
     # Parse scan number(s) (MS:1001115)
     if scan_number_value and index_type is None:
         try:
-            index_type = IndexType.scan
             index_number = int(scan_number_value)
+            index_type = IndexType.scan
         except (ValueError, TypeError):
             pass
 
