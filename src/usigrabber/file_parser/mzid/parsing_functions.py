@@ -405,7 +405,8 @@ def parse_psms(
         spectrum_id: str = sir.get("spectrumID", "")
 
         # Extract USI-related fields from the SpectrumIdentificationResult
-        index_type, index_number, ms_run = extract_index_type_and_number(sir)
+        ms_run: str | None = None
+        index_type, index_number = extract_index_type_and_number(sir)
 
         # Get list of spectrum identification items (PSMs)
         sii_list: dict[str, Any] | list[dict[str, Any]] = sir.get("SpectrumIdentificationItem", [])
