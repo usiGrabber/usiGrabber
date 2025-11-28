@@ -1,26 +1,38 @@
 """
 File Parser Module
 
-Provides parsers for various proteomics file formats.
+Provides a unified interface for importing proteomics files.
 """
 
-from usigrabber.file_parser.errors import (
-    FileParserError,
-    MzidImportError,
-    MzidParseError,
-)
+from usigrabber.file_parser.base import BaseFileParser, get_parser_for_extension, register_parser
+from usigrabber.file_parser.errors import FileParserError
 from usigrabber.file_parser.models import ImportStats
-from usigrabber.file_parser.mzid import import_mzid
-from usigrabber.file_parser.mztab import import_mztab
 
 __all__ = [
-    # Main functions
-    "import_mzid",
-    "import_mztab",
-    # Models
+    # Base parser and registry
+    "BaseFileParser",
+    "register_parser",
+    "get_parser_for_extension",
+    # Shared models
     "ImportStats",
     # Exceptions
     "FileParserError",
-    "MzidParseError",
-    "MzidImportError",
 ]
+
+
+def import_file(engine, path, project_accession):
+    """
+    Generic file import function.
+
+    Automatically selects the appropriate parser based on file extension.
+    """
+    from pathlib import Path
+
+    if not isinstance(path, Path):
+        path = Path(path)
+
+    parser = get_parser_for_extension(path.suffix)
+    if not parser:
+        raise FileParserError(f"No parser registered for file extension '{path.suffix}'")
+
+    return parser.import_file(engine, path, project_accession)

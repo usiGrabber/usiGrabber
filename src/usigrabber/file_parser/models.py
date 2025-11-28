@@ -6,7 +6,16 @@ Data models for tracking import statistics and results.
 
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any
+from typing import Any, NamedTuple
+
+from usigrabber.db.schema import (
+    MzidFile,
+    Peptide,
+    PeptideEvidence,
+    PeptideModification,
+    PeptideSpectrumMatch,
+    PSMPeptideEvidence,
+)
 
 
 @dataclass
@@ -19,7 +28,7 @@ class ImportStats:
     modification_count: int = 0
     peptide_evidence_count: int = 0
     psm_count: int = 0
-    start_time: datetime = field(default_factory=datetime.now)
+    start_time: datetime = field(default_factory=datetime.utcnow)
     parsing_complete_time: datetime | None = None
     end_time: datetime | None = None
     success: bool = False
@@ -27,16 +36,16 @@ class ImportStats:
 
     def mark_parsing_complete(self) -> None:
         """Mark parsing as successfully completed."""
-        self.parsing_complete_time = datetime.now()
+        self.parsing_complete_time = datetime.utcnow()
 
     def mark_complete(self) -> None:
         """Mark import as successfully completed."""
-        self.end_time = datetime.now()
+        self.end_time = datetime.utcnow()
         self.success = True
 
     def mark_failed(self, error_message: str) -> None:
         """Mark import as failed with error message."""
-        self.end_time = datetime.now()
+        self.end_time = datetime.utcnow()
         self.success = False
         self.error_message = error_message
 
@@ -91,3 +100,21 @@ class ImportStats:
             "duration_seconds": self.duration_seconds,
             "parsing_duration_seconds": self.parsing_duration_seconds,
         }
+
+
+class ParsedMzidData(NamedTuple):
+    """Container for all parsed data from an mzIdentML file."""
+
+    mzid_file: MzidFile
+    peptides: list[Peptide]
+    peptide_modifications: list[PeptideModification]
+    peptide_evidence: list[PeptideEvidence]
+    psms: list[PeptideSpectrumMatch]
+    psm_peptide_evidence_junctions: list[PSMPeptideEvidence]
+
+
+class ParsedMztabData(NamedTuple):
+    """Container for all parsed data from an mzTab file."""
+
+    peptides: list[dict]
+    psms: list[dict]
