@@ -1,27 +1,32 @@
 import asyncio
 import logging
 import os
+import warnings
 from pathlib import Path
 from typing import Annotated
 
 import typer
+from sqlalchemy import exc as sa_exc
 from sqlalchemy import inspect
 from sqlmodel import Session, select
 
 from usigrabber.backends import BackendEnum
+from usigrabber.backends.base import FileMetadata
 from usigrabber.cli import app
 from usigrabber.db import Project, create_db_and_tables, load_db_engine
 from usigrabber.db.cli import reset as db_reset
 from usigrabber.file_parser import MzidImportError, MzidParseError, import_mzid, import_mztab
 from usigrabber.utils import get_cache_dir
-from usigrabber.utils.file import download_ftp, extract_archive, temporary_path
+from usigrabber.utils.file import download_ftp_with_semamphore, extract_archive, temporary_path
 
 CACHE_DIR = get_cache_dir()
 STANDARD_BACKENDS = [enum for enum in BackendEnum]
 logger = logging.getLogger(__name__)
 
 # empty string for folders (no extension)
-FILETYPE_WHITELIST = {".mzid", "", ".mztab"}
+FILETYPE_ALLOWLIST = {".mzid", "", ".mztab"}
+
+PARALLEL_DOWNLOADS = int(os.getenv("PARALLEL_DOWNLOADS", "10"))
 
 
 @app.command()
@@ -56,7 +61,9 @@ def build(
         ),
     ] = CACHE_DIR,
 ):
-    asyncio.run(async_build(debug, reset, backends, no_ontology, cache_dir))
+    # mute SQLAlchemy warnings from pyteomics library
+    with warnings.catch_warnings(action="ignore", category=sa_exc.SAWarning):
+        asyncio.run(async_build(debug, reset, backends, no_ontology, cache_dir))
 
 
 async def async_build(
@@ -132,37 +139,57 @@ async def async_build(
                 # download files
                 files = backend.get_files_for_project(project["accession"])
 
-                # process files
-                if files["result"]:
-                    for file in files["result"]:
-                        # parse filename from file url
-                        file_url = file["filepath"]
-                        filename = os.path.basename(file_url)
+                with temporary_path() as tmp_dir:
+                    # process files
+                    if files["result"]:
+                        files_to_be_downloaded: list[FileMetadata] = []
 
-                        # find actual file extension, without archives
-                        file_base, file_ext = os.path.splitext(filename)
-                        while file_ext in {".zip", ".gz", ".tar", ".rar", ".7z"}:
-                            file_base, file_ext = os.path.splitext(file_base)
+                        # filter files based on extension allowlist
+                        for file in files["result"]:
+                            # parse filename from file url
+                            file_url = file["filepath"]
+                            filename = os.path.basename(file_url)
 
-                        if file_ext not in FILETYPE_WHITELIST:
-                            logger.debug(
-                                f"Skipping file {filename} with unsupported extension {file_ext}."
+                            # find actual file extension, without archives
+                            file_base, file_ext = os.path.splitext(filename)
+                            while file_ext in {".zip", ".gz", ".tar", ".rar", ".7z"}:
+                                file_base, file_ext = os.path.splitext(file_base)
+
+                            if file_ext not in FILETYPE_ALLOWLIST:
+                                logger.debug(
+                                    "Skipping file %s with unsupported extension %s.",
+                                    filename,
+                                    file_ext,
+                                )
+                                continue
+
+                            files_to_be_downloaded.append(file)
+
+                        if len(files_to_be_downloaded) == 0:
+                            logger.warning(
+                                "Found result files for project %s, but none match "
+                                "the supported file types.",
+                                project["accession"],
                             )
                             continue
 
-                        logger.debug(
-                            f"Processing result file {filename} "
-                            + f"({file['file_size'] / (1024 * 1024):,.2f} MB)"
+                        # download all matching files asynchronously (limit concurrency)
+                        sem = asyncio.Semaphore(PARALLEL_DOWNLOADS)
+                        paths = await asyncio.gather(
+                            *[
+                                download_ftp_with_semamphore(
+                                    semaphore=sem,
+                                    url=file["filepath"],
+                                    out_dir=tmp_dir / project["accession"] / str(idx),
+                                )
+                                for idx, file in enumerate(files_to_be_downloaded)
+                            ],
+                            return_exceptions=True,
                         )
 
-                        with temporary_path() as tmp_dir:
-                            try:
-                                path = await download_ftp(
-                                    url=file_url,
-                                    out_dir=tmp_dir,
-                                    file_name=filename,
-                                )
-                            except Exception:
+                        for idx, path in enumerate(paths):
+                            filename = os.path.basename(files_to_be_downloaded[idx]["filepath"])
+                            if isinstance(path, BaseException):
                                 logger.error(
                                     "Failed to download file %s for project %s.",
                                     filename,
@@ -171,17 +198,25 @@ async def async_build(
                                 )
                                 continue
 
+                            filesize_in_mb = files_to_be_downloaded[idx]["file_size"] / (
+                                1024 * 1024
+                            )
+                            logger.debug(
+                                f"Processing result file '{filename}' "
+                                + f"({filesize_in_mb:,.2f} MB)"
+                            )
+
                             # contains all files extracted from archive
                             extracted_files = extract_archive(
-                                archive_path=path, extract_to=tmp_dir / "extracted"
+                                archive_path=path, extract_to=path.parent / "extracted"
                             )
 
                             interesting_files: dict[str, list[Path]] = {
-                                ext: [] for ext in FILETYPE_WHITELIST
+                                ext: [] for ext in FILETYPE_ALLOWLIST
                             }
                             for f in extracted_files:
                                 ext = os.path.splitext(str(f))[1]
-                                if ext in FILETYPE_WHITELIST:
+                                if ext in FILETYPE_ALLOWLIST:
                                     interesting_files[ext].append(f)
 
                             for mztab_file in interesting_files[".mztab"]:
@@ -191,24 +226,28 @@ async def async_build(
                             for mzid_file in interesting_files[".mzid"]:
                                 # Process mzID file
                                 try:
-                                    stats = import_mzid(mzid_file, project["accession"])
+                                    stats = import_mzid(db_engine, mzid_file, project["accession"])
                                     duration_str = (
                                         f"{stats.duration_seconds:.1f}s"
                                         if stats.duration_seconds is not None
                                         else "N/A"
                                     )
                                     logger.info(
-                                        f"Imported {stats.psm_count:,} PSMs from {mzid_file.name} "
-                                        f"({duration_str})"
+                                        f"Imported {stats.psm_count:,} PSMs from '{mzid_file.name}'"
+                                        f" ({duration_str})"
                                     )
                                 except MzidParseError as e:
                                     logger.warning(
-                                        f"Skipping malformed mzID file {mzid_file.name}: {e}"
+                                        f"Skipping malformed mzID file '{mzid_file.name}': {e}",
+                                        extra={
+                                            "mzid_file": str(mzid_file),
+                                            "project_accession": project["accession"],
+                                        },
                                     )
                                     continue
                                 except MzidImportError as e:
                                     logger.error(
-                                        f"Failed to import mzID file {mzid_file.name}: {e}",
+                                        f"Failed to import mzID file '{mzid_file.name}': {e}",
                                         exc_info=True,
                                         stack_info=True,
                                         extra={
@@ -220,15 +259,15 @@ async def async_build(
                                     continue
                             # TODO: add processing for other file types here
 
-                elif files["search"]:
-                    # TODO: support search files
-                    continue
-                else:
-                    logger.warning(
-                        "No results/search files found for project '%s' from backend %s.",
-                        project["accession"],
-                        backend_enum.name,
-                    )
+                    elif files["search"]:
+                        # TODO: support search files
+                        continue
+                    else:
+                        logger.warning(
+                            "No results/search files found for project '%s' from backend %s.",
+                            project["accession"],
+                            backend_enum.name,
+                        )
 
                 # TODO: set "complete" flag for project
 

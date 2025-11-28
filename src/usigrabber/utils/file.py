@@ -46,6 +46,16 @@ async def download_ftp(
             ) as client:
                 await client.download(parsed.path, str(out_path), write_into=True)
             return out_path
+        except ConnectionResetError:
+            if attempt > 1:
+                # first attempt often fails, so only log after 2nd attempt
+                logger.warning(
+                    f"FTP connection reset on attempt {attempt + 1}/{retries} for {url}",
+                )
+            if attempt < retries - 1:
+                await asyncio.sleep(delay)
+            else:
+                raise
         except Exception:
             logger.warning(
                 f"FTP download attempt {attempt + 1}/{retries} failed for {url}",
@@ -57,6 +67,16 @@ async def download_ftp(
                 raise
 
     raise RuntimeError("Unreachable: retry loop ended without returning or raising")
+
+
+async def download_ftp_with_semamphore(
+    semaphore: asyncio.Semaphore,
+    url: str,
+    out_dir: Path,
+) -> Path:
+    """Download a file from an FTP URL asynchronously with a semaphore."""
+    async with semaphore:
+        return await download_ftp(url, out_dir)
 
 
 def is_archive_file(path: Path) -> bool:
