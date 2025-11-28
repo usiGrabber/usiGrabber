@@ -26,6 +26,7 @@ logger = logging.getLogger(__name__)
 # empty string for folders (no extension)
 FILETYPE_ALLOWLIST = {".mzid", ""}
 
+MAX_FILESIZE_BYTES = 5 * 1024**3  # 5 GB
 PARALLEL_DOWNLOADS = int(os.getenv("PARALLEL_DOWNLOADS", "10"))
 
 
@@ -149,6 +150,16 @@ async def async_build(
                             # parse filename from file url
                             file_url = file["filepath"]
                             filename = os.path.basename(file_url)
+
+                            if file["file_size"] > MAX_FILESIZE_BYTES:
+                                logger.warning(
+                                    "Skipping file '%s' in project %s due to size (%.2f GiB > %.2f GiB).",
+                                    filename,
+                                    project["accession"],
+                                    file["file_size"] / (1024**3),
+                                    MAX_FILESIZE_BYTES / (1024**3),
+                                )
+                                continue
 
                             # find actual file extension, without archives
                             file_base, file_ext = os.path.splitext(filename)

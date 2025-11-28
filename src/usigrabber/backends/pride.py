@@ -14,8 +14,6 @@ from usigrabber.db import Project, ProjectCountry, ProjectKeyword, ProjectTag, R
 from usigrabber.db.schema import ProjectAffiliation, ProjectOtherOmicsLink
 from usigrabber.utils import get_cache_dir, logger, parse_date
 
-MAX_FILESIZE_BYTES = 5 * 1024**3  # 5 GB
-
 
 class PrideBackend(BaseBackend):
     BASE_URL: str = "https://www.ebi.ac.uk/pride/ws/archive/v3"
