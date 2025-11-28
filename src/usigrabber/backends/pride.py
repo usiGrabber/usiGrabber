@@ -15,6 +15,56 @@ from usigrabber.db.schema import ProjectAffiliation, ProjectOtherOmicsLink
 from usigrabber.utils import get_cache_dir, logger, parse_date
 
 
+def parse_cv_param(cv_data: dict) -> CVParam | None:
+    """Parse and validate a CV parameter from PRIDE project data.
+
+    Args:
+            cv_data: Dictionary containing CV parameter fields (accession, value)
+
+    Returns:
+            CVParam if validation succeeds, None otherwise
+    """
+    cv_accession = cv_data.get("accession")
+    if not isinstance(cv_accession, str):
+        logger.error(f"Pride CV Param accession is malformed: {cv_data}")
+        return None
+
+    cv_value = cv_data.get("value")
+    return CVParam(accession=cv_accession, value=cv_value)
+
+
+def parse_cv_tuple(cv_data: dict) -> CVTuple | None:
+    """Parse and validate a CV tuple from PRIDE project data.
+
+    Args:
+            cv_data: Dictionary containing 'key' and 'value' fields with CV parameters
+
+    Returns:
+            CVTuple if validation succeeds, None otherwise
+    """
+    if "key" not in cv_data or not isinstance(cv_data["key"], dict):
+        logger.warning(f"Pride CV Tuple (key) is malformed: {cv_data}")
+        return None
+    if "value" not in cv_data or not isinstance(cv_data["value"], dict):
+        logger.warning(f"Pride CV Tuple (value) is malformed: {cv_data}")
+        return None
+
+    if "accession" not in cv_data["key"]:
+        logger.warning(f"Pride CV Tuple key missing accession: {cv_data}")
+        return None
+    if "accession" not in cv_data["value"]:
+        logger.warning(f"Pride CV Tuple value missing accession: {cv_data}")
+        return None
+
+    key = CVParam(accession=cv_data["key"]["accession"], value=cv_data["key"].get("value"))
+    value = CVParam(
+        accession=cv_data["value"]["accession"],
+        value=cv_data["value"].get("value"),
+    )
+
+    return CVTuple(key, value)
+
+
 class PrideBackend(BaseBackend):
     BASE_URL: str = "https://www.ebi.ac.uk/pride/ws/archive/v3"
 
@@ -122,43 +172,33 @@ class PrideBackend(BaseBackend):
         async with CVInjector(project_accession, session) as injector:
             for json_key in cv_data_keys:
                 for cv_data in project_data.get(json_key, []):
-                    cv_term: str | None = None
-                    cv_term_value = None
-                    supperclass_cv_terms: list[str] = []
-
                     if cv_data.get("@type") == "Tuple":
-                        if "key" not in cv_data and not isinstance(cv_data["key"], dict):
-                            logger.warning(f"Pride CV Tuple (key) is malformed: {cv_data}")
+                        cv_tuple = parse_cv_tuple(cv_data)
+                        if cv_tuple is None:
                             continue
-                        if "value" not in cv_data and isinstance(cv_data["value"], dict):
-                            logger.warning(f"Pride CV Tuple (value) is malformed: {cv_data}")
-                            continue
-                        key = CVParam(
-                            term=cv_data["key"]["accession"], value=cv_data["key"].get("value")
-                        )
-                        value = CVParam(
-                            term=cv_data["value"]["accession"], value=cv_data["value"].get("value")
-                        )
-
-                        await injector.add(CVTuple(key, value))
+                        await injector.add(cv_tuple)
 
                     elif cv_data.get("@type") == "CvParam":
-                        cv_term = cv_data.get("accession")
-                        assert isinstance(cv_term, str)
+                        cv_param = parse_cv_param(cv_data)
+                        if cv_param is None:
+                            continue
+                        await injector.add(cv_param)
+
+                        superclass_cv_accessions: list[str] = []
                         try:
-                            superclasses = await ontology_helper.get_superclasses(cv_term)
-                            supperclass_cv_terms = [x.id for x in superclasses[1:]]
-                            cv_term_value = cv_data.get("value", None)
+                            superclasses = await ontology_helper.get_superclasses(
+                                cv_param.accession
+                            )
+                            superclass_cv_accessions = [x.id for x in superclasses[1:]]
                         except Exception:
                             logger.error(
-                                f"Failed to resolve super classes for term {cv_term}:",
+                                f"Failed to resolve super classes for accession "
+                                f"{cv_param.accession}:",
                                 exc_info=True,
                             )
 
-                    if cv_term is not None:
-                        await injector.add(CVParam(term=cv_term, value=cv_term_value))
-                        for x in supperclass_cv_terms:
-                            await injector.add(CVParam(term=x))
+                        for x in superclass_cv_accessions:
+                            await injector.add(CVParam(accession=x))
 
     @classmethod
     async def dump_project_to_db(cls, session: Session, project_data: dict[str, Any]) -> None:
@@ -217,5 +257,6 @@ class PrideBackend(BaseBackend):
             if link:
                 session.add(ProjectOtherOmicsLink(project_accession=project.accession, link=link))
 
+        # 8. CV Params
         if not os.getenv("NO_ONTOLOGY"):
             await cls._parse_and_add_cv_params(project.accession, session, project_data)
