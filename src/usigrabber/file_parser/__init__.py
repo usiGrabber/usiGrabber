@@ -20,7 +20,7 @@ __all__ = [
 ]
 
 
-def import_file(engine, path, project_accession):
+def import_file(engine, path, project_accession) -> ImportStats:
     """
     Generic file import function.
 

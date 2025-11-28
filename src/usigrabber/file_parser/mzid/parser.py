@@ -4,9 +4,17 @@ from pathlib import Path
 
 from pyteomics import mzid
 from pyteomics.auxiliary import PyteomicsError
+from sqlalchemy import insert
 from sqlalchemy.engine import Engine
 from sqlmodel import Session
 
+from usigrabber.db.schema import (
+    Peptide,
+    PeptideEvidence,
+    PeptideModification,
+    PeptideSpectrumMatch,
+    PSMPeptideEvidence,
+)
 from usigrabber.file_parser.base import BaseFileParser, register_parser
 from usigrabber.file_parser.errors import MzidImportError, MzidParseError
 from usigrabber.file_parser.models import ImportStats, ParsedMzidData
@@ -85,11 +93,19 @@ class MzidFileParser(BaseFileParser):
         try:
             with Session(engine) as session:
                 session.add(parsed.mzid_file)
-                session.add_all(parsed.peptides)
-                session.add_all(parsed.peptide_evidence)
-                session.add_all(parsed.psms)
-                session.add_all(parsed.psm_peptide_evidence_junctions)
-                session.add_all(parsed.peptide_modifications)
+                session.commit()
+                if parsed.peptides:
+                    session.execute(insert(Peptide), parsed.peptides)
+                if parsed.peptide_evidence:
+                    session.execute(insert(PeptideEvidence), parsed.peptide_evidence)
+                if parsed.psms:
+                    session.execute(insert(PeptideSpectrumMatch), parsed.psms)
+                if parsed.psm_peptide_evidence_junctions:
+                    session.execute(
+                        insert(PSMPeptideEvidence), parsed.psm_peptide_evidence_junctions
+                    )
+                if parsed.peptide_modifications:
+                    session.execute(insert(PeptideModification), parsed.peptide_modifications)
                 session.commit()
             logger.debug(f"Successfully imported mzID data for file '{stats.file_name}'")
         except Exception as e:
