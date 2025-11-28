@@ -65,16 +65,6 @@ class PrideBackend(BaseBackend):
                 search_files: list[FileMetadata] = []
                 result_files: list[FileMetadata] = []
                 for file_info in files_info:
-                    fileSizeBytes = file_info.get("fileSizeBytes", 0)
-                    if fileSizeBytes > MAX_FILESIZE_BYTES:
-                        logger.warning(
-                            "Skipping file %s in project %s due to size (%.2f GiB > %.2f GiB).",
-                            file_info.get("fileName"),
-                            project_accession,
-                            fileSizeBytes / (1024**3),
-                            MAX_FILESIZE_BYTES / (1024**3),
-                        )
-                        continue
                     category = file_info["fileCategory"]["value"]
                     ftp_link = None
                     for loc in file_info.get("publicFileLocations", []):
