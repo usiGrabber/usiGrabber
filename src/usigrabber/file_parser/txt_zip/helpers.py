@@ -2,8 +2,30 @@ from collections import defaultdict
 from pathlib import Path
 from string import digits
 
+from usigrabber.utils import logger
+
 
 def remove_brackets_before_index(s: str, cut_index: int) -> str:
+    """
+    Remove parentheses and their contents before a specified index in a string.
+    This function removes all opening and closing brackets that appear before
+    the specified cut_index position, along with any text contained within those
+    brackets. Text at or after the cut_index is preserved, even if it contains
+    brackets.
+    Args:
+        s (str): The input string to process.
+        cut_index (int): The index position before which brackets should be removed.
+                        Positions at or after this index are preserved.
+    Returns:
+        str: A new string with brackets and their contents removed from positions
+             before cut_index, while preserving all text from cut_index onwards.
+    Example:
+        >>> remove_brackets_before_index("hello(world)test", 5)
+        "hello(world)test"
+        >>> remove_brackets_before_index("(a)b(c)d", 5)
+        "b(c)d"
+    """
+
     result = []
     i = 0
     n = len(s)
@@ -21,7 +43,30 @@ def remove_brackets_before_index(s: str, cut_index: int) -> str:
     return "".join(result)
 
 
-def get_mods_with_positions(seq: str, mods: list[str]):
+def get_mods_with_positions(seq: str, mods: list[str]) -> tuple[dict[str, list[int]], str]:
+    """
+    Extract modifications and their positions from a sequence string.
+    This function searches for modifications (specified in the mods list) within a sequence string.
+    Each modification is expected to be enclosed in parentheses, e.g., "(MOD_NAME)".
+    The function identifies all occurrences of each modification, records their positions,
+    and removes them from the sequence.
+    Args:
+        seq (str): The sequence string containing modifications in the format "(MOD_NAME)".
+        mods (list[str]): A list of modification identifiers to search for in the sequence.
+    Returns:
+        tuple[dict[str, list[int]], str]: A tuple containing:
+            - A dictionary mapping each modification name to a list of positions where it was found.
+            - The cleaned sequence string with all modifications removed.
+    Example:
+        >>> seq = "ABC(MOD1)DEF(MOD2)GHI(MOD1)"
+        >>> mods = ["MOD1", "MOD2"]
+        >>> positions, clean_seq = get_mods_with_positions(seq, mods)
+        >>> positions
+        {'MOD1': [3, 10], 'MOD2': [7]}
+        >>> clean_seq
+        'ABCDEFGHI'
+    """
+
     mod_with_pos: dict[str, list[int]] = {mod: [] for mod in mods}
     for mod in mods:
         while seq.find(f"({mod})") != -1:
@@ -35,9 +80,31 @@ def get_mods_with_positions(seq: str, mods: list[str]):
 
 
 def get_residues_for_mods_with_positions(
-    seq: str, mods: list[str], mod_with_pos: dict[str, list[int]]
-):
-    mod_with_pos_residues: dict[str, list[tuple[int, str]]] = {mod: [] for mod in mods}
+    seq: str, mod_with_pos: dict[str, list[int]]
+) -> dict[str, list[tuple[int, str]]]:
+    """
+    Map modification types to their positions and corresponding residues in a sequence.
+    This function takes a sequence and modification data, then retrieves the amino acid
+    residue at each modification position. Special handling is applied for terminal
+    positions: position 0 represents the N-terminus (marked as 'N') and position equal
+    to sequence length represents the C-terminus (marked as 'C').
+    Args:
+        seq (str): The amino acid sequence.
+        mods (list[str]): List of modification types to initialize in the result dictionary.
+        mod_with_pos (dict[str, list[int]]): Dictionary mapping modification types to lists
+                                             of positions where they occur in the sequence.
+    Returns:
+        dict[str, list[tuple[int, str]]]: Dictionary mapping each modification type to a list
+                                          of tuples containing (position, residue) pairs.
+                                          Terminal residues are represented as 'N' for N-terminus
+                                          and 'C' for C-terminus.
+    Example:
+        >>> seq = "PEPTIDE"
+        >>> mod_with_pos = {"Phospho": [0, 4], "Acetyl": [7]}
+        >>> get_residues_for_mods_with_positions(seq, mods, mod_with_pos)
+        {'Phospho': [(0, 'N'), (4, 'T')], 'Acetyl': [(7, 'C')]}
+    """
+    mod_with_pos_residues: dict[str, list[tuple[int, str]]] = {mod: [] for mod in mod_with_pos}
 
     for mod, positions in mod_with_pos.items():
         for position in positions:
@@ -45,7 +112,7 @@ def get_residues_for_mods_with_positions(
             if position == 0:
                 residue = "N"
             elif position == len(seq):
-                residue = "T"
+                residue = "C"
             else:
                 residue = seq[position - 1 : position]
             mod_with_pos_residues[mod].append((position, residue))
@@ -56,6 +123,19 @@ def get_residues_for_mods_with_positions(
 def clear_mod_name(
     mods_with_pos_residues: dict[str, list[tuple[int, str]]],
 ) -> dict[str, list[tuple[int, str]]]:
+    """
+    Simplify modification names by removing additional details.
+    This function processes a dictionary mapping modification names to their positions
+    and corresponding residues. It simplifies each modification name by retaining only
+    the primary identifier (the substring before the first space) and constructs a new
+    dictionary with these simplified names.
+    Args:
+        mods_with_pos_residues (dict[str, list[tuple[int, str]]]): A dictionary mapping
+            full modification names to lists of (position, residue) tuples.
+    Returns:
+        dict[str, list[tuple[int, str]]]: A new dictionary mapping simplified modification
+            names to lists of (position, residue) tuples.
+    """
     modnames_with_pos_residues: dict[str, list[tuple[int, str]]] = {}
     for mod, position_residue in mods_with_pos_residues.items():
         clean_mod_name = mod.split(" ")[0]
@@ -64,16 +144,36 @@ def clear_mod_name(
 
 
 def extract_mods(sequence: str, mods: list[str]) -> dict[str, list[tuple[int, str]]]:
+    """
+    Extract and simplify modification data from a sequence string.
+    This function identifies modifications within a sequence string, retrieves their
+    positions and corresponding residues, and simplifies the modification names.
+    Args:
+        sequence (str): The sequence string containing modifications.
+        mods (list[str]): A list of modification identifiers to search for in the sequence.
+    Returns:
+        dict[str, list[tuple[int, str]]]: A dictionary mapping simplified modification
+            names to lists of (position, residue) tuples.
+    """
     seq = str(sequence).strip("_")
 
     mod_with_pos, seq = get_mods_with_positions(seq, mods)
-    mod_with_pos_residues = get_residues_for_mods_with_positions(seq, mods, mod_with_pos)
+    mod_with_pos_residues = get_residues_for_mods_with_positions(seq, mod_with_pos)
     modnames_with_pos_residues = clear_mod_name(mod_with_pos_residues)
 
     return modnames_with_pos_residues
 
 
 def clean_mod_list_of_numbers(mod_list: list[str]) -> list[str]:
+    """
+    Remove leading numbers and spaces from modification names in a list.
+    This function processes a list of modification names, stripping any leading
+    numeric characters and spaces from each name.
+    Args:
+        mod_list (list[str]): A list of modification names, potentially with leading numbers.
+    Returns:
+        list[str]: A new list of modification names with leading numbers and spaces removed.
+    """
     cleaned_mods = []
     for mod in mod_list:
         mod = str(mod)
@@ -82,6 +182,15 @@ def clean_mod_list_of_numbers(mod_list: list[str]) -> list[str]:
 
 
 def get_txt_triples(files: list[Path]):
+    """
+    Given a list of file paths, group them into triplets of
+    (evidence.txt, summary.txt, peptides.txt) based on their parent directory.
+    Args:
+        files (list[Path]): A list of file paths to process.
+    Returns:
+        list[tuple[Path, Path, Path]]: A list of triplets, each containing the paths
+            to evidence.txt, summary.txt, and peptides.txt files from the same directory.
+    """
     # group files by parent directory
     grouped = defaultdict(list)
     for f in files:
@@ -89,12 +198,17 @@ def get_txt_triples(files: list[Path]):
 
     triplets = []
 
-    for _, flist in grouped.items():
+    for parent, flist in grouped.items():
         evidence_files = [f for f in flist if f.name.endswith("evidence.txt")]
         summary_files = [f for f in flist if f.name.endswith("summary.txt")]
         peptides_files = [f for f in flist if f.name.endswith("peptides.txt")]
 
         if len(evidence_files) == 1 and len(summary_files) == 1 and len(peptides_files) == 1:
             triplets.append((evidence_files[0], summary_files[0], peptides_files[0]))
+        else:
+            logger.warning(
+                "Could not find a unique triplet of (evidence.txt, summary.txt, peptides.txt)"
+                f" in {parent}"
+            )
 
     return triplets

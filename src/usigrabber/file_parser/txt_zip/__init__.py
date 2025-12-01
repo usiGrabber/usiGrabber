@@ -15,7 +15,6 @@ from usigrabber.file_parser.txt_zip.parser import import_all_txt_zip, parse_txt_
 
 # Public API
 __all__ = [
-    # "ParsedMzidData",
     "parse_txt_zip",
     "import_all_txt_zip",
 ]

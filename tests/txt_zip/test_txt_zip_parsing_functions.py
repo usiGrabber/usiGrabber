@@ -7,6 +7,10 @@ from usigrabber.file_parser.txt_zip.parsing_functions import (
 
 
 def test_parse_peptides_basic(project2_evidence_df, project2_peptides_df):
+    """
+    Basic test for parse_peptides function to ensure it correctly parses
+    peptide sequences and modifications from provided DataFrames.
+    """
     peptide_id_map, peptide_mods, peptides = parse_peptides(
         project2_evidence_df, project2_peptides_df
     )
@@ -20,6 +24,10 @@ def test_parse_peptides_basic(project2_evidence_df, project2_peptides_df):
 
 
 def test_parse_peptides(project1_evidence_df, project1_peptides_df):
+    """
+    Comprehensive test for parse_peptides function to validate parsing logic
+    and data integrity.
+    """
     peptide_id_map, peptide_mods, peptides = parse_peptides(
         project1_evidence_df, project1_peptides_df
     )
@@ -34,6 +42,10 @@ def test_parse_peptides(project1_evidence_df, project1_peptides_df):
 
 
 def test_parse_peptide_evidence_basic(project2_peptides_df):
+    """
+    Basic test for parse_peptide_evidence function to ensure it correctly
+    parses peptide evidence from provided DataFrame.
+    """
     pe_id_map, peptide_evidence = parse_peptide_evidence(project2_peptides_df)
 
     assert len(peptide_evidence) > 0
@@ -55,6 +67,10 @@ def test_parse_peptide_evidence_basic(project2_peptides_df):
 
 
 def test_parse_peptide_evidence(project1_peptides_df):
+    """
+    Comprehensive test for parse_peptide_evidence function to validate
+    parsing logic and data integrity.
+    """
     pe_id_map, peptide_evidence = parse_peptide_evidence(project1_peptides_df)
 
     assert len(peptide_evidence) > 0
@@ -80,6 +96,10 @@ def test_parse_psms_basic(
     project2_summary_df,
     project2_peptides_df,
 ):
+    """
+    Basic test for parse_psms function to ensure it correctly parses
+    PSMs and related data from provided DataFrames.
+    """
     peptide_id_map, _, _ = parse_peptides(project2_evidence_df, project2_peptides_df)
     pe_id_map, _ = parse_peptide_evidence(project2_peptides_df)
 
@@ -105,6 +125,10 @@ def test_parse_psms(
     project1_summary_df,
     project1_peptides_df,
 ):
+    """
+    Comprehensive test for parse_psms function to validate parsing logic
+    and data integrity.
+    """
     peptide_id_map, _, _ = parse_peptides(project1_evidence_df, project1_peptides_df)
     pe_id_map, _ = parse_peptide_evidence(project1_peptides_df)
 
@@ -126,6 +150,10 @@ def test_parse_psms(
 
 
 def test_link_modifications_basic(project2_evidence_df, project2_peptides_df):
+    """
+    Basic test for link_modifications function to ensure it correctly
+    links peptide modifications to their respective peptides.
+    """
     _, peptide_mods, _ = parse_peptides(
         project2_evidence_df,
         project2_peptides_df,

@@ -23,9 +23,35 @@ from usigrabber.utils import lookup_unimod_id_by_name
 
 def parse_peptides(
     evidence: pd.DataFrame, peptides: pd.DataFrame
-) -> tuple[dict[str, uuid.UUID], dict[uuid.UUID, list[list[tuple[int, str, str]]]], list[Peptide]]:
+) -> tuple[dict[str, uuid.UUID], dict[uuid.UUID, dict[str, list[tuple[int, str]]]], list[Peptide]]:
+    """
+    Parse peptide data from evidence and peptides DataFrames and extract modification information.
+    This function processes two DataFrames (evidence and peptides) to create a comprehensive
+    peptide dataset with associated modifications. It maps peptide sequences to unique identifiers,
+    extracts modification details, and creates Peptide objects.
+    Args:
+        evidence (pd.DataFrame): DataFrame containing peptide evidence data with columns:
+            - "Sequence": Amino acid sequence of the peptide
+            - "Modifications": Comma-separated list of modifications applied to the peptide
+            - "Modified sequence": Sequence representation with modifications encoded
+        peptides (pd.DataFrame): DataFrame containing base peptide data with column:
+            - "Sequence": Amino acid sequence of the peptide
+    Returns:
+        tuple[dict[str, uuid.UUID],
+        dict[uuid.UUID, dict[str, list[tuple[int, str]]]], list[Peptide]]:
+            - peptide_id_map: Dictionary mapping peptide sequences to their unique UUID identifiers
+            - peptide_mods: Dictionary mapping peptide UUIDs to dict of modifications mapping to a
+              list of tuples (position, residue)
+            - peptides_batch: List of Peptide objects created from the peptides DataFrame
+    Raises:
+        None (implicitly handles missing data with defaults and empty DataFrames)
+    Note:
+        - Modifications marked as "Unmodified" are skipped
+        - Modification information is extracted from modified sequences and mod lists
+        - Multiple modifications for the same sequence are accumulated
+    """
     peptide_id_map: dict[str, uuid.UUID] = {}
-    peptide_mods: dict[uuid.UUID, list[list[tuple[int, str, str]]]] = {}
+    peptide_mods: dict[uuid.UUID, dict[str, list[tuple[int, str]]]] = {}
     peptides_batch: list[Peptide] = []
 
     evidence = evidence.get(
@@ -69,13 +95,35 @@ def parse_peptides(
                 for mod in mods:
                     for position_residues in mods[mod]:
                         mods_for_peptide.append((*position_residues, mod))
-                peptide_mods.setdefault(peptide.id, []).append(mods_for_peptide)
+                peptide_mods[peptide.id] = mods
 
     logger.debug(f"Created {len(peptides_batch)} peptide records")
     return peptide_id_map, peptide_mods, peptides_batch
 
 
 def parse_peptide_evidence(peptides: pd.DataFrame) -> tuple[dict[str, list[uuid.UUID]], list[Any]]:
+    """
+    Parse peptide evidence from peptides DataFrame.
+    This function processes a DataFrame containing peptide data to create peptide evidence
+    records. It maps peptide sequences to lists of peptide evidence UUIDs and creates
+    PeptideEvidence objects.
+    Args:
+        peptides (pd.DataFrame): DataFrame containing peptide data with columns:
+            - "Sequence": Amino acid sequence of the peptide
+            - "Amino acid before": Residue before the peptide in the protein sequence
+            - "Amino acid after": Residue after the peptide in the protein sequence
+            - "Proteins": Semicolon-separated list of protein accessions containing the peptide
+            - "Leading razor protein": The primary protein accession for the peptide
+            - "Start position": Start position of the peptide in the leading razor protein
+            - "End position": End position of the peptide in the leading razor protein
+    Returns:
+        tuple[dict[str, list[uuid.UUID]], list[PeptideEvidence]]:
+            - pe_id_map: Dictionary mapping peptide sequences to lists of peptide evidence UUIDs
+            - peptide_evidence_batch: List of PeptideEvidence objects created from the peptides
+                DataFrame
+    Raises:
+        None (implicitly handles missing data with defaults and empty DataFrames)
+    """
     pe_id_map: dict[str, list[uuid.UUID]] = {}
 
     peptide_evidence_batch = []
@@ -140,6 +188,34 @@ def parse_psms(
     peptide_id_map: dict[str, uuid.UUID],
     pe_id_map: dict[str, list[uuid.UUID]],
 ) -> tuple[list[PeptideSpectrumMatch], list[PSMPeptideEvidence], list[SearchModification]]:
+    """
+    Parse Peptide Spectrum Matches (PSMs) from evidence and summary DataFrames.
+    This function processes evidence and summary DataFrames to create PSM records,
+    link them to peptide evidence, and associate search modifications.
+    Args:
+        evidence (pd.DataFrame): DataFrame containing peptide evidence data with columns:
+            - "Sequence": Amino acid sequence of the peptide
+            - "Raw file": Identifier for the raw data file
+            - "Charge": Charge state of the peptide
+            - "m/z": Mass-to-charge ratio
+            - "Mass": Calculated mass of the peptide
+            - "MS/MS scan number": Scan number in the mass spectrometry data
+        summary (pd.DataFrame): DataFrame containing summary data with columns:
+            - "Raw file": Identifier for the raw data file
+            - "Variable modifications": Comma-separated list of variable modifications
+            - "Fixed modifications": Comma-separated list of fixed modifications
+        project_accession (str): Accession identifier for the project
+        peptide_id_map (dict[str, uuid.UUID]): Mapping of peptide sequences to their UUIDs
+        pe_id_map (dict[str, list[uuid.UUID]]): Mapping of peptide sequences to lists of peptide
+            evidence UUIDs
+    Returns:
+        tuple[list[PeptideSpectrumMatch], list[PSMPeptideEvidence], list[SearchModification]]:
+            - psm_batch: List of PeptideSpectrumMatch records
+            - junction_batch: List of PSMPeptideEvidence junction records
+            - search_mod_batch: List of SearchModification records
+    Raises:
+        None (implicitly handles missing data with defaults and empty DataFrames)
+    """
     psm_batch: list[PeptideSpectrumMatch] = []
     junction_batch: list[PSMPeptideEvidence] = []
     search_mod_batch: list[SearchModification] = []
@@ -223,19 +299,36 @@ def parse_psms(
 
 
 def link_modifications(
-    peptide_mods: dict[uuid.UUID, list[list[tuple[int, str, str]]]],
+    peptide_mods: dict[uuid.UUID, dict[str, list[tuple[int, str]]]],
 ) -> list[PeptideModification]:
+    """
+    Convert peptide modifications data into PeptideModification records.
+    This function processes a nested dictionary structure of peptide modifications
+    and creates individual PeptideModification objects for each modification entry.
+    Args:
+        peptide_mods: A nested dictionary mapping peptide UUIDs to modification data.
+                     Structure: {peptide_id: {mod_name: [(position, residue), ...]}}
+                     - peptide_id (uuid.UUID): Unique identifier for the peptide
+                     - mod_name (str): Name of the modification
+                     - position (int): Position of the modification in the peptide
+                     - residue (str): The modified amino acid residue
+    Returns:
+        list[PeptideModification]: A list of PeptideModification records, one for each
+                                  position-residue pair in the input data.
+    Raises:
+        KeyError: If a modification name cannot be found in the Unimod database.
+    """
     peptide_mod_batch: list[PeptideModification] = []
 
-    for peptide_id, mods_list in peptide_mods.items():
-        for mods in mods_list:
-            for position_residues_name in mods:
+    for peptide_id, mods_dict in peptide_mods.items():
+        for mod_name, positions_residues in mods_dict.items():
+            for position, residue in positions_residues:
                 modification_record = PeptideModification(
                     peptide_id=peptide_id,
-                    unimod_id=lookup_unimod_id_by_name(position_residues_name[2]),
-                    name=position_residues_name[2],
-                    position=position_residues_name[0],
-                    modified_residue=position_residues_name[1],
+                    unimod_id=lookup_unimod_id_by_name(mod_name),
+                    name=mod_name,
+                    position=position,
+                    modified_residue=residue,
                 )
                 peptide_mod_batch.append(modification_record)
 

@@ -12,6 +12,10 @@ from usigrabber.file_parser.txt_zip.helpers import (
 
 
 def test_remove_brackets_before_index():
+    """
+    Test for remove_brackets_before_index function to ensure it correctly
+    removes modification brackets before a specified index in a sequence string.
+    """
     modified_sequence = "(Acetyl (Protein N-term))ANAASGM(Oxidation (M))AVHDDCKLK"
     cleaned_sequence = remove_brackets_before_index(
         modified_sequence, modified_sequence.find("Oxidation (M)")
@@ -32,6 +36,10 @@ def test_remove_brackets_before_index():
 
 
 def test_get_mods_with_positions():
+    """
+    Test for get_mods_with_positions function to ensure
+    it correctly identifies modification positions within a sequence.
+    """
     seq = "(Acetyl (Protein N-term))ANAASGM(Oxidation (M))AVHDDCKLK"
     mods = ["Acetyl (Protein N-term)", "Oxidation (M)"]
     mod_with_pos, seq = get_mods_with_positions(seq, mods)
@@ -52,23 +60,31 @@ def test_get_mods_with_positions():
 
 
 def test_get_residues_for_mods_with_positions():
+    """
+    Test for get_residues_for_mods_with_positions function to ensure
+    it correctly maps modification types to their positions and corresponding residues.
+    """
     seq = (
         "(Acetyl (Protein N-term))ANAASGM(Oxidation (M))"
-        + "AVHDDC(Oxidation (M))KLK(Phospho (Protein T-term))"
+        + "AVHDDC(Oxidation (M))KLK(Phospho (Protein C-term))"
     )
-    mods = ["Acetyl (Protein N-term)", "Oxidation (M)", "Phospho (Protein T-term)"]
+    mods = ["Acetyl (Protein N-term)", "Oxidation (M)", "Phospho (Protein C-term)"]
     mod_with_pos, seq = get_mods_with_positions(seq, mods)
-    mod_with_pos_residues = get_residues_for_mods_with_positions(seq, mods, mod_with_pos)
+    mod_with_pos_residues = get_residues_for_mods_with_positions(seq, mod_with_pos)
     assert len(mod_with_pos_residues.keys()) == 3
     assert mod_with_pos_residues["Acetyl (Protein N-term)"][0][0] == 0
     assert mod_with_pos_residues["Acetyl (Protein N-term)"][0][1] == "N"
     assert mod_with_pos_residues["Oxidation (M)"][0][0] == 7
     assert mod_with_pos_residues["Oxidation (M)"][0][1] == "M"
-    assert mod_with_pos_residues["Phospho (Protein T-term)"][0][0] == 16
-    assert mod_with_pos_residues["Phospho (Protein T-term)"][0][1] == "T"
+    assert mod_with_pos_residues["Phospho (Protein C-term)"][0][0] == 16
+    assert mod_with_pos_residues["Phospho (Protein C-term)"][0][1] == "C"
 
 
 def test_clear_mod_name():
+    """
+    Test for clear_mod_name function to ensure it correctly
+    simplifies modification names by removing numerical prefixes.
+    """
     mods_with_pos_residues = {
         "Acetyl (Protein N-term)": [(0, "N")],
         "Oxidation (M)": [(7, "M"), (13, "M")],
@@ -85,6 +101,10 @@ def test_clear_mod_name():
 
 
 def test_extract_mods():
+    """
+    Test for extract_mods function to ensure correct extraction
+    and simplification of modification data from sequence strings.
+    """
     seq = "(Acetyl (Protein N-term))ANAASGM(Oxidation (M))AVHDDC(Oxidation (M))KLK"
     mods = ["Acetyl (Protein N-term)", "Oxidation (M)"]
     mod_dict = extract_mods(seq, mods)
@@ -96,6 +116,10 @@ def test_extract_mods():
 
 
 def test_clean_mod_list_of_numbers():
+    """
+    Test for clean_mod_list_of_numbers function to ensure
+    it correctly removes numerical prefixes from modification names.
+    """
     mod_list = ["Acetyl (Protein N-term)", "Oxidation (M)"]
     cleaned_mod_list = clean_mod_list_of_numbers(mod_list)
     assert cleaned_mod_list[0] == mod_list[0]
@@ -108,6 +132,10 @@ def test_clean_mod_list_of_numbers():
 
 
 def test_get_txt_triples():
+    """
+    Test for get_txt_triples function to ensure correct grouping
+    of txt files into evidence, summary, and peptides triples.
+    """
     files_ordered = [
         Path("tests/txt_zip/fixtures/project1/evidence.txt"),
         Path("tests/txt_zip/fixtures/project1/summary.txt"),
@@ -132,6 +160,12 @@ def test_get_txt_triples():
         Path("tests/txt_zip/fixtures/project2/evidence.txt"),
     ]
 
+    files_incomplete = [
+        Path("tests/txt_zip/fixtures/project1/evidence.txt"),
+        Path("tests/txt_zip/fixtures/project2/summary.txt"),
+        Path("tests/txt_zip/fixtures/project1/peptides.txt"),
+    ]
+
     txt_triple_ordered = get_txt_triples(files_ordered)
     txt_triple_shuffled = get_txt_triples(files_shuffled)
 
@@ -144,3 +178,6 @@ def test_get_txt_triples():
 
     for triple in txt_triple_shuffled:
         assert triple in txt_triple_ordered
+
+    txt_triple_incomplete = get_txt_triples(files_incomplete)
+    assert len(txt_triple_incomplete) == 0
