@@ -1,5 +1,3 @@
-from usigrabber.file_parser.mzid.helpers import IndexType
-
 """
 Tests for mzID helper functions
 
@@ -7,7 +5,8 @@ Unit tests for pure parsing helper functions with no database dependencies.
 Tests edge cases, error handling, and data transformations.
 """
 
-from usigrabber.file_parser.mzid.helpers import (
+from usigrabber.db.schema import IndexType
+from usigrabber.file_parser.helpers import (
     extract_index_type_and_number,
     extract_score_values,
     extract_unimod_id_and_name,

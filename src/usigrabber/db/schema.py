@@ -249,7 +249,7 @@ class PeptideSpectrumMatch(SQLModel, table=True):
         description="Optional: can be NULL for non-mzID sources",
     )
     peptide_id: uuid.UUID = Field(foreign_key="peptides.id", index=True)
-    spectrum_id: str = Field(index=True, description="Spectrum identifier/index")
+    spectrum_id: str | None = Field(index=True, description="Spectrum identifier/index")
     charge_state: int | None
     experimental_mz: float | None = Field(description="Experimental m/z value")
     calculated_mz: float | None = Field(description="Calculated m/z value")

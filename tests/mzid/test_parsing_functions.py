@@ -64,7 +64,7 @@ def test_parse_peptides(full_mzid_reader):
     assert len(peptides) > 0
     assert len(peptide_id_map) > 0
     assert len(peptide_mods) > 0
-    sequences = {p.sequence for p in peptides}
+    sequences = {p["sequence"] for p in peptides}
     assert "ELLTK" in sequences
     assert "VFVNR" in sequences
 
@@ -83,19 +83,19 @@ def test_parse_peptide_evidence_basic(full_mzid_reader):
 
     assert len(peptide_evidence) > 0
     assert len(pe_id_map) > 0
-    assert "P02768" in {pe.protein_accession for pe in peptide_evidence}
-    assert "P01009" in {pe.protein_accession for pe in peptide_evidence}
+    assert "P02768" in {pe["protein_accession"] for pe in peptide_evidence}
+    assert "P01009" in {pe["protein_accession"] for pe in peptide_evidence}
 
     assert len(pe_id_map) == len(peptide_evidence)
 
-    pe_with_positions = [pe for pe in peptide_evidence if pe.start_position is not None]
+    pe_with_positions = [pe for pe in peptide_evidence if pe["start_position"] is not None]
     assert len(pe_with_positions) > 0, "Some peptide evidence should have position info"
 
     for pe in pe_with_positions:
-        if pe.start_position is not None:
-            assert pe.start_position > 0, "Start position should be positive"
-            if pe.end_position is not None:
-                assert pe.end_position >= pe.start_position, (
+        if pe["start_position"] is not None:
+            assert pe["start_position"] > 0, "Start position should be positive"
+            if pe["end_position"] is not None:
+                assert pe["end_position"] >= pe["start_position"], (
                     "End position should be >= start position"
                 )
 
@@ -110,7 +110,7 @@ def test_parse_peptide_evidence_with_empty_db_map(full_mzid_reader):
     assert len(pe_id_map) == len(peptide_evidence)
 
     for pe in peptide_evidence:
-        assert pe.protein_accession is None
+        assert pe["protein_accession"] is None
 
 
 # ============================================================================
@@ -134,17 +134,18 @@ def test_link_modifications():
     mod_batch = link_modifications(mock_peptide_mods)
     assert len(mod_batch) == 3
 
-    mods_uuid1 = [mod for mod in mod_batch if mod.peptide_id == peptide1]
+    mods_uuid1 = [mod for mod in mod_batch if mod["peptide_id"] == peptide1]
     assert len(mods_uuid1) == 2
     assert any(
-        mod.position == 3 and mod.unimod_id == 35 and mod.name == "Oxidation" for mod in mods_uuid1
+        mod["position"] == 3 and mod["unimod_id"] == 35 and mod["name"] == "Oxidation"
+        for mod in mods_uuid1
     )
 
-    peptide2_mod = mod_batch[[mod.peptide_id for mod in mod_batch].index(peptide2)]
-    assert peptide2_mod.position == 1
-    assert peptide2_mod.unimod_id == 21
-    assert peptide2_mod.name == "Phospho"
-    assert peptide2_mod.modified_residue == "N"
+    peptide2_mod = mod_batch[[mod["peptide_id"] for mod in mod_batch].index(peptide2)]
+    assert peptide2_mod["position"] == 1
+    assert peptide2_mod["unimod_id"] == 21
+    assert peptide2_mod["name"] == "Phospho"
+    assert peptide2_mod["modified_residue"] == "N"
 
 
 # ============================================================================
