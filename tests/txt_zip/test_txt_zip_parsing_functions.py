@@ -18,6 +18,10 @@ def test_parse_peptides_basic(project2_evidence_df, project2_peptides_df):
     assert len(peptides) == 4
     assert len(peptide_id_map) == 4
     assert len(peptide_mods) == 4
+    mod_count = 0
+    for mods in peptide_mods.values():
+        mod_count += len(mods)
+    assert mod_count == 6
     sequences = {p.sequence for p in peptides}
     assert "AAAAAAAAAAAAGDSDSWDADTFSMEDPVR" in sequences
     assert "AAAAAAAAAAGDSDSWDADTFSMEDPVR" in sequences
@@ -35,6 +39,10 @@ def test_parse_peptides(project1_evidence_df, project1_peptides_df):
     assert len(peptides) == 1174
     assert len(peptide_id_map) == 1174
     assert len(peptide_mods) == 140
+    mod_count = 0
+    for mods in peptide_mods.values():
+        mod_count += len(mods)
+    assert mod_count == 148
     sequences = {p.sequence for p in peptides}
     assert "AAAALKGSDHR" in sequences
     assert "ALEYKDFDKFDR" in sequences

@@ -81,21 +81,22 @@ def parse_peptides(
 
         evidences = evidence_mod_map.get(sequence, set())
 
-        for modified_elem in evidences:
-            modifications = modified_elem[0]
+        all_mods: dict[str, list[tuple[int, str]]] = {}
+        for modifications, modified_sequence in evidences:
             if modifications:
                 if modifications == "Unmodified":
                     continue
-                mod_list: list[str] = modifications.split(",")
-                mod_list = clean_mod_list_of_numbers(mod_list)
-                modified_sequence = modified_elem[1]
+                mod_list: list[str] = clean_mod_list_of_numbers(modifications.split(","))
+                modified_sequence = modified_sequence
                 mods = extract_mods(modified_sequence, mod_list)
 
-                mods_for_peptide: list[tuple[int, str, str]] = []
-                for mod in mods:
-                    for position_residues in mods[mod]:
-                        mods_for_peptide.append((*position_residues, mod))
-                peptide_mods[peptide.id] = mods
+                for mod, mods_for_peptide in mods.items():
+                    if mod not in all_mods:
+                        all_mods[mod] = []
+                    all_mods[mod].extend([m for m in mods_for_peptide if m not in all_mods[mod]])
+
+        if all_mods:
+            peptide_mods[peptide.id] = all_mods
 
     logger.debug(f"Created {len(peptides_batch)} peptide records")
     return peptide_id_map, peptide_mods, peptides_batch

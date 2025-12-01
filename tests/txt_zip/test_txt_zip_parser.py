@@ -18,7 +18,7 @@ def test_txt_zip_parser_basic():
     parsed_data = parse_txt_zip(evidence_path, summary_path, peptides_path, mock_project_accession)
 
     assert len(parsed_data.peptides) == 4
-    assert len(parsed_data.peptide_modifications) == 5
+    assert len(parsed_data.peptide_modifications) == 6
     assert len(parsed_data.peptide_evidence) == 4
     assert len(parsed_data.psms) == 17
     assert len(parsed_data.psm_peptide_evidence_junctions) == 17
@@ -58,7 +58,7 @@ def test_txt_zip_parser():
     # =========================================================================
 
     assert len(peptide_modifications) > 0, "Should parse peptide modifications from the file"
-    assert len(peptide_modifications) == 147, "Expected 147 peptide modifications"
+    assert len(peptide_modifications) == 151, "Expected 151 peptide modifications"
 
     # Find a specific modified peptide
     # peptides.txt, line 673 + evidence.txt line 1145:
