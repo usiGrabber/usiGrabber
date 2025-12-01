@@ -9,7 +9,6 @@ returning the appropriate data structures.
 import logging
 import os
 import uuid
-import xml.etree.ElementTree as ET
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -32,6 +31,15 @@ from usigrabber.file_parser.mzid.helpers import (
     parse_modification_location,
 )
 from usigrabber.utils.file import parse_basename
+
+try:
+    from lxml import etree as ET  # pyright: ignore
+
+    print("running with lxml.etree")
+except ImportError:
+    import xml.etree.ElementTree as ET  # ruff: ignore
+
+    print("running with Python's xml.etree.ElementTree")
 
 logger = logging.getLogger(__name__)
 
@@ -71,6 +79,9 @@ def parse_spectra_data(mzid_path: Path) -> dict[str, tuple[str, IndexType | None
     """
     Parse SpectraData information to extract MS run name and SpectrumIDFormat.
 
+    Uses lxml.etree.iterparse to stream the mzIdentML file instead of
+    building a full DOM tree.
+
     Args:
         mzid_path: Path to the mzIdentML file
 
@@ -79,20 +90,24 @@ def parse_spectra_data(mzid_path: Path) -> dict[str, tuple[str, IndexType | None
     """
     spectra_data_dict: dict[str, tuple[str, IndexType | None]] = {}
 
+    # mzIdentML 1.1 namespace
+    ns = {"mzid": "http://psidev.info/psi/pi/mzIdentML/1.1"}
+    spectra_data_tag = f"{{{ns['mzid']}}}SpectraData"
+
     try:
-        tree = ET.parse(mzid_path)
-        root = tree.getroot()
+        # iterparse yields (event, element) pairs as it goes through the file
+        # we only care about 'end' events so the element subtree is complete
+        for _, elem in ET.iterparse(str(mzid_path), events=("end",)):
+            if elem.tag != spectra_data_tag:
+                # Not a <SpectraData> element; skip
+                continue
 
-        # Define namespace (mzIdentML uses the 1.1 namespace)
-        ns = {"mzid": "http://psidev.info/psi/pi/mzIdentML/1.1"}
+            spectra_data = elem
 
-        # Find all SpectraData elements
-        spectra_data_elements = root.findall(".//mzid:SpectraData", ns)
-
-        for spectra_data in spectra_data_elements:
             # Extract the 'id' attribute as key
             spectra_id = spectra_data.get("id")
             if not spectra_id:
+                spectra_data.clear()
                 continue
 
             # Extract the 'name' attribute (used as MS run identifier)
@@ -100,11 +115,14 @@ def parse_spectra_data(mzid_path: Path) -> dict[str, tuple[str, IndexType | None
             ms_run_name = spectra_data.get("name") or spectra_data.get("location")
             if not ms_run_name:
                 logger.warning(
-                    "SpectraData element with id '%s' has no 'name' or 'location' attribute. File: %s",
+                    "SpectraData element with id '%s' has no 'name' "
+                    + "or 'location' attribute. File: %s",
                     spectra_id,
                     mzid_path.name,
                 )
+                spectra_data.clear()
                 continue
+
             basename = parse_basename(ms_run_name)
             ms_run_name, ext = os.path.splitext(basename)
 
@@ -124,6 +142,7 @@ def parse_spectra_data(mzid_path: Path) -> dict[str, tuple[str, IndexType | None
                     spectra_id,
                     mzid_path.name,
                 )
+                spectra_data.clear()
                 continue
 
             spectra_data_dict[spectra_id] = (
@@ -131,8 +150,11 @@ def parse_spectra_data(mzid_path: Path) -> dict[str, tuple[str, IndexType | None
                 get_spectrum_id_format(cv_param=spectrum_id_format),
             )
 
+            # Free memory for this subtree now that we're done with it
+            spectra_data.clear()
+
     except ET.ParseError as e:
-        logger.error(f"Failed to parse SpectraData from XML: {e}")
+        logger.error("Failed to parse SpectraData from XML '%s': %s", mzid_path, e)
 
     return spectra_data_dict
 
