@@ -180,8 +180,8 @@ def parse_peptides(
     peptides_batch: list[dict] = []
 
     for peptide_elem in reader.iterfind("Peptide"):
-        mzid_peptide_id = peptide_elem.get("id", "")
-        sequence = peptide_elem.get("PeptideSequence", "")
+        mzid_peptide_id: str = peptide_elem.get("id", "")
+        sequence: str = peptide_elem.get("PeptideSequence", "")
         if not mzid_peptide_id or not sequence:
             logger.warning(f"Skipping invalid Peptide element: {peptide_elem}")
             continue
@@ -195,7 +195,9 @@ def parse_peptides(
         peptides_batch.append(peptide_dict)
         peptide_id_map[mzid_peptide_id] = pep_id
 
-        modifications = peptide_elem.get("Modification")
+        modifications: dict[str, Any] | list[dict[str, Any]] | None = peptide_elem.get(
+            "Modification"
+        )
         if modifications:
             if not isinstance(modifications, list):
                 modifications = [modifications]
