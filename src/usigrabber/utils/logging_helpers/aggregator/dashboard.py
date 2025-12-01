@@ -4,6 +4,13 @@ Live dashboard for displaying aggregated metrics to console.
 
 import sys
 
+from usigrabber.utils.logging_helpers.aggregator.filters import (
+    ConnectionEventFilter,
+    DownloadEventFilter,
+    EventFilter,
+    LevelFilter,
+    SuccessfulDownloadsFilter,
+)
 from usigrabber.utils.logging_helpers.aggregator.renderers import CategoryRenderer
 
 
@@ -82,19 +89,19 @@ def create_default_dashboard() -> tuple[list, list[CategoryRenderer]]:
         AverageRenderer,
         CategoryRenderer,
         CountRenderer,
+        DatabasePoolRenderer,
         ErrorRateRenderer,
         OpenConnectionsRenderer,
+        SessionMemoryRenderer,
     )
     from usigrabber.utils.logging_helpers.aggregator.running_aggregator import (
         AddErrorFlag,
         AnalyticsPipeline,
         Average,
-        ConnectionEventFilter,
         Counter,
         ErrorRate,
-        EventFilter,
+        LatestValue,
         OpenConnectionsTracker,
-        SuccessfulDownloadsFilter,
     )
 
     # ========== Create Pipelines with Renderers ==========
@@ -109,7 +116,7 @@ def create_default_dashboard() -> tuple[list, list[CategoryRenderer]]:
 
     ftp_error_rate = AnalyticsPipeline(
         name="ftp_error_rate",
-        filters=[],
+        filters=[DownloadEventFilter()],
         apply_ops=[AddErrorFlag()],
         aggregate_op=ErrorRate("host"),
         renderer=ErrorRateRenderer(),
@@ -155,6 +162,14 @@ def create_default_dashboard() -> tuple[list, list[CategoryRenderer]]:
         renderer=CountRenderer(show_breakdown=True),
     )
 
+    projects_skipped = AnalyticsPipeline(
+        name="project_skipped",
+        filters=[EventFilter("project_skipped")],
+        apply_ops=[],
+        aggregate_op=Counter("backend"),
+        renderer=CountRenderer(show_breakdown=True),
+    )
+
     projects_failed = AnalyticsPipeline(
         name="projects_failed",
         filters=[EventFilter("project_failed")],
@@ -179,6 +194,46 @@ def create_default_dashboard() -> tuple[list, list[CategoryRenderer]]:
         renderer=CountRenderer(show_breakdown=True),
     )
 
+    warnings = AnalyticsPipeline(
+        name="warnings by module",
+        filters=[LevelFilter("warning")],
+        apply_ops=[],
+        aggregate_op=Counter("name"),
+        renderer=CountRenderer(show_breakdown=True),
+    )
+
+    session_memory_before_commit = AnalyticsPipeline(
+        name="session_memory_before_commit",
+        filters=[EventFilter("session_memory_before_commit")],
+        apply_ops=[],
+        aggregate_op=LatestValue("project_accession", ["identity_map_size"]),
+        renderer=SessionMemoryRenderer(),
+    )
+
+    session_memory_after_expunge = AnalyticsPipeline(
+        name="session_memory_after_expunge",
+        filters=[EventFilter("session_memory_after_expire")],
+        apply_ops=[],
+        aggregate_op=LatestValue("project_accession", ["identity_map_size"]),
+        renderer=SessionMemoryRenderer(),
+    )
+
+    db_pool_status_start = AnalyticsPipeline(
+        name="db_pool_status_start",
+        filters=[EventFilter("db_pool_status_start")],
+        apply_ops=[],
+        aggregate_op=LatestValue("event", ["pool_size", "checked_in", "checked_out", "overflow"]),
+        renderer=DatabasePoolRenderer(),
+    )
+
+    db_pool_status_end = AnalyticsPipeline(
+        name="db_pool_status_end",
+        filters=[EventFilter("db_pool_status_end")],
+        apply_ops=[],
+        aggregate_op=LatestValue("event", ["pool_size", "checked_in", "checked_out", "overflow"]),
+        renderer=DatabasePoolRenderer(),
+    )
+
     pipelines = [
         ftp_avg_response,
         ftp_error_rate,
@@ -186,15 +241,38 @@ def create_default_dashboard() -> tuple[list, list[CategoryRenderer]]:
         http_cache_hits,
         http_avg_response,
         open_connections,
+        projects_skipped,
         projects_completed,
         projects_failed,
         mzid_files_imported,
         errors_by_type,
+        warnings,
+        session_memory_before_commit,
+        session_memory_after_expunge,
+        db_pool_status_start,
+        db_pool_status_end,
     ]
 
     # ========== Create Categories ==========
 
     categories = [
+        CategoryRenderer(
+            title="📋 Project Progress",
+            pipelines=[
+                ("projects_completed", projects_completed.renderer),
+                ("project_skipped", projects_skipped.renderer),
+                ("projects_failed", projects_failed.renderer),
+            ],
+        ),
+        CategoryRenderer(
+            title="💾 Memory & Database",
+            pipelines=[
+                ("session_memory_before_commit", session_memory_before_commit.renderer),
+                ("session_memory_after_expunge", session_memory_after_expunge.renderer),
+                ("db_pool_status_start", db_pool_status_start.renderer),
+                ("db_pool_status_end", db_pool_status_end.renderer),
+            ],
+        ),
         CategoryRenderer(
             title="📥 FTP Downloads",
             pipelines=[
@@ -217,22 +295,16 @@ def create_default_dashboard() -> tuple[list, list[CategoryRenderer]]:
             ],
         ),
         CategoryRenderer(
-            title="📋 Project Progress",
-            pipelines=[
-                ("projects_completed", projects_completed.renderer),
-                ("projects_failed", projects_failed.renderer),
-            ],
-        ),
-        CategoryRenderer(
             title="📄 Data Imported",
             pipelines=[
                 ("mzid_files_imported", mzid_files_imported.renderer),
             ],
         ),
         CategoryRenderer(
-            title="⚠️  Errors",
+            title="⚠️  Errors and Warnings",
             pipelines=[
                 ("errors_by_type", errors_by_type.renderer),
+                ("warnings by module", warnings.renderer),
             ],
         ),
     ]

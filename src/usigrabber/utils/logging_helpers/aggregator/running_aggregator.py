@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from copy import deepcopy
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -32,59 +33,6 @@ class AggregateOperation(ABC):
 
 
 # ==================== Filter Operations ====================
-
-
-class EventFilter(FilterOperation):
-    """Filter rows by event type."""
-
-    def __init__(self, event: str) -> None:
-        self._event = event
-
-    def apply(self, row: dict) -> bool:
-        return row.get("event") == self._event
-
-
-class SuccessfulDownloadsFilter(FilterOperation):
-    """Filter only successful download events."""
-
-    def apply(self, row: dict) -> bool:
-        return row.get("event") == "download_success"
-
-
-class FailedDownloadsFilter(FilterOperation):
-    """Filter only failed download events."""
-
-    def apply(self, row: dict) -> bool:
-        return row.get("event") == "download_failure"
-
-
-class HostFilter(FilterOperation):
-    """Filter rows by specific host."""
-
-    def __init__(self, host: str) -> None:
-        self._host = host
-
-    def apply(self, row: dict) -> bool:
-        return row.get("host") == self._host
-
-
-class ConnectionEventFilter(FilterOperation):
-    """Filter connection open/close events."""
-
-    def apply(self, row: dict) -> bool:
-        return row.get("event") in ("connection_open", "connection_close")
-
-
-class ProjectEventFilter(FilterOperation):
-    """Filter project-related events."""
-
-    def apply(self, row: dict) -> bool:
-        return row.get("event") in (
-            "project_start",
-            "project_completed",
-            "project_failed",
-            "project_skipped",
-        )
 
 
 # ==================== Apply Operations ====================
@@ -126,17 +74,22 @@ class Average(AggregateOperation):
         self._group_by_field = group_by_field
 
     def get_group_key(self, row: dict) -> str:
-        return str(row.get(self._group_by_field, "unknown"))
+        if self._group_by_field not in row:
+            raise KeyError(f"Required field '{self._group_by_field}' missing from row")
+        return str(row[self._group_by_field])
 
     def apply(self, existing_row: dict | None, new_row: dict) -> dict:
+        if self._average_field not in new_row:
+            raise KeyError(f"Required field '{self._average_field}' missing from row")
+
         if existing_row:
             n = existing_row["_average_n"]
             average = existing_row["_average"]
-            new_value = new_row.get(self._average_field, 0)
+            new_value = new_row[self._average_field]
             new_row["_average"] = (average * n + new_value) / (n + 1)
             new_row["_average_n"] = n + 1
         else:
-            new_row["_average"] = new_row.get(self._average_field, 0)
+            new_row["_average"] = new_row[self._average_field]
             new_row["_average_n"] = 1
         return new_row
 
@@ -144,12 +97,14 @@ class Average(AggregateOperation):
 class Counter(AggregateOperation):
     """Count occurrences, grouped by a key."""
 
-    def __init__(self, group_by_field: str = "host") -> None:
+    def __init__(self, group_by_field: str) -> None:
         super().__init__()
         self._group_by_field = group_by_field
 
     def get_group_key(self, row: dict) -> str:
-        return str(row.get(self._group_by_field, "unknown"))
+        if self._group_by_field not in row:
+            raise KeyError(f"Required field '{self._group_by_field}' missing from row")
+        return str(row[self._group_by_field])
 
     def apply(self, existing_row: dict | None, new_row: dict) -> dict:
         if existing_row:
@@ -167,15 +122,20 @@ class ErrorRate(AggregateOperation):
         self._group_by_field = group_by_field
 
     def get_group_key(self, row: dict) -> str:
-        return str(row.get(self._group_by_field, "unknown"))
+        if self._group_by_field not in row:
+            raise KeyError(f"Required field '{self._group_by_field}' missing from row")
+        return str(row[self._group_by_field])
 
     def apply(self, existing_row: dict | None, new_row: dict) -> dict:
+        if "is_error" not in new_row:
+            raise KeyError("Required field 'is_error' missing from row")
+
         if existing_row:
             new_row["_total"] = existing_row["_total"] + 1
-            new_row["_errors"] = existing_row["_errors"] + (1 if new_row.get("is_error") else 0)
+            new_row["_errors"] = existing_row["_errors"] + (1 if new_row["is_error"] else 0)
         else:
             new_row["_total"] = 1
-            new_row["_errors"] = 1 if new_row.get("is_error") else 0
+            new_row["_errors"] = 1 if new_row["is_error"] else 0
 
         new_row["_error_rate"] = (
             (new_row["_errors"] / new_row["_total"] * 100) if new_row["_total"] > 0 else 0
@@ -194,11 +154,15 @@ class OpenConnectionsTracker(AggregateOperation):
         self._group_by_field = group_by_field
 
     def get_group_key(self, row: dict) -> str:
-        return str(row.get(self._group_by_field, "unknown"))
+        if self._group_by_field not in row:
+            raise KeyError(f"Required field '{self._group_by_field}' missing from row")
+        return str(row[self._group_by_field])
 
     def apply(self, existing_row: dict | None, new_row: dict) -> dict:
-        event = new_row.get("event")
+        if "event" not in new_row:
+            raise KeyError("Required field 'event' missing from row")
 
+        event = new_row["event"]
         current_open = existing_row.get("_open_connections", 0) if existing_row else 0
 
         # Increment on open, decrement on close
@@ -210,6 +174,31 @@ class OpenConnectionsTracker(AggregateOperation):
             new_row["_open_connections"] = current_open
 
         return new_row
+
+
+class LatestValue(AggregateOperation):
+    """
+    Captures the latest value for specified fields, grouped by a key.
+    Useful for tracking current state like pool stats or session memory.
+    """
+
+    def __init__(self, group_by_field: str, capture_fields: list[str]) -> None:
+        super().__init__()
+        self._group_by_field = group_by_field
+        self._capture_fields = capture_fields
+
+    def get_group_key(self, row: dict) -> str:
+        if self._group_by_field not in row:
+            raise KeyError(f"Required field '{self._group_by_field}' missing from row")
+        return str(row[self._group_by_field])
+
+    def apply(self, existing_row: dict | None, new_row: dict) -> dict:
+        # Simply overwrite with latest values
+        result = existing_row.copy() if existing_row else {}
+        for field in self._capture_fields:
+            if field in new_row:
+                result[field] = new_row[field]
+        return result
 
 
 class AnalyticsPipeline:
@@ -241,26 +230,46 @@ class AnalyticsPipeline:
         self.aggregate_op = aggregate_op
         self.renderer = renderer
         self._aggregated_data: dict[str, dict] = {}  # group_key -> aggregated_row
+        self._errors: list[str] = []  # Track processing errors
+        self._rows_processed = 0
+        self._rows_filtered = 0
 
     def process_row(self, row: dict) -> None:
         """Process a single log row through the pipeline."""
-        # Step 1: Filter
-        for filter_op in self.filters:
-            if not filter_op.apply(row):
-                return  # Row filtered out
+        try:
+            self._rows_processed += 1
 
-        # Step 2: Apply transformations
-        for apply_op in self.apply_ops:
-            row = apply_op.apply(row)
+            # Step 1: Filter
+            for filter_op in self.filters:
+                if not filter_op.apply(row):
+                    self._rows_filtered += 1
+                    return  # Row filtered out
 
-        # Step 3: Aggregate
-        group_key = self.aggregate_op.get_group_key(row)
-        existing = self._aggregated_data.get(group_key)
-        self._aggregated_data[group_key] = self.aggregate_op.apply(existing, row)
+            # Step 2: Apply transformations
+            for apply_op in self.apply_ops:
+                row = apply_op.apply(row)
+
+            # Step 3: Aggregate
+            group_key = self.aggregate_op.get_group_key(row)
+            existing = self._aggregated_data.get(group_key)
+            self._aggregated_data[group_key] = self.aggregate_op.apply(existing, row)
+        except Exception as e:
+            error_msg = f"Error processing row in pipeline '{self.name}': {type(e).__name__}: {e}"
+            self._errors.append(error_msg)
 
     def get_results(self) -> dict[str, dict]:
         """Get current aggregated results."""
         return self._aggregated_data.copy()
+
+    def get_stats(self) -> dict[str, int | list[str]]:
+        """Get pipeline processing statistics."""
+        return {
+            "rows_processed": self._rows_processed,
+            "rows_filtered": self._rows_filtered,
+            "rows_matched": self._rows_processed - self._rows_filtered,
+            "result_count": len(self._aggregated_data),
+            "errors": self._errors.copy(),
+        }
 
 
 class RunningLogAggregator:
@@ -344,11 +353,11 @@ class RunningLogAggregator:
         for log_file in log_files:
             new_lines = self._read_new_lines(log_file)
             for line in new_lines:
-                log_entry = self._parse_json_line(line)
+                log_entry = deepcopy(self._parse_json_line(line))
                 if log_entry:
                     # Process through all registered pipelines
                     for pipeline in self._pipelines.values():
-                        pipeline.process_row(log_entry.copy())
+                        pipeline.process_row(log_entry)
 
     def get_pipeline_results(self, pipeline_name: str) -> dict[str, dict]:
         """Get results from a specific pipeline."""
@@ -360,3 +369,39 @@ class RunningLogAggregator:
     def get_all_metrics(self) -> dict[str, dict[str, dict]]:
         """Get results from all pipelines."""
         return {name: pipeline.get_results() for name, pipeline in self._pipelines.items()}
+
+    def get_all_stats(self) -> dict[str, dict[str, int | list[str]]]:
+        """Get stats from all pipelines."""
+        return {name: pipeline.get_stats() for name, pipeline in self._pipelines.items()}
+
+    def get_loaded_log_files(self) -> list[dict[str, str | int]]:
+        """
+        Get information about loaded log files.
+
+        Returns:
+            List of dicts containing file path, name, size, and line count info
+        """
+        import glob
+        import os
+
+        pattern = os.path.join(self._log_dir, "application-*.jsonl")
+        log_files = glob.glob(pattern)
+
+        file_info = []
+        for log_file in sorted(log_files):
+            try:
+                stat = os.stat(log_file)
+                file_name = os.path.basename(log_file)
+                file_info.append(
+                    {
+                        "path": log_file,
+                        "name": file_name,
+                        "size": stat.st_size,
+                        "position": self._file_positions.get(log_file, 0),
+                    }
+                )
+            except Exception:
+                # Skip files that can't be accessed
+                continue
+
+        return file_info

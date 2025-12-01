@@ -26,6 +26,9 @@ dependencies = [
     "better-exceptions>=0.3.3",
     "cachetools>=6.2.2",
     "enlighten>=1.14.1",
+    "fastapi>=0.115.0",
+    "uvicorn>=0.32.0",
+    "sqlalchemy[asyncio]>=2.0.44",
 ]
 
 [project.scripts]

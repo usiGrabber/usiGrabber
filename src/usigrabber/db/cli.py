@@ -161,7 +161,7 @@ def info(echo_sql: bool = False):
     console.print(f"\nTotal tables: {len(table_names)}")
 
     # Get record counts for main tables
-    with Session(engine) as session:
+    with Session(bind=engine) as session:
         from sqlalchemy import func
 
         counts = {
@@ -196,7 +196,7 @@ def info(echo_sql: bool = False):
     console.print(table)
 
     # Show sample project if available
-    with Session(engine) as session:
+    with Session(bind=engine) as session:
         project = session.exec(select(Project).limit(1)).first()
         if project:
             console.print("\n🔬 Sample Project:", style="bold")

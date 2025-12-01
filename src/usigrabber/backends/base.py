@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 from collections.abc import AsyncGenerator
 from typing import Any, TypedDict
 
-from sqlmodel import Session
+from sqlalchemy import Engine
 
 
 class FileMetadata(TypedDict):
@@ -50,6 +50,17 @@ class BaseBackend(ABC):
 
     @classmethod
     @abstractmethod
+    async def get_project_by_accession(cls, accession: str) -> dict[str, Any]:
+        """
+        Retrieve a single project by its accession.
+
+        :param accession: The project accession to retrieve.
+        :return: A dictionary containing project metadata.
+        """
+        ...
+
+    @classmethod
+    @abstractmethod
     async def get_files_for_project(cls, project_accession: str) -> Files:
         """
         Retrieve file information for a specific project.
@@ -60,7 +71,7 @@ class BaseBackend(ABC):
 
     @classmethod
     @abstractmethod
-    async def dump_project_to_db(cls, session: Session, project_data: dict[str, Any]) -> None:
+    async def dump_project_to_db(cls, engine: Engine, project_data: dict[str, Any]) -> None:
         """
         Dump project data into the database.
         """

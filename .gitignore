@@ -33,3 +33,6 @@ report.xml
 temp_test_data
 
 logs/
+profile_results/
+performance/
+memray-

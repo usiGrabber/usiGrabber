@@ -32,7 +32,7 @@ def seed_minimal_data(engine: Engine) -> None:
     - Keywords, tags, countries
     """
 
-    with Session(engine) as session:
+    with Session(bind=engine) as session:
         # 1. Create Projects
         project1 = Project(
             accession="PXD000001",

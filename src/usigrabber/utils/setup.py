@@ -64,7 +64,7 @@ def system_setup(is_main_process: bool, logger_name: str | None = None):
     terminal_handler.setFormatter(CustomColorFormatter(use_colors=True))
     if not is_main_process:
         terminal_handler.addFilter(ConsoleFilter())
-    terminal_handler.addFilter(ExponentialBackoffFilter())
+    # terminal_handler.addFilter(ExponentialBackoffFilter())
 
     # Handler for plain text file output (without colors)
     process_suffix = "main" if is_main_process else os.getpid()

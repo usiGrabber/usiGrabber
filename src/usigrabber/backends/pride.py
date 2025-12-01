@@ -6,6 +6,7 @@ import ijson
 import requests
 from async_http_client import AsyncHttpClient
 from ontology_resolver.ontology_helper import OntologyHelper
+from sqlalchemy.engine.base import Engine
 from sqlmodel import Session
 
 from usigrabber.backends.base import BaseBackend, FileMetadata, Files
@@ -68,54 +69,57 @@ class PrideBackend(BaseBackend):
                     yield project
 
     @classmethod
+    async def get_project_by_accession(cls, accession: str) -> dict[str, Any]:
+        """
+        Retrieve a single project by its accession.
+
+        :param accession: The project accession to retrieve.
+        :return: A dictionary containing project metadata.
+        """
+        url = f"{cls.BASE_URL}/projects/{accession}"
+        async with AsyncHttpClient() as client:
+            project_data = await client.get(url, parse_json=True)
+            return project_data
+
+    @classmethod
     async def get_files_for_project(
         cls,
         project_accession: str,
     ) -> Files:
         url = f"{cls.BASE_URL}/projects/{project_accession}/files/all"
         async with AsyncHttpClient() as client:
-            response = await client.get_response(url)
-            if response.status == 200:
-                files_info = await response.json()
-                search_files: list[FileMetadata] = []
-                result_files: list[FileMetadata] = []
-                for file_info in files_info:
-                    category = file_info["fileCategory"]["value"]
-                    ftp_link = None
-                    for loc in file_info.get("publicFileLocations", []):
-                        if loc.get("name") == "FTP Protocol":
-                            ftp_link = loc.get("value")
-                            break
-                    if not ftp_link:
-                        logger.warning(
-                            "No FTP link found for file %s in project %s. Skipping.",
-                            file_info.get("fileName"),
-                            project_accession,
-                        )
-                        continue
-
-                    file = FileMetadata(
-                        {
-                            "filepath": ftp_link,
-                            "category": category,
-                            "file_size": file_info.get("fileSizeBytes"),
-                        }
+            files_info = await client.get(url, parse_json=True)
+            search_files: list[FileMetadata] = []
+            result_files: list[FileMetadata] = []
+            for file_info in files_info:
+                category = file_info["fileCategory"]["value"]
+                ftp_link = None
+                for loc in file_info.get("publicFileLocations", []):
+                    if loc.get("name") == "FTP Protocol":
+                        ftp_link = loc.get("value")
+                        break
+                if not ftp_link:
+                    logger.warning(
+                        "No FTP link found for file %s in project %s. Skipping.",
+                        file_info.get("fileName"),
+                        project_accession,
                     )
+                    continue
 
-                    if category == "SEARCH":
-                        search_files.append(file)
-                    elif category == "RESULT":
-                        result_files.append(file)
-
-                return Files(search=search_files, result=result_files)
-            else:
-                logger.error(
-                    "Could not retrieve files for accession %s: %s %s",
-                    project_accession,
-                    response.status_code,
-                    response.reason,
+                file = FileMetadata(
+                    {
+                        "filepath": ftp_link,
+                        "category": category,
+                        "file_size": file_info.get("fileSizeBytes"),
+                    }
                 )
-                return Files(search=[], result=[])
+
+                if category == "SEARCH":
+                    search_files.append(file)
+                elif category == "RESULT":
+                    result_files.append(file)
+
+            return Files(search=search_files, result=result_files)
 
     @classmethod
     async def _parse_and_add_cv_params(
@@ -176,61 +180,81 @@ class PrideBackend(BaseBackend):
                             await injector.add(CVParam(term=x))
 
     @classmethod
-    async def dump_project_to_db(cls, session: Session, project_data: dict[str, Any]) -> None:
+    async def dump_project_to_db(cls, engine: Engine, project_data: dict[str, Any]) -> None:
+        # Debug: Verify engine type before creating session
+        from sqlalchemy.engine.base import Engine as SQLAlchemyEngine
+
+        if not isinstance(engine, SQLAlchemyEngine):
+            error_msg = f"Expected Engine but got {type(engine).__name__}"
+            logger.error(error_msg)
+            raise TypeError(error_msg)
+
         # 1. Create Project
-        project = Project(
-            accession=project_data["accession"],
-            title=project_data["title"],
-            projectDescription=project_data.get("projectDescription"),
-            sampleProcessingProtocol=project_data.get("sampleProcessingProtocol"),
-            dataProcessingProtocol=project_data.get("dataProcessingProtocol"),
-            doi=project_data.get("doi"),
-            submissionType=project_data["submissionType"],
-            license=project_data.get("license"),
-            submissionDate=parse_date(project_data.get("submissionDate")),
-            publicationDate=parse_date(project_data.get("publicationDate")),
-            totalFileDownloads=project_data.get("totalFileDownloads", 0),
-            sampleAttributes=project_data.get("sampleAttributes"),
-            additionalAttributes=project_data.get("additionalAttributes"),
-        )
-        session.add(project)
-
-        # 2. References
-        for ref_data in project_data.get("references", []):
-            reference = Reference(
-                project_accession=project.accession,
-                referenceLine=ref_data.get("referenceLine"),
-                pubmedID=ref_data.get("pubmedID"),
-                doi=ref_data.get("doi"),
+        with Session(bind=engine) as session:
+            project = Project(
+                accession=project_data["accession"],
+                title=project_data["title"],
+                projectDescription=project_data.get("projectDescription"),
+                sampleProcessingProtocol=project_data.get("sampleProcessingProtocol"),
+                dataProcessingProtocol=project_data.get("dataProcessingProtocol"),
+                doi=project_data.get("doi"),
+                submissionType=project_data["submissionType"],
+                license=project_data.get("license"),
+                submissionDate=parse_date(project_data.get("submissionDate")),
+                publicationDate=parse_date(project_data.get("publicationDate")),
+                totalFileDownloads=project_data.get("totalFileDownloads", 0),
+                sampleAttributes=project_data.get("sampleAttributes"),
+                additionalAttributes=project_data.get("additionalAttributes"),
             )
-            session.add(reference)
+            session.add(project)
+            session.flush()
 
-        # 3. Keywords
-        for keyword in project_data.get("keywords", []):
-            if keyword:  # Skip empty strings
-                session.add(ProjectKeyword(project_accession=project.accession, keyword=keyword))
-
-        # 4. Tags
-        for tag in project_data.get("projectTags", []):
-            if tag:
-                session.add(ProjectTag(project_accession=project.accession, tag=tag))
-
-        # 5. Countries
-        for country in project_data.get("countries", []):
-            if country:
-                session.add(ProjectCountry(project_accession=project.accession, country=country))
-
-        # 6. Affiliations
-        for affiliation in project_data.get("affiliations", []):
-            if affiliation:
-                session.add(
-                    ProjectAffiliation(project_accession=project.accession, affiliation=affiliation)
+            # 2. References
+            for ref_data in project_data.get("references", []):
+                reference = Reference(
+                    project_accession=project.accession,
+                    referenceLine=ref_data.get("referenceLine"),
+                    pubmedID=ref_data.get("pubmedID"),
+                    doi=ref_data.get("doi"),
                 )
+                session.add(reference)
 
-        # 7. Other Omics Links
-        for link in project_data.get("otherOmicsLinks", []):
-            if link:
-                session.add(ProjectOtherOmicsLink(project_accession=project.accession, link=link))
+            # 3. Keywords
+            for keyword in project_data.get("keywords", []):
+                if keyword:  # Skip empty strings
+                    session.add(
+                        ProjectKeyword(project_accession=project.accession, keyword=keyword)
+                    )
 
-        if not os.getenv("NO_ONTOLOGY"):
-            await cls._parse_and_add_cv_params(project.accession, session, project_data)
+            # 4. Tags
+            for tag in project_data.get("projectTags", []):
+                if tag:
+                    session.add(ProjectTag(project_accession=project.accession, tag=tag))
+
+            # 5. Countries
+            for country in project_data.get("countries", []):
+                if country:
+                    session.add(
+                        ProjectCountry(project_accession=project.accession, country=country)
+                    )
+
+            # 6. Affiliations
+            for affiliation in project_data.get("affiliations", []):
+                if affiliation:
+                    session.add(
+                        ProjectAffiliation(
+                            project_accession=project.accession, affiliation=affiliation
+                        )
+                    )
+
+            # 7. Other Omics Links
+            for link in project_data.get("otherOmicsLinks", []):
+                if link:
+                    session.add(
+                        ProjectOtherOmicsLink(project_accession=project.accession, link=link)
+                    )
+
+            if not os.getenv("NO_ONTOLOGY"):
+                await cls._parse_and_add_cv_params(project.accession, session, project_data)
+
+            session.commit()

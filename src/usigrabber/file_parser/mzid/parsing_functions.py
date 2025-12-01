@@ -397,3 +397,109 @@ def link_modifications(
 
     logger.debug(f"Created {len(peptide_mod_batch)} peptide modification records")
     return peptide_mod_batch
+
+
+def parse_psms_streaming(
+    reader: mzid.MzIdentML,
+    project_accession: str,
+    mzid_file_id: uuid.UUID,
+    peptide_id_map: dict[str, uuid.UUID],
+    pe_id_map: dict[str, uuid.UUID],
+    batch_size: int = 10000,
+):
+    """
+    Generator that yields batches of PSMs and junctions for streaming processing.
+
+    This avoids loading all PSMs into memory at once, enabling processing
+    of arbitrarily large mzID files.
+
+    Args:
+        reader: MzIdentML reader instance
+        project_accession: PRIDE project accession
+        mzid_file_id: Database ID of the MzidFile record
+        peptide_id_map: Mapping from mzID peptide IDs to database Peptide.id
+        pe_id_map: Mapping from mzID peptide evidence IDs to database PeptideEvidence.id
+        batch_size: Number of PSMs to accumulate before yielding
+
+    Yields:
+        Tuple of (psm_batch, junction_batch) when batch_size is reached or at end
+    """
+    psm_batch: list[PeptideSpectrumMatch] = []
+    junction_batch: list[PSMPeptideEvidence] = []
+    total_psms = 0
+
+    for sir in reader.iterfind("SpectrumIdentificationResult"):
+        spectrum_id: str = sir.get("spectrumID", "")
+
+        # Extract USI-related fields from the SpectrumIdentificationResult
+        index_type, index_number, ms_run = extract_usi_fields(sir)
+
+        # Get list of spectrum identification items (PSMs)
+        sii_list: dict[str, Any] | list[dict[str, Any]] = sir.get("SpectrumIdentificationItem", [])
+        if not isinstance(sii_list, list):
+            sii_list = [sii_list]
+
+        for sii in sii_list:
+            # Look up database peptide ID
+            peptide_ref: str = sii.get("peptide_ref", "")
+            db_peptide_id: uuid.UUID | None = peptide_id_map.get(peptide_ref)
+
+            if not db_peptide_id:
+                logger.warning(f"Peptide_ref '{peptide_ref}' not found in map")
+                continue
+
+            # Extract score values using helper function
+            score_values: dict[str, float] = extract_score_values(sii)
+
+            # Create PSM record
+            psm = PeptideSpectrumMatch(
+                project_accession=project_accession,
+                mzid_file_id=mzid_file_id,
+                peptide_id=db_peptide_id,
+                spectrum_id=spectrum_id,
+                charge_state=sii.get("chargeState", None),
+                experimental_mz=sii.get("experimentalMassToCharge", None),
+                calculated_mz=sii.get("calculatedMassToCharge", None),
+                score_values=score_values if score_values else None,
+                rank=sii.get("rank", None),
+                pass_threshold=sii.get("passThreshold", None),
+                index_type=index_type,
+                index_number=index_number,
+                ms_run=ms_run,
+            )
+
+            psm_batch.append(psm)
+            total_psms += 1
+
+            # Link PSM to peptide evidence via junction table
+            pe_refs: dict[str, Any] | list[dict[str, Any]] = sii.get("PeptideEvidenceRef", [])
+            if not isinstance(pe_refs, list):
+                pe_refs = [pe_refs]
+            for pe_ref in pe_refs:
+                pe_ref_id: str = pe_ref.get("peptideEvidence_ref", "")
+                db_pe_id: uuid.UUID | None = pe_id_map.get(pe_ref_id)
+
+                if db_pe_id:
+                    junction = PSMPeptideEvidence(
+                        psm_id=psm.id,
+                        peptide_evidence_id=db_pe_id,
+                    )
+                    junction_batch.append(junction)
+
+            # Yield batch when size reached
+            if len(psm_batch) >= batch_size:
+                logger.debug(
+                    f"Yielding batch of {len(psm_batch)} PSMs and {len(junction_batch)} junctions"
+                )
+                yield psm_batch, junction_batch
+                psm_batch = []
+                junction_batch = []
+
+    # Yield remaining records
+    if psm_batch:
+        logger.debug(
+            f"Yielding final batch of {len(psm_batch)} PSMs and {len(junction_batch)} junctions"
+        )
+        yield psm_batch, junction_batch
+
+    logger.debug(f"Parsed {total_psms} PSMs total using streaming")

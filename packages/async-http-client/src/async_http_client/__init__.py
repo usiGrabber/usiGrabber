@@ -162,8 +162,11 @@ class AsyncHttpClient:
                 },
             )
 
-            if response.content_type == "application/json" or parse_json:
+            if response.content_type == "application/json":
                 return await response.json()
+            elif parse_json:
+                # Force JSON parsing even if content type is incorrect (e.g., from cache)
+                return await response.json(content_type=None)
             else:
                 return await response.text()
 

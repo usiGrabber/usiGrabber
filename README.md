@@ -82,7 +82,43 @@ Copy this file to `.env` and modify the settings as needed.
 
 Example mzIdentML (.mzid) files for testing and development can be obtained from the HUPO-PSI mzIdentML repository: https://github.com/HUPO-PSI/mzIdentML/tree/master/examples
 
-### Memory Profiling
+## Performance Profiling
+
+USI Grabber includes a dedicated profiling command for benchmarking and optimization:
+
+```bash
+# Quick start: Profile a single project with all metrics
+./profile_with_memray.sh PXD000001
+
+# Or without memray (CPU profiling only)
+uv run usigrabber profile PXD000001
+```
+
+This generates:
+- **CPU profile** (pyinstrument) - identify performance bottlenecks
+- **Memory profile** (memray) - track memory allocations
+- **Dashboard snapshot** - all metrics from the run
+- **JSON metrics** - benchmark data for comparisons
+
+### Compare Optimization Attempts
+
+```bash
+# Baseline
+./profile_with_memray.sh PXD000001 --output-dir baseline
+
+# Make code changes, then profile again
+./profile_with_memray.sh PXD000001 --output-dir optimized
+
+# Compare results
+python3 scripts/compare_profiles.py baseline optimized
+```
+
+See [PROFILING.md](./PROFILING.md) for detailed documentation and [PROFILING_QUICKSTART.md](./PROFILING_QUICKSTART.md) for quick reference.
+
+### Legacy Memory Profiling
 ```bash
 memray run -follow-fork --output track.bin src/usigrabber/__init__.py build --reset --max-workers 2
 ```
+
+### Multiprocessing
+- Kill old python processes: `kill -9 $(pgrep -f python3)`
