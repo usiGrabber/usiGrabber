@@ -18,7 +18,7 @@ from usigrabber.db.schema import (
 from usigrabber.file_parser.base import BaseFileParser, register_parser
 from usigrabber.file_parser.errors import MzidImportError, MzidParseError
 from usigrabber.file_parser.models import ImportStats, ParsedMzidData
-from usigrabber.file_parser.parsing_functions import (
+from usigrabber.file_parser.mzid.parsing_functions import (
     link_modifications,
     parse_db_sequences,
     parse_mzid_metadata,

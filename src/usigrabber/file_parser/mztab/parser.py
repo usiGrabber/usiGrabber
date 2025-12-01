@@ -10,7 +10,7 @@ from usigrabber.db.schema import Peptide, PeptideSpectrumMatch
 from usigrabber.file_parser.base import BaseFileParser, register_parser
 from usigrabber.file_parser.errors import MztabImportError, MztabParseError
 from usigrabber.file_parser.models import ImportStats, ParsedMztabData
-from usigrabber.file_parser.parsing_functions import extract_mztab_data
+from usigrabber.file_parser.mztab.parsing_functions import extract_mztab_data
 
 logger = logging.getLogger(__name__)
 
