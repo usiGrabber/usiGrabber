@@ -15,7 +15,8 @@ from usigrabber.backends.base import FileMetadata
 from usigrabber.cli import app
 from usigrabber.db import Project, create_db_and_tables, load_db_engine
 from usigrabber.db.cli import reset as db_reset
-from usigrabber.file_parser import MzidImportError, MzidParseError, import_mzid
+from usigrabber.file_parser import import_file
+from usigrabber.file_parser.errors import FileParserError
 from usigrabber.utils import get_cache_dir
 from usigrabber.utils.file import download_ftp_with_semamphore, extract_archive, temporary_path
 
@@ -24,7 +25,7 @@ STANDARD_BACKENDS = [enum for enum in BackendEnum]
 logger = logging.getLogger(__name__)
 
 # empty string for folders (no extension)
-FILETYPE_ALLOWLIST = {".mzid", ""}
+FILETYPE_ALLOWLIST = {".mzid", "", ".mztab"}
 
 PARALLEL_DOWNLOADS = int(os.getenv("PARALLEL_DOWNLOADS", "10"))
 
@@ -219,42 +220,36 @@ async def async_build(
                                 if ext in FILETYPE_ALLOWLIST:
                                     interesting_files[ext].append(f)
 
-                            # access files based on priority
-                            for mzid_file in interesting_files[".mzid"]:
-                                # Process mzID file
-                                try:
-                                    stats = import_mzid(db_engine, mzid_file, project["accession"])
-                                    duration_str = (
-                                        f"{stats.duration_seconds:.1f}s"
-                                        if stats.duration_seconds is not None
-                                        else "N/A"
-                                    )
-                                    logger.info(
-                                        f"Imported {stats.psm_count:,} PSMs from '{mzid_file.name}'"
-                                        f" ({duration_str})"
-                                    )
-                                except MzidParseError as e:
-                                    logger.warning(
-                                        f"Skipping malformed mzID file '{mzid_file.name}': {e}",
-                                        extra={
-                                            "mzid_file": str(mzid_file),
-                                            "project_accession": project["accession"],
-                                        },
-                                    )
-                                    continue
-                                except MzidImportError as e:
-                                    logger.error(
-                                        f"Failed to import mzID file '{mzid_file.name}': {e}",
-                                        exc_info=True,
-                                        stack_info=True,
-                                        extra={
-                                            "mzid_file": str(mzid_file),
-                                            "project_accession": project["accession"],
-                                        },
-                                    )
-                                    errors += 1
-                                    continue
-                            # TODO: add processing for other file types here
+                            for _, flist in interesting_files.items():
+                                for file in flist:
+                                    try:
+                                        stats = import_file(
+                                            db_engine,
+                                            file,
+                                            project["accession"],
+                                        )
+                                        duration_str = (
+                                            f"{stats.duration_seconds:.1f}s"
+                                            if stats.duration_seconds is not None
+                                            else "N/A"
+                                        )
+                                        logger.info(
+                                            f"Imported {stats.psm_count:,} PSMs from '{file.name}'"
+                                            f" ({duration_str})"
+                                        )
+                                        exit()
+                                    except FileParserError as e:
+                                        logger.error(
+                                            f"Failed to import file '{file.name}': {e}",
+                                            exc_info=True,
+                                            stack_info=True,
+                                            extra={
+                                                "file": str(file),
+                                                "project_accession": project["accession"],
+                                            },
+                                        )
+                                        errors += 1
+                                        continue
 
                     elif files["search"]:
                         # TODO: support search files

@@ -1,36 +1,38 @@
 {
-  "version": "0.2.0",
-  "configurations": [
-    {
-      "name": "Build database",
-      "type": "debugpy",
-      "request": "launch",
-      "program": "${workspaceFolder}/src/usigrabber/__init__.py",
-      "args": [
-        "build",
-        "--debug" // technically optional due to envvar, but explicit is better
-        // "--reset", // reset the database before building
-      ],
-      "cwd": "${workspaceFolder}",
-      "console": "integratedTerminal",
-      "justMyCode": true,
-      "env": {
-        "DEBUG": "1",
-        "LOGLEVEL": "DEBUG",
-        //"DB_ECHO_SQL": "1",
-        "DB_URL": "sqlite://", // in-memory database for testing
-        "NO_ONTOLOGY": "1" // disable ontology lookup for faster testing
-      }
-    },
-    {
-      "name": "Python Debugger: pytest",
-      "type": "debugpy",
-      "request": "launch",
-      "program": "${file}",
-      "purpose": ["debug-test"],
-      "cwd": "${workspaceFolder}",
-      "console": "integratedTerminal",
-      "justMyCode": false
-    }
-  ]
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Build database",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/src/usigrabber/__init__.py",
+            "args": [
+                "build",
+                "--debug" // technically optional due to envvar, but explicit is better
+                // "--reset", // reset the database before building
+            ],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "env": {
+                "DEBUG": "1",
+                "LOGLEVEL": "DEBUG",
+                //"DB_ECHO_SQL": "1",
+                "DB_URL": "sqlite://", // in-memory database for testing
+                "NO_ONTOLOGY": "1" // disable ontology lookup for faster testing
+            }
+        },
+        {
+            "name": "Python Debugger: pytest",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${file}",
+            "purpose": [
+                "debug-test"
+            ],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "justMyCode": false
+        }
+    ]
 }
