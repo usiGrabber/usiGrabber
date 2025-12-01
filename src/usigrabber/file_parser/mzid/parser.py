@@ -32,8 +32,13 @@ logger = logging.getLogger(__name__)
 
 @register_parser
 class MzidFileParser(BaseFileParser):
-    file_extensions = {".mzid"}
-    format_name = "mzIdentML"
+    @property
+    def file_extensions(self) -> set[str]:
+        return {".mzid"}
+
+    @property
+    def format_name(self) -> str:
+        return "mzIdentML"
 
     def parse_file(self, path: Path, project_accession: str) -> ParsedMzidData:
         """Parse the mzID file into ParsedMzidData."""

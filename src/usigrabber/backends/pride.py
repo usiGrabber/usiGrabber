@@ -83,7 +83,7 @@ class PrideBackend(BaseBackend):
         file_path = get_cache_dir() / "pride" / "all_projects.json"
         is_debug = os.getenv("DEBUG")
         if is_debug:
-            file_path = get_cache_dir() / "pride" / "PXD005152.json"
+            file_path = get_cache_dir() / "pride" / "sampled_projects.json"
 
         # if file doesnt exist, download it
         if not file_path.exists():

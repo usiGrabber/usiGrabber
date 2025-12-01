@@ -1,11 +1,13 @@
 import logging
 import uuid
 
+import pandas as pd
 from pyteomics import mztab
 
 logger = logging.getLogger(__name__)
 
 
+# pyright: ignore[reportAttributeAccessIssue]
 def extract_mztab_data(
     file: mztab.MzTab,
     project_accession: str,
@@ -18,10 +20,10 @@ def extract_mztab_data(
 
     pep_cache: dict[str, uuid.UUID] = {}  # sequence → peptide_uuid
 
-    table = file.spectrum_match_table
+    table = pd.DataFrame(file.spectrum_match_table)
 
     for row in table.itertuples(index=False):
-        seq = row.sequence
+        seq = row.sequence  # pyright: ignore[reportAttributeAccessIssue]
 
         # Deduplicate peptide sequences
         if seq not in pep_cache:
@@ -42,9 +44,9 @@ def extract_mztab_data(
                 "mzid_file_id": None,
                 "peptide_id": pep_cache[seq],
                 "spectrum_id": None,
-                "charge_state": row.charge,
-                "experimental_mz": row.exp_mass_to_charge,
-                "calculated_mz": row.calc_mass_to_charge,
+                "charge_state": row.charge,  # pyright: ignore[reportAttributeAccessIssue]
+                "experimental_mz": row.exp_mass_to_charge,  # pyright: ignore[reportAttributeAccessIssue]
+                "calculated_mz": row.calc_mass_to_charge,  # pyright: ignore[reportAttributeAccessIssue]
                 "score_values": None,
                 "rank": None,
                 "pass_threshold": None,

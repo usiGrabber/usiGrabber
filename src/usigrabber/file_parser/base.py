@@ -2,10 +2,13 @@
 
 from abc import ABC, abstractmethod
 from pathlib import Path
+from typing import Any
 
 from sqlalchemy.engine import Engine
 
-from usigrabber.file_parser.models import ImportStats
+from usigrabber.file_parser.models import (  # Import models
+    ImportStats,
+)
 
 PARSER_REGISTRY = {}
 
@@ -40,7 +43,7 @@ class BaseFileParser(ABC):
         pass
 
     @abstractmethod
-    def parse_file(self, path: Path, project_accession: str):
+    def parse_file(self, path: Path, project_accession: str) -> Any:
         """
         Parse the given file and return the parsed data structure.
         """
