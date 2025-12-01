@@ -240,7 +240,7 @@ async def async_build(
 
                 if not (files["result"] or files["search"] or files["other"]):
                     logger.warning(
-                        f"No results/search files found for project '{project['accession']}'"
+                        f"No files found for project '{project['accession']}'"
                         f"from backend {backend_enum.name}.",
                     )
                 elif not main_source_type:
