@@ -43,7 +43,7 @@ def import_files(engine, paths, project_accession, logger) -> bool:
     if file_ext == ".txt":
         try:
             file_stats = import_file(engine, paths, file_ext, project_accession)
-            log_info(logger, file_stats, paths[0].name)
+            log_info(logger, file_stats, file_ext)
         except FileParserError as e:
             logger.error(
                 f"Failed to import '{file_ext}' files: {e}",
