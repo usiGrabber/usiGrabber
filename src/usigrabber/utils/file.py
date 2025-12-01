@@ -187,6 +187,7 @@ def extract_archive(
 async def get_interesting_files(
     files: list[FileMetadata], accession: str, tmp_dir: Path
 ) -> dict[str, list[Path]]:
+    all_files: dict[str, list[FileMetadata]] = {ext: [] for ext in FILETYPE_ALLOWLIST}
     interesting_files: dict[str, list[Path]] = {ext: [] for ext in FILETYPE_ALLOWLIST}
     files_to_be_downloaded: list[FileMetadata] = []
     for file in files:
@@ -206,7 +207,9 @@ async def get_interesting_files(
             logger.debug(f"Skipping file {filename} as it is not interesting.")
             continue
 
-        files_to_be_downloaded.append(file)
+        all_files[file_ext].append(file)
+
+    files_to_be_downloaded = get_files_for_download(all_files)
 
     if len(files_to_be_downloaded) == 0:
         logger.warning(
@@ -249,6 +252,45 @@ async def get_interesting_files(
             if ext in FILETYPE_ALLOWLIST:
                 interesting_files[ext].append(f)
     return interesting_files
+
+
+def get_files_for_download(
+    all_files: dict[str, list[FileMetadata]],
+) -> list[FileMetadata]:
+    """
+    From the available files, select the best candidates for download.
+
+    Preference order:
+    1. .mzid files
+    2. .mzTab files
+    2. txt.zip and .txt files
+
+    Args:
+        all_files: Dictionary mapping file extensions to lists of FileMetadata
+
+    Returns:
+        List of FileMetadata objects selected for download
+    """
+    files_to_download: list[FileMetadata] = []
+
+    # 1. Prefer .mzid files
+    if all_files.get(".mzid", []):
+        return all_files[".mzid"]
+
+    # 2. Next prefer .mzTab files
+    elif all_files.get(".mzTab", []):
+        return all_files[".mzTab"]
+
+    # 3. Next prefer txt.zip/.txt files
+    else:
+        txt_zip_files = [
+            f for f in all_files.get("", []) if f["filepath"].lower().endswith("txt.zip")
+        ]
+        txt_files = all_files.get(".txt", [])
+        if txt_zip_files or txt_files:
+            return txt_zip_files + txt_files
+
+    return files_to_download
 
 
 @contextmanager

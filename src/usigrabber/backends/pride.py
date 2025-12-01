@@ -83,12 +83,12 @@ class PrideBackend(BaseBackend):
         file_path = get_cache_dir() / "pride" / "all_projects.json"
         is_debug = os.getenv("DEBUG")
         if is_debug:
-            file_path = get_cache_dir() / "pride" / "debug_projects.json"
-
+            file_name = os.getenv("DEBUG_PROJECTS_FILENAME", "sampled_projects.json")
+            file_path = get_cache_dir() / "pride" / file_name
         # if file doesnt exist, download it
         if not file_path.exists():
             if is_debug:
-                raise FileNotFoundError("Sampled projects file not found in cache directory.")
+                raise FileNotFoundError(f"Debug projects file: {file_path} not found.")
 
             url = f"{cls.BASE_URL}/projects/all"
 

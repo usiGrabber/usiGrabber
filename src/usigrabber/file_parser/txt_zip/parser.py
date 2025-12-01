@@ -3,14 +3,26 @@ from pathlib import Path
 
 import pandas as pd
 from pandas.core.frame import DataFrame
-from sqlalchemy.engine.base import Engine
+from sqlalchemy import insert
+from sqlalchemy.engine import Engine
 from sqlalchemy.exc import SQLAlchemyError
 from sqlmodel import Session
 
-from usigrabber.file_parser.errors import TxtZipImportError, TxtZipParseError
-from usigrabber.file_parser.models import ImportStats
-from usigrabber.file_parser.txt_zip.helpers import get_txt_triples
-from usigrabber.file_parser.txt_zip.models import ParsedTxtZipData
+from usigrabber.db.schema import (
+    Peptide,
+    PeptideEvidence,
+    PeptideModification,
+    PeptideSpectrumMatch,
+    PSMPeptideEvidence,
+)
+from usigrabber.file_parser.base import BaseFileParser, register_parser
+from usigrabber.file_parser.errors import (
+    MzidImportError,
+    TxtZipImportError,
+    TxtZipParseError,
+)
+from usigrabber.file_parser.helpers import get_txt_triples
+from usigrabber.file_parser.models import ImportStats, ParsedTxtZipData
 from usigrabber.file_parser.txt_zip.parsing_functions import (
     link_modifications,
     parse_peptide_evidence,
@@ -19,6 +31,64 @@ from usigrabber.file_parser.txt_zip.parsing_functions import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+@register_parser
+class TxtZipParser(BaseFileParser):
+    @property
+    def file_extensions(self) -> set[str]:
+        return {".txt"}
+
+    @property
+    def format_name(self) -> str:
+        return "txt"
+
+    def parse_file(self, path, project_accession: str) -> list[ParsedTxtZipData]:
+        all_paths = path if isinstance(path, list) else [path]
+        txt_triples = get_txt_triples(all_paths)
+        parsed_data_list = []
+        for triple in txt_triples:
+            evidence_path, summary_path, peptides_path = triple
+            try:
+                parsed_data = parse_txt_zip(
+                    evidence_path,
+                    summary_path,
+                    peptides_path,
+                    project_accession,
+                )
+                parsed_data_list.append(parsed_data)
+            except TxtZipParseError as e:
+                logger.warning(f"Skipping malformed txt file {evidence_path.name}: {e}")
+                continue
+        return parsed_data_list
+
+    def persist(self, engine: Engine, parsed: ParsedTxtZipData, stats: ImportStats):
+        """Persist parsed txt data to the database with debug logging."""
+        logger.debug(f"Persisting txt data to database for file '{stats.file_name}'")
+        try:
+            with Session(engine) as session:
+                if parsed.peptides:
+                    session.execute(insert(Peptide), parsed.peptides)
+                    stats.peptide_count = len(parsed.peptides)
+                if parsed.peptide_evidence:
+                    session.execute(insert(PeptideEvidence), parsed.peptide_evidence)
+                    stats.peptide_evidence_count = len(parsed.peptide_evidence)
+                if parsed.psms:
+                    session.execute(insert(PeptideSpectrumMatch), parsed.psms)
+                    stats.psm_count = len(parsed.psms)
+                if parsed.psm_peptide_evidence_junctions:
+                    session.execute(
+                        insert(PSMPeptideEvidence), parsed.psm_peptide_evidence_junctions
+                    )
+                if parsed.peptide_modifications:
+                    session.execute(insert(PeptideModification), parsed.peptide_modifications)
+                    stats.modification_count = len(parsed.peptide_modifications)
+                session.commit()
+            logger.debug(f"Successfully imported mzID data for file '{stats.file_name}'")
+        except Exception as e:
+            error_msg = f"Database import failed for file '{stats.file_name}': {e}"
+            logger.error(error_msg, exc_info=True)
+            raise MzidImportError(error_msg) from e
 
 
 def parse_txt_zip(
