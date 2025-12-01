@@ -153,7 +153,8 @@ async def async_build(
 
                             if file["file_size"] > MAX_FILESIZE_BYTES:
                                 logger.warning(
-                                    "Skipping file '%s' in project %s due to size (%.2f GiB > %.2f GiB).",
+                                    "Skipping file '%s' in project %s due "
+                                    + "to size (%.2f GiB > %.2f GiB).",
                                     filename,
                                     project["accession"],
                                     file["file_size"] / (1024**3),
@@ -186,36 +187,26 @@ async def async_build(
 
                         # download all matching files asynchronously (limit concurrency)
                         sem = asyncio.Semaphore(PARALLEL_DOWNLOADS)
-                        paths = await asyncio.gather(
-                            *[
-                                download_ftp_with_semamphore(
-                                    semaphore=sem,
-                                    url=file["filepath"],
-                                    out_dir=tmp_dir / project["accession"] / str(idx),
-                                )
-                                for idx, file in enumerate(files_to_be_downloaded)
-                            ],
-                            return_exceptions=True,
-                        )
+                        path_coros = [
+                            download_ftp_with_semamphore(
+                                semaphore=sem,
+                                url=file["filepath"],
+                                out_dir=tmp_dir / project["accession"] / str(idx),
+                            )
+                            for idx, file in enumerate(files_to_be_downloaded)
+                        ]
 
-                        for idx, path in enumerate(paths):
-                            filename = os.path.basename(files_to_be_downloaded[idx]["filepath"])
-                            if isinstance(path, BaseException):
+                        for fut in asyncio.as_completed(path_coros):
+                            try:
+                                path = await fut
+                            except Exception as e:
                                 logger.error(
-                                    "Failed to download file %s for project %s.",
-                                    filename,
+                                    "Error in while downloading file for project %s: %s",
                                     project["accession"],
+                                    e,
                                     exc_info=True,
                                 )
                                 continue
-
-                            filesize_in_mb = files_to_be_downloaded[idx]["file_size"] / (
-                                1024 * 1024
-                            )
-                            logger.debug(
-                                f"Processing result file '{filename}' "
-                                + f"({filesize_in_mb:,.2f} MB)"
-                            )
 
                             # contains all files extracted from archive
                             extracted_files = extract_archive(
