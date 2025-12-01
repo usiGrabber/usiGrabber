@@ -52,6 +52,37 @@ def parse_txt_zip(
         summary: DataFrame = pd.read_csv(summary_path, sep="\t")
         peptides: DataFrame = pd.read_csv(peptides_path, sep="\t")
 
+        evidence = evidence.get(
+            [
+                "Sequence",
+                "Modifications",
+                "Modified sequence",
+                "Raw file",
+                "Charge",
+                "m/z",
+                "Mass",
+                "MS/MS scan number",
+            ],
+            default=pd.DataFrame(),
+        )
+        evidence = evidence[evidence["MS/MS scan number"].notna()]
+        peptides = peptides.get(
+            [
+                "Sequence",
+                "Amino acid before",
+                "Amino acid after",
+                "Proteins",
+                "Leading razor protein",
+                "Start position",
+                "End position",
+            ],
+            default=pd.DataFrame(),
+        )
+        summary = summary.get(
+            ["Raw file", "Variable modifications", "Fixed modifications"],
+            default=pd.DataFrame(),
+        )
+
         logger.debug("Phase 1: Parsing peptides...")
         peptide_id_map, peptide_mods, peptides_batch = parse_peptides(evidence, peptides)
 

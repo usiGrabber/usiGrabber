@@ -173,3 +173,21 @@ def test_link_modifications_basic(project2_evidence_df, project2_peptides_df):
     for mod in mod_batch:
         assert mod.unimod_id is not None
         assert mod.position is not None
+
+
+def test_link_modifications(project1_evidence_df, project1_peptides_df):
+    """
+    Comprehensive test for link_modifications function to validate linking logic
+    and data integrity.
+    """
+    _, peptide_mods, _ = parse_peptides(
+        project1_evidence_df,
+        project1_peptides_df,
+    )
+
+    mod_batch = link_modifications(peptide_mods)
+
+    assert len(mod_batch) > 0
+    for mod in mod_batch:
+        assert mod.unimod_id is not None
+        assert mod.position is not None

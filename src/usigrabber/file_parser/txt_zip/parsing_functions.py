@@ -263,7 +263,11 @@ def parse_psms(
                 modification_list.extend(var_mods.split(";"))
             if fix_mods:
                 modification_list.extend(fix_mods.split(";"))
-        unimod_id_list: list[int] = [lookup_unimod_id_by_name(mod) for mod in modification_list]
+        unimod_id_list: list[int] = [
+            lookup_unimod_id_by_name(mod)
+            for mod in modification_list
+            if lookup_unimod_id_by_name(mod) is not None
+        ]
 
         psm = PeptideSpectrumMatch(
             project_accession=project_accession,
@@ -331,7 +335,8 @@ def link_modifications(
                     position=position,
                     modified_residue=residue,
                 )
-                peptide_mod_batch.append(modification_record)
+                if modification_record.unimod_id is not None:
+                    peptide_mod_batch.append(modification_record)
 
     logger.debug(f"Created {len(peptide_mod_batch)} peptide modification records")
     return peptide_mod_batch

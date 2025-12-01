@@ -210,7 +210,7 @@ async def get_interesting_files(
 
     if len(files_to_be_downloaded) == 0:
         logger.warning(
-            f"Found {files[0]['category']} files for project {accession},"
+            f"Found {files[0]['category']} files for project {accession}, "
             f"but none match the supported file types.",
         )
         return interesting_files
@@ -238,7 +238,7 @@ async def get_interesting_files(
             continue
 
         filesize_in_mb = files_to_be_downloaded[idx]["file_size"] / (1024 * 1024)
-        logger.debug(f"Processing result file '{filename}' " + f"({filesize_in_mb:,.2f} MB)")
+        logger.debug(f"Processing result file '{filename}' ({filesize_in_mb:,.2f} MB)")
 
         # contains all files extracted from archive
         extract_dir = os.path.splitext(filename)[0] + "_extracted"
