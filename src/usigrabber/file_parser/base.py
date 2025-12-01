@@ -16,7 +16,7 @@ PARSER_REGISTRY = {}
 def register_parser(cls):
     """Decorator to auto-register parsers by extensions."""
     instance = cls()
-    for ext in cls.file_extensions:
+    for ext in instance.file_extensions:
         PARSER_REGISTRY[ext.lower()] = instance
     return cls
 
