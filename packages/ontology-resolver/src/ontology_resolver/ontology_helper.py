@@ -32,15 +32,15 @@ class OntologyHelper(metaclass=OntologyHelperSingletonMeta):
         self.ontologies: dict[str, Ontology] = {}
         self._ontology_loader = OntologyLoader()
 
-    def parse_ontology(self, term: str) -> tuple[str, str]:
-        cv, id_number = term.split(":")
+    def parse_accession(self, accession: str) -> tuple[str, str]:
+        prefix, number = accession.split(":")
         # Manually replace wrong/outdated ontology names
-        if cv == "NEWT":
-            cv = "NCBITaxon"
-        return cv, id_number
+        if prefix == "NEWT":
+            prefix = "NCBITaxon"
+        return prefix, number
 
-    def build_term_id(self, cv: str, term: str) -> str:
-        return f"{cv}:{term}"
+    def build_accession(self, cv_prefix: str, number: str) -> str:
+        return f"{cv_prefix}:{number}"
 
     async def get_ontology(self, onto: str) -> Ontology:
         if onto in self.ontologies:
@@ -50,13 +50,13 @@ class OntologyHelper(metaclass=OntologyHelperSingletonMeta):
         logger.info(f"Loaded {onto} in {time.time() - start_time}s")
         return self.ontologies[onto]
 
-    async def get_superclasses(self, term: str) -> list[Term]:
+    async def get_superclasses(self, accession: str) -> list[Term]:
         """
         Includes the term itself
         """
-        # We need to parse and rebuild the term because parse_ontology
-        # might correct CV part of the term
-        cv_accession, number = self.parse_ontology(term)
-        term = self.build_term_id(cv_accession, number)
-        ontology = await self.get_ontology(cv_accession)
-        return list(iter(ontology[term].superclasses()))  # pyright: ignore[reportAttributeAccessIssue]
+        # We need to parse and rebuild the term because parse_accession
+        # might correct CV prefix of the accession
+        cv_prefix, number = self.parse_accession(accession)
+        new_accession = self.build_accession(cv_prefix, number)
+        ontology = await self.get_ontology(cv_prefix)
+        return list(iter(ontology[new_accession].superclasses()))  # pyright: ignore[reportAttributeAccessIssue]

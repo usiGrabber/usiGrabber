@@ -30,7 +30,7 @@ class CvParam(SQLModel, table=True):
     __tablename__ = "cv_params"
 
     id: int | None = Field(default=None, primary_key=True)
-    name: str
+    accession: str
     value: str | None = Field(default=None)
 
     projects: list["Project"] = Relationship(back_populates="cv_params", link_model=CvJunctionTable)
