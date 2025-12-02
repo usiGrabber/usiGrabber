@@ -89,7 +89,9 @@ class TxtZipFileParser(BaseFileParser):
                     session.execute(insert(PeptideModification), parsed.peptide_modifications)
                     stats.modification_count = len(parsed.peptide_modifications)
                 session.commit()
-            logger.debug(f"Successfully imported mzID data for file '{stats.file_name}'")
+            logger.debug(
+                f"Successfully imported txt data for txt.zip from '{stats.project_accession}'"
+            )
         except Exception as e:
             error_msg = f"Database import failed for file '{stats.file_name}': {e}"
             logger.error(error_msg, exc_info=True)

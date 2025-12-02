@@ -432,10 +432,13 @@ def get_txt_triples(files: list[Path]):
 
         if len(evidence_files) == 1 and len(summary_files) == 1 and len(peptides_files) == 1:
             triplets.append((evidence_files[0], summary_files[0], peptides_files[0]))
+            logger.debug(
+                f"Found a unique triplet of (evidence.txt, summary.txt, peptides.txt) in {parent}"
+            )
         else:
-            logger.warning(
-                "Could not find a unique triplet of (evidence.txt, summary.txt, peptides.txt)"
-                f" in {parent}"
+            logger.debug(
+                "Could not find a unique triplet of (evidence.txt, summary.txt, peptides.txt) in "
+                f"{parent}"
             )
 
     return triplets

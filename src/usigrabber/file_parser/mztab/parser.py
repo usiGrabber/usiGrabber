@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 class MztabFileParser(BaseFileParser):
     @property
     def file_extensions(self) -> set[str]:
-        return {".mztab"}
+        return {".mzTab"}
 
     @property
     def format_name(self) -> str:
