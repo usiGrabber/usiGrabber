@@ -7,10 +7,9 @@ from sqlmodel import Session
 
 from usigrabber.db.schema import (
     IndexType,
+    ModifiedPeptide,
     MzidFile,
-    Peptide,
     PeptideEvidence,
-    PeptideModification,
     PeptideSpectrumMatch,
     Project,
     ProjectCountry,
@@ -126,16 +125,16 @@ def seed_minimal_data(engine: Engine) -> None:
         session.add(mzid_file)
 
         # 2. Create peptides
-        peptide1 = Peptide(sequence="PEPTIDER", length=8)
-        peptide2 = Peptide(sequence="EXAMPLE", length=7)
-        peptide3 = Peptide(sequence="TESTSEQ", length=7)
+        peptide1 = ModifiedPeptide(id="PEPTIDER", peptide_sequence="PEPTIDER")
+        peptide2 = ModifiedPeptide(id="EXAMPLE", peptide_sequence="EXAMPLE")
+        peptide3 = ModifiedPeptide(id="SAMPLEPEP", peptide_sequence="SAMPLEPEP")
         session.add_all([peptide1, peptide2, peptide3])
 
         # 3. Create PSMs
         psm1 = PeptideSpectrumMatch(
             project_accession="PXD000001",
             mzid_file_id=mzid_file.id,
-            peptide_id=peptide1.id,
+            modified_peptide_id=peptide1.id,
             spectrum_id="scan=1234",
             charge_state=2,
             experimental_mz=450.234,
@@ -150,7 +149,7 @@ def seed_minimal_data(engine: Engine) -> None:
         psm2 = PeptideSpectrumMatch(
             project_accession="PXD000001",
             mzid_file_id=mzid_file.id,
-            peptide_id=peptide2.id,
+            modified_peptide_id=peptide2.id,
             spectrum_id="scan=5678",
             charge_state=3,
             experimental_mz=325.678,
@@ -165,7 +164,7 @@ def seed_minimal_data(engine: Engine) -> None:
         psm3 = PeptideSpectrumMatch(
             project_accession="PXD000001",
             mzid_file_id=mzid_file.id,
-            peptide_id=peptide3.id,
+            modified_peptide_id=peptide3.id,
             spectrum_id="scan=9012",
             charge_state=2,
             experimental_mz=380.123,
@@ -211,17 +210,6 @@ def seed_minimal_data(engine: Engine) -> None:
         psm_evidence2 = PSMPeptideEvidence(psm_id=psm2.id, peptide_evidence_id=evidence2.id)
         psm_evidence3 = PSMPeptideEvidence(psm_id=psm3.id, peptide_evidence_id=evidence3.id)
         session.add_all([psm_evidence1, psm_evidence2, psm_evidence3])
-
-        # 6. Create peptide modification (optional - just one example)
-        # Using UNIMOD:35 (Oxidation of I)
-        peptide_mod = PeptideModification(
-            peptide_id=peptide1.id,
-            unimod_id=35,
-            name=None,
-            position=5,
-            modified_residue="I",
-        )
-        session.add(peptide_mod)
 
         session.commit()
 
