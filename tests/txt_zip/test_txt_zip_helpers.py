@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from usigrabber.file_parser.txt_zip.helpers import (
+from usigrabber.file_parser.helpers import (
     clean_mod_list_of_numbers,
     clear_mod_name,
     extract_mods,
@@ -8,6 +8,7 @@ from usigrabber.file_parser.txt_zip.helpers import (
     get_residues_for_mods_with_positions,
     get_txt_triples,
     remove_brackets_before_index,
+    simple_mod_name,
 )
 
 
@@ -129,6 +130,18 @@ def test_clean_mod_list_of_numbers():
     cleaned_mod_list = clean_mod_list_of_numbers(mod_list)
     assert cleaned_mod_list[0] == mod_list[0]
     assert cleaned_mod_list[1] == "Oxidation (M)"
+
+
+def test_simple_mod_name():
+    """
+    Test for simple_mod_name function to ensure it correctly
+    simplifies modification names by removing numerical prefixes.
+    """
+    mod_name = "Acetyl (Protein N-term)"
+    assert simple_mod_name(mod_name) == "Acetyl"
+
+    mod_name = "3 Oxidation (M)"
+    assert simple_mod_name(mod_name) == "Oxidation"
 
 
 def test_get_txt_triples():

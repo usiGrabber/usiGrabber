@@ -22,7 +22,7 @@ def test_parse_peptides_basic(project2_evidence_df, project2_peptides_df):
     for mods in peptide_mods.values():
         mod_count += len(mods)
     assert mod_count == 6
-    sequences = {p.sequence for p in peptides}
+    sequences = {p["sequence"] for p in peptides}
     assert "AAAAAAAAAAAAGDSDSWDADTFSMEDPVR" in sequences
     assert "AAAAAAAAAAGDSDSWDADTFSMEDPVR" in sequences
 
@@ -43,7 +43,7 @@ def test_parse_peptides(project1_evidence_df, project1_peptides_df):
     for mods in peptide_mods.values():
         mod_count += len(mods)
     assert mod_count == 148
-    sequences = {p.sequence for p in peptides}
+    sequences = {p["sequence"] for p in peptides}
     assert "AAAALKGSDHR" in sequences
     assert "ALEYKDFDKFDR" in sequences
     assert "CKHFEIGGDKK" in sequences
@@ -59,17 +59,17 @@ def test_parse_peptide_evidence_basic(project2_peptides_df):
     assert len(peptide_evidence) > 0
     assert len(pe_id_map) > 0
     assert len([pe_id for pe_id in pe_id_map if len(pe_id) > 0]) <= len(peptide_evidence)
-    assert "Q66JS6" in {pe.protein_accession for pe in peptide_evidence}
-    assert "Q3UGC7" in {pe.protein_accession for pe in peptide_evidence}
+    assert "Q66JS6" in {pe["protein_accession"] for pe in peptide_evidence}
+    assert "Q3UGC7" in {pe["protein_accession"] for pe in peptide_evidence}
 
-    pe_with_positions = [pe for pe in peptide_evidence if pe.start_position is not None]
+    pe_with_positions = [pe for pe in peptide_evidence if pe["start_position"] is not None]
     assert len(pe_with_positions) > 0, "Some peptide evidence should have position info"
 
     for pe in pe_with_positions:
-        if pe.start_position is not None:
-            assert pe.start_position > 0, "Start position should be positive"
-            if pe.end_position is not None:
-                assert pe.end_position >= pe.start_position, (
+        if pe["start_position"] is not None:
+            assert pe["start_position"] > 0, "Start position should be positive"
+            if pe["end_position"] is not None:
+                assert pe["end_position"] >= pe["start_position"], (
                     "End position should be >= start position"
                 )
 
@@ -84,17 +84,17 @@ def test_parse_peptide_evidence(project1_peptides_df):
     assert len(peptide_evidence) > 0
     assert len(pe_id_map) > 0
     assert len([pe_id for pe_id in pe_id_map if len(pe_id) > 0]) <= len(peptide_evidence)
-    assert "sp|O50008|METE1_ARATH" in {pe.protein_accession for pe in peptide_evidence}
-    assert "sp|Q08770|RL102_ARATH" in {pe.protein_accession for pe in peptide_evidence}
+    assert "sp|O50008|METE1_ARATH" in {pe["protein_accession"] for pe in peptide_evidence}
+    assert "sp|Q08770|RL102_ARATH" in {pe["protein_accession"] for pe in peptide_evidence}
 
-    pe_with_positions = [pe for pe in peptide_evidence if pe.start_position is not None]
+    pe_with_positions = [pe for pe in peptide_evidence if pe["start_position"] is not None]
     assert len(pe_with_positions) > 0, "Some peptide evidence should have position info"
 
     for pe in pe_with_positions:
-        if pe.start_position is not None:
-            assert pe.start_position > 0, "Start position should be positive"
-            if pe.end_position is not None:
-                assert pe.end_position >= pe.start_position, (
+        if pe["start_position"] is not None:
+            assert pe["start_position"] > 0, "Start position should be positive"
+            if pe["end_position"] is not None:
+                assert pe["end_position"] >= pe["start_position"], (
                     "End position should be >= start position"
                 )
 
@@ -124,7 +124,10 @@ def test_parse_psms_basic(
     assert len(junction_batch) > len(pe_id_map)
     for psm in psm_batch:
         assert (
-            len([search_mod for search_mod in search_mod_batch if search_mod.psm_id == psm.id]) == 3
+            len(
+                [search_mod for search_mod in search_mod_batch if search_mod["psm_id"] == psm["id"]]
+            )
+            == 3
         )
 
 
@@ -153,7 +156,10 @@ def test_parse_psms(
     assert len(junction_batch) > len(pe_id_map)
     for psm in psm_batch:
         assert (
-            len([search_mod for search_mod in search_mod_batch if search_mod.psm_id == psm.id]) == 4
+            len(
+                [search_mod for search_mod in search_mod_batch if search_mod["psm_id"] == psm["id"]]
+            )
+            == 4
         )
 
 
@@ -171,8 +177,8 @@ def test_link_modifications_basic(project2_evidence_df, project2_peptides_df):
 
     assert len(mod_batch) > 0
     for mod in mod_batch:
-        assert mod.unimod_id is not None
-        assert mod.position is not None
+        assert mod["unimod_id"] is not None
+        assert mod["position"] is not None
 
 
 def test_link_modifications(project1_evidence_df, project1_peptides_df):
@@ -189,5 +195,5 @@ def test_link_modifications(project1_evidence_df, project1_peptides_df):
 
     assert len(mod_batch) > 0
     for mod in mod_batch:
-        assert mod.unimod_id is not None
-        assert mod.position is not None
+        assert mod["unimod_id"] is not None
+        assert mod["position"] is not None

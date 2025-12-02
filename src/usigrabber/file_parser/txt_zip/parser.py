@@ -32,7 +32,7 @@ logger = logging.getLogger(__name__)
 
 
 @register_parser
-class TxtZipParser(BaseFileParser):
+class TxtZipFileParser(BaseFileParser):
     @property
     def file_extensions(self) -> set[str]:
         return {".txt", ""}
@@ -41,8 +41,8 @@ class TxtZipParser(BaseFileParser):
     def format_name(self) -> str:
         return "txt"
 
-    def parse_file(self, path, project_accession: str) -> list[ParsedTxtZipData]:
-        all_paths = path if isinstance(path, list) else [path]
+    def parse_file(self, path_or_pathlist, project_accession: str) -> list[ParsedTxtZipData]:
+        all_paths = path_or_pathlist if isinstance(path_or_pathlist, list) else [path_or_pathlist]
         txt_triples = get_txt_triples(all_paths)
         parsed_data_list = []
         for triple in txt_triples:

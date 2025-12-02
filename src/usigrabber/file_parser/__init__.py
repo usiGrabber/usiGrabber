@@ -9,8 +9,8 @@ from usigrabber.file_parser.errors import FileParserError
 from usigrabber.file_parser.helpers import log_info
 from usigrabber.file_parser.models import ImportStats
 from usigrabber.file_parser.mzid.parser import MzidFileParser  # noqa: F401
-from usigrabber.file_parser.mztab.parser import MztabParser  # noqa: F401
-from usigrabber.file_parser.txt_zip.parser import TxtZipParser  # noqa: F401
+from usigrabber.file_parser.mztab.parser import MztabFileParser  # noqa: F401
+from usigrabber.file_parser.txt_zip.parser import TxtZipFileParser  # noqa: F401
 
 __all__ = [
     # Base parser and registry

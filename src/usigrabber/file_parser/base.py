@@ -43,7 +43,7 @@ class BaseFileParser(ABC):
         pass
 
     @abstractmethod
-    def parse_file(self, path: Path | list[Path], project_accession: str) -> list[Any]:
+    def parse_file(self, path_or_pathlist: Path | list[Path], project_accession: str) -> list[Any]:
         """
         Parse the given file and return the parsed data structure.
         """

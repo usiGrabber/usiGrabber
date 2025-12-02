@@ -8,6 +8,7 @@ from usigrabber.db.schema import IndexType
 from usigrabber.file_parser.helpers import (
     clean_mod_list_of_numbers,
     extract_mods,
+    simple_mod_name,
 )
 from usigrabber.utils import lookup_unimod_id_by_name
 
@@ -254,17 +255,17 @@ def parse_psms(
 
         modification_list: list[str] = []
         raw_file = psm_elem.get("Raw file", "")
-        for summary_elem in summary_mod_map[raw_file]:
-            var_mods = summary_elem[0]
-            fix_mods = summary_elem[1]
+        for var_modifications, fixed_modified_sequence in summary_mod_map[raw_file]:
+            var_mods = var_modifications
+            fix_mods = fixed_modified_sequence
             if var_mods:
                 modification_list.extend(var_mods.split(";"))
             if fix_mods:
                 modification_list.extend(fix_mods.split(";"))
         unimod_id_list: list[int] = [
-            lookup_unimod_id_by_name(mod)
+            lookup_unimod_id_by_name(simple_mod_name(mod))
             for mod in modification_list
-            if lookup_unimod_id_by_name(mod) is not None
+            if lookup_unimod_id_by_name(simple_mod_name(mod)) is not None
         ]
 
         psm_id = uuid.uuid4()
@@ -286,9 +287,8 @@ def parse_psms(
 
         for unimod_id in unimod_id_list:
             # create search modification record
-            sm_id = uuid.uuid4()
             search_mod = {
-                "id": sm_id,
+                "id": uuid.uuid4(),
                 "psm_id": psm["id"],
                 "unimod_id": unimod_id,
             }

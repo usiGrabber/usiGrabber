@@ -40,9 +40,9 @@ class MzidFileParser(BaseFileParser):
     def format_name(self) -> str:
         return "mzIdentML"
 
-    def parse_file(self, path, project_accession: str) -> list[ParsedMzidData]:
+    def parse_file(self, path_or_pathlist, project_accession: str) -> list[ParsedMzidData]:
         """Parse the mzID file into ParsedMzidData."""
-        path = path if isinstance(path, Path) else path[0]
+        path = path_or_pathlist if isinstance(path_or_pathlist, Path) else path_or_pathlist[0]
         logger.debug(f"Parsing mzID file: '{path.name}'")
 
         if not path.exists():

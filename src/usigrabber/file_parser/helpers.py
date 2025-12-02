@@ -394,6 +394,20 @@ def clean_mod_list_of_numbers(mod_list: list[str]) -> list[str]:
     return cleaned_mods
 
 
+def simple_mod_name(mod_name: str) -> str:
+    """
+    Simplify a modification name by removing leading numbers and spaces.
+    This function takes a modification name string and removes any leading
+    numeric characters and spaces to return a cleaner version of the name.
+    Args:
+        mod_name (str): The original modification name (i.e. Oxidation (M)).
+    Returns:
+        str: The simplified modification name (i.e. Oxidation).
+    """
+    mod_name = str(mod_name)
+    return mod_name.lstrip(digits).lstrip(" ").split(" ")[0]
+
+
 def get_txt_triples(files: list[Path]):
     """
     Given a list of file paths, group them into triplets of
