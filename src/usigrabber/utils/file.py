@@ -119,6 +119,7 @@ def extract_archive(
         return [archive_path]
 
     archive_path = archive_path.resolve()
+    extract_to = extract_to.resolve()
 
     extract_to.mkdir(parents=True, exist_ok=False)
 
