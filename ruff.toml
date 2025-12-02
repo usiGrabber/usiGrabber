@@ -17,6 +17,7 @@ select = [
     # https://docs.astral.sh/ruff/rules/missing-newline-at-end-of-file/
     "W292"
 ]
+# Got annoyed with line length
 ignore = ["E501"]
 
 
