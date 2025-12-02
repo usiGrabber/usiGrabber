@@ -42,6 +42,13 @@ class TxtZipFileParser(BaseFileParser):
         return "txt"
 
     def parse_file(self, path_or_pathlist, project_accession: str) -> list[ParsedTxtZipData]:
+        """Parse txt.zip files by triples of evidence, summary and peptides .txt-files.
+        Args:
+                path_or_pathlist: Path or list of Paths to the txt files
+                project_accession: PRIDE project accession
+        Returns:
+                List of ParsedTxtZipData containing all parsed records
+        """
         all_paths = path_or_pathlist if isinstance(path_or_pathlist, list) else [path_or_pathlist]
         txt_triples = get_txt_triples(all_paths)
         parsed_data_list = []

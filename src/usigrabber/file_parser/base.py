@@ -57,12 +57,16 @@ class BaseFileParser(ABC):
         pass
 
     def import_file(
-        self, engine: Engine, path: Path | list[Path], project_accession: str
+        self, engine: Engine, path_or_pathlist: Path | list[Path], project_accession: str
     ) -> ImportStats:
-        path_name = path[0].name if isinstance(path, list) else path.name
+        path_name = (
+            path_or_pathlist[0].name
+            if isinstance(path_or_pathlist, list)
+            else path_or_pathlist.name
+        )
         stats = ImportStats(file_name=path_name, project_accession=project_accession)
         try:
-            parsed_data_list = self.parse_file(path, project_accession)
+            parsed_data_list = self.parse_file(path_or_pathlist, project_accession)
             stats.mark_parsing_complete()
             for parsed in parsed_data_list:
                 self.persist(engine, parsed, stats)

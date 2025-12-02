@@ -29,8 +29,11 @@ def parse_peptides(
         peptides (pd.DataFrame): DataFrame containing base peptide data with column:
             - "Sequence": Amino acid sequence of the peptide
     Returns:
-        tuple[dict[str, uuid.UUID],
-        dict[uuid.UUID, dict[str, list[tuple[int, str]]]], list[dict]]:
+        tuple[
+            dict[str, uuid.UUID],
+            dict[uuid.UUID, dict[str, list[tuple[int, str]]]],
+            list[dict]
+        ]:
             - peptide_id_map: Dictionary mapping peptide sequences to their unique UUID identifiers
             - peptide_mods: Dictionary mapping peptide UUIDs to dict of modifications mapping to a
               list of tuples (position, residue)
@@ -115,7 +118,10 @@ def parse_peptide_evidence(peptides: pd.DataFrame) -> tuple[dict[str, list[uuid.
             - "Start position": Start position of the peptide in the leading razor protein
             - "End position": End position of the peptide in the leading razor protein
     Returns:
-        tuple[dict[str, list[uuid.UUID]], list[dict]]:
+        tuple[
+            dict[str, list[uuid.UUID]],
+            list[dict]
+        ]:
             - pe_id_map: Dictionary mapping peptide sequences to lists of peptide evidence UUIDs
             - peptide_evidence_batch: List of PeptideEvidence objects created from the peptides
                 DataFrame
@@ -209,7 +215,11 @@ def parse_psms(
         pe_id_map (dict[str, list[uuid.UUID]]): Mapping of peptide sequences to lists of peptide
             evidence UUIDs
     Returns:
-        tuple[list[dict], list[dict], list[dict]]:
+        tuple[
+            list[dict],
+            list[dict],
+            list[dict]
+        ]:
             - psm_batch: List of PeptideSpectrumMatch records
             - junction_batch: List of PSMPeptideEvidence junction records
             - search_mod_batch: List of SearchModification records
