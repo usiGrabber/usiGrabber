@@ -56,4 +56,8 @@ def load_db_engine(debug_sql: bool = False) -> Engine:
         logger.info("SQL echo is enabled.")
         kwargs["echo"] = True
 
-    return create_engine(**kwargs)
+    return create_engine(
+        pool_size=int(os.getenv("DB_POOL_SIZE", "32")),
+        max_overflow=int(os.getenv("DB_POOL_MAX_OVERFLOW", "64")),
+        **kwargs,
+    )

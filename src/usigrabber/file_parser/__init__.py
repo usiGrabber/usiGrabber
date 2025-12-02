@@ -4,6 +4,8 @@ File Parser Module
 Provides a unified interface for importing proteomics files.
 """
 
+from sqlalchemy.engine.base import Engine
+
 from usigrabber.file_parser.base import BaseFileParser, get_parser_for_extension, register_parser
 from usigrabber.file_parser.errors import FileParserError
 from usigrabber.file_parser.helpers import log_info
@@ -24,7 +26,7 @@ __all__ = [
 ]
 
 
-def import_files(engine, paths, project_accession, logger) -> bool:
+def import_files(engine: Engine, paths, project_accession, logger) -> bool:
     """
     Generic file import function for multiple files.
 
@@ -77,7 +79,7 @@ def import_files(engine, paths, project_accession, logger) -> bool:
     return not exception_occurred
 
 
-def import_file(engine, path_list, file_ext, project_accession) -> ImportStats:
+def import_file(engine: Engine, path_list, file_ext, project_accession) -> ImportStats:
     """
     Generic file import function.
 

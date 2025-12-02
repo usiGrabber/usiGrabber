@@ -38,6 +38,19 @@ class BaseBackend(ABC):
 
     @classmethod
     @abstractmethod
+    async def get_project(cls, project_accession: str) -> dict[str, Any]:
+        """
+        Raises exception if project is not found
+        """
+        raise NotImplementedError()
+
+    @classmethod
+    @abstractmethod
+    def get_project_accession(cls, project: dict[str, Any]) -> str:
+        raise NotImplementedError()
+
+    @classmethod
+    @abstractmethod
     def get_files_for_project(cls, project_accession: str) -> Files:
         """
         Retrieve file information for a specific project.
@@ -45,6 +58,15 @@ class BaseBackend(ABC):
         :return: A list of dictionaries, each containing file information.
         """
         ...
+
+    @classmethod
+    @abstractmethod
+    def is_project_complete(cls, project: dict[str, Any]) -> bool:
+        """
+        This checks if a project provides (roughly) the same data as a Pride "complete" project
+        """
+
+        raise NotImplementedError()
 
     @classmethod
     @abstractmethod

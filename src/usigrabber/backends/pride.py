@@ -93,6 +93,7 @@ class PrideBackend(BaseBackend):
             url = f"{cls.BASE_URL}/projects/all"
 
             async with AsyncHttpClient() as client:
+                os.makedirs(file_path.parent, exist_ok=True)
                 await client.stream_file(
                     url,
                     download_file_name=file_path,
@@ -102,6 +103,26 @@ class PrideBackend(BaseBackend):
             for project in ijson.items(in_f, "item"):
                 if project["accession"] not in existing_accessions:
                     yield project
+
+    @classmethod
+    def get_project_accession(cls, project: dict[str, Any]) -> str:
+        return project["accession"]
+
+    @classmethod
+    async def get_project(cls, project_accession: str) -> dict[str, Any]:
+        projects = cls.get_new_projects(existing_accessions=set())
+        total_searched_projects = 0
+        async for project in projects:
+            total_searched_projects += 1
+            if project["accession"] == project_accession:
+                return project
+        raise ValueError(
+            f"No project found for accession: {project_accession} in {total_searched_projects} projects"
+        )
+
+    @classmethod
+    def is_project_complete(cls, project: dict[str, Any]) -> bool:
+        return project.get("submissionType") == "COMPLETE"
 
     @classmethod
     def get_files_for_project(

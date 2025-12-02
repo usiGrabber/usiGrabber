@@ -1,18 +1,20 @@
 import asyncio
 import logging
+import multiprocessing
 import os
 import warnings
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Any
 
 import typer
+from pydantic import BaseModel
 from sqlalchemy import exc as sa_exc
 from sqlalchemy import inspect
-from sqlmodel import Session, select
+from sqlmodel import Session
 
 from usigrabber.backends import BackendEnum
 from usigrabber.cli import app
-from usigrabber.db import Project, create_db_and_tables, load_db_engine
+from usigrabber.db import create_db_and_tables, load_db_engine
 from usigrabber.db.cli import reset as db_reset
 from usigrabber.file_parser import import_files
 from usigrabber.file_parser.errors import FileParserError
@@ -25,7 +27,23 @@ from usigrabber.utils.file import (
 CACHE_DIR = get_cache_dir()
 STANDARD_BACKENDS = [enum for enum in BackendEnum]
 FILE_CATEGORIES = ["result", "search", "other"]
+
 logger = logging.getLogger(__name__)
+
+
+class ObservabilityConfiguration(BaseModel):
+    debug: bool
+
+
+class OntologyConfiguration(BaseModel):
+    skip_ontos: bool
+
+
+class BuildConfiguration(BaseModel):
+    observability: ObservabilityConfiguration
+    cache_dir: Path
+    ontologies: OntologyConfiguration
+    max_workers: int
 
 
 @app.command()
@@ -59,146 +77,107 @@ def build(
             resolve_path=True,
         ),
     ] = CACHE_DIR,
+    max_workers: int | None = 1,
 ):
-    # mute SQLAlchemy warnings from pyteomics library
-    with warnings.catch_warnings(action="ignore", category=sa_exc.SAWarning):
-        asyncio.run(async_build(debug, reset, backends, no_ontology, cache_dir))
-
-
-async def async_build(
-    debug: bool = False,
-    reset: bool = False,
-    backends: list[BackendEnum] = STANDARD_BACKENDS,
-    no_ontology: bool = False,
-    cache_dir: Path = CACHE_DIR,
-) -> None:
-    """Build USI database."""
-
-    logger.info("Building database.")
+    if reset:
+        logger.info("Resetting database before build.")
+        db_reset(force=True)
 
     os.environ["CACHE_DIR"] = str(cache_dir)
 
     if no_ontology:
         os.environ["NO_ONTOLOGY"] = "1"
-
     if os.getenv("NO_ONTOLOGY"):
         logger.warning("Ontology lookup is disabled.")
-
     if debug:
         os.environ["DEBUG"] = "1"
-
     if os.getenv("DEBUG"):
         logger.info("Running in DEBUG mode.")
 
-    if reset:
-        logger.info("Resetting database before build.")
-        db_reset(force=True)
+    config = BuildConfiguration(
+        observability=ObservabilityConfiguration(debug=debug),
+        cache_dir=cache_dir,
+        ontologies=OntologyConfiguration(skip_ontos=no_ontology),
+        max_workers=max_workers or multiprocessing.cpu_count(),
+    )
 
-    # WORKFLOW
-
-    # set up database connection
     db_engine = load_db_engine()
     inspector = inspect(db_engine)
     if len(inspector.get_table_names()) == 0:
         logger.info("No preexisting database found. Database will be initialized.")
         create_db_and_tables(db_engine)
 
-    # get all existing project accessions in the database
-    with Session(db_engine) as session:
-        statement = select(Project.accession)
-        existing_accessions: set[str] = set(session.exec(statement).all())
+    asyncio.run(build_all_projects(backends, config))
 
-    logger.info(
-        "Found %s existing accessions in the database.",
-        len(existing_accessions),
+
+async def build_all_projects(backends: list[BackendEnum], config: BuildConfiguration):
+    from usigrabber.parallelism.main import (
+        build_all_projects_in_process_pool,
+        build_all_projects_in_single_process,
     )
 
-    for backend_enum in backends:
-        backend = backend_enum.value
-        logger.debug("Fetching data from backend: %s", backend_enum.name)
+    if config.max_workers == 1:
+        await build_all_projects_in_single_process(backends, config)
+    else:
+        await build_all_projects_in_process_pool(backends, config)
 
-        imported = errors = 0
-        error_projects = []
-        with Session(db_engine) as session, temporary_path() as tmp_dir_default:
-            async for project in backend.get_new_projects(existing_accessions):
-                tmp_dir = Path(tmp_dir_default / project["accession"])
-                tmp_dir.mkdir()
-                fully_processed: bool = False
-                main_source_type = None
 
-                try:
-                    await backend.dump_project_to_db(session, project)
-                except Exception as e:
-                    errors += 1
-                    error_projects.append((project.get("accession"), str(e)))
-                    session.rollback()
-                    continue
+async def build_project(
+    backend_enum: BackendEnum,
+    project: dict[str, Any],
+) -> None:
+    """Build USI database."""
+    from usigrabber.parallelism.main import db_engine as worker_db_engine
 
-                session.commit()
-                # download files
-                files = backend.get_files_for_project(project["accession"])
+    backend = backend_enum.value
+    project_accession = backend.get_project_accession(project)
+    logger.info(
+        f"Building {project_accession}",
+        extra={
+            "event": "project_started",
+            "project_accession": project_accession,
+            "backend": backend_enum.name,
+        },
+    )
 
-                # process files
-                for category in FILE_CATEGORIES:
-                    if files[category] and not fully_processed:
-                        interesting_files = await get_interesting_files(
-                            files[category], project["accession"], tmp_dir
-                        )
+    # Use worker db_engine if available (multiprocessing), otherwise load a new one
+    engine = worker_db_engine if worker_db_engine is not None else load_db_engine()
 
-                        for ext, flist in interesting_files.items():
-                            if flist:
-                                main_source_type = ext
-                                try:
-                                    fully_processed = import_files(
-                                        db_engine,
-                                        flist,
-                                        project["accession"],
-                                        logger,
-                                    )
-                                except FileParserError as e:
-                                    logger.error(
-                                        f"Failed to import '{ext}' files: {e}",
-                                        exc_info=True,
-                                        stack_info=True,
-                                        extra={
-                                            "ext": str(ext),
-                                            "project_accession": project["accession"],
-                                        },
-                                    )
-                                    continue
+    with Session(engine) as session:
+        await backend.dump_project_to_db(session, project)
+        session.commit()
 
-                if fully_processed:
-                    imported += 1
-                    # TODO: set "complete=fully_processed" flag for project
-                else:
-                    errors += 1
-                    if not (files["result"] or files["search"] or files["other"]):
-                        logger.warning(
-                            f"No files found for project '{project['accession']}'"
-                            f"from backend {backend_enum.name}.",
-                        )
-                    elif not main_source_type:
-                        logger.warning(
-                            f"No file could be parsed for project '{project['accession']}'"
-                            f"from backend {backend_enum.name}.",
-                        )
-                    elif not fully_processed:
-                        logger.warning(
-                            f"'{main_source_type}' files could not be completely parsed for project"
-                            f" '{project['accession']}' from backend {backend_enum.name}.",
-                        )
+    # download files
+    files = backend.get_files_for_project(project["accession"])
 
-        if imported > 0 or errors > 0:
-            logger.info("Finished importing from backend %s.", backend_enum.name)
-            logger.info(
-                "Successfully imported %s projects, encountered %s errors (%.1f%%).",
-                imported,
-                errors,
-                (imported / (imported + errors) * 100),
-            )
-            if error_projects:
-                logger.warning("\nFailed Projects:")
-                for accession, error in error_projects[:10]:  # Show first 10
-                    logger.warning("  • %s: %s", accession, error[:80])
-                if len(error_projects) > 10:
-                    logger.warning("  ... and %d more", len(error_projects) - 10)
+    with temporary_path() as tmp_dir:
+        for category in FILE_CATEGORIES:
+            if files.get(category):
+                interesting_files = await get_interesting_files(
+                    files[category], project["accession"], tmp_dir
+                )
+
+                for ext, flist in interesting_files.items():
+                    if flist:
+                        try:
+                            import_files(
+                                engine,
+                                flist,
+                                project["accession"],
+                                logger,
+                            )
+                        except FileParserError as e:
+                            logger.error(
+                                f"Failed to import '{ext}' files: {e}",
+                                exc_info=True,
+                                stack_info=True,
+                                extra={
+                                    "ext": str(ext),
+                                    "project_accession": project["accession"],
+                                },
+                            )
+
+
+def build_project_sync(backend_enum: BackendEnum, project: dict[str, Any]) -> None:
+    with warnings.catch_warnings(action="ignore", category=sa_exc.SAWarning):
+        asyncio.run(build_project(backend_enum, project))

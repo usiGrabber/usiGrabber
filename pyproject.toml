@@ -25,6 +25,7 @@ dependencies = [
     "aioftp>=0.27.2",
     "better-exceptions>=0.3.3",
     "cachetools>=6.2.2",
+    "psutil>=6.1.1",
 ]
 
 [project.scripts]
