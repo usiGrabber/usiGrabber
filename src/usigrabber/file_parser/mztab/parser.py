@@ -25,8 +25,8 @@ class MztabFileParser(BaseFileParser):
     def format_name(self) -> str:
         return "mzTab"
 
-    def parse_file(self, path_or_pathlist, project_accession: str) -> list[ParsedMztabData]:
-        path = path_or_pathlist if isinstance(path_or_pathlist, Path) else path_or_pathlist[0]
+    def parse_file(self, path, project_accession: str) -> ParsedMztabData:
+        path = path if isinstance(path, Path) else path[0]
         if not path.exists():
             raise MztabParseError(f"File not found: {path}")
 
@@ -34,7 +34,7 @@ class MztabFileParser(BaseFileParser):
         try:
             mz_file = mztab.MzTab(str(path))
             psm_rows, peptide_rows = extract_mztab_data(mz_file, project_accession)
-            return [ParsedMztabData(psms=psm_rows, peptides=peptide_rows)]
+            return ParsedMztabData(psms=psm_rows, peptides=peptide_rows)
         except PyteomicsError as e:
             raise MztabParseError(f"Failed to parse mzTab file '{path}': {e}") from e
 

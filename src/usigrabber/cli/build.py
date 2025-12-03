@@ -119,74 +119,78 @@ async def async_build(
 
         imported = errors = 0
         error_projects = []
-        with Session(db_engine) as session, temporary_path() as tmp_dir_default:
+        with Session(db_engine) as session:
             async for project in backend.get_new_projects(existing_accessions):
-                tmp_dir = Path(tmp_dir_default / project["accession"])
-                tmp_dir.mkdir()
-                fully_processed: bool = False
-                main_source_type = None
+                with temporary_path() as tmp_dir:
+                    fully_processed: bool = False
+                    main_source_type = None
 
-                try:
-                    await backend.dump_project_to_db(session, project)
-                except Exception as e:
-                    errors += 1
-                    error_projects.append((project.get("accession"), str(e)))
-                    session.rollback()
-                    continue
+                    try:
+                        await backend.dump_project_to_db(session, project)
+                    except Exception as e:
+                        errors += 1
+                        error_projects.append((project.get("accession"), str(e)))
+                        session.rollback()
+                        continue
 
-                session.commit()
-                # download files
-                files = backend.get_files_for_project(project["accession"])
+                    session.commit()
+                    # download files
+                    files = backend.get_files_for_project(project["accession"])
 
-                # process files
-                for category in FILE_CATEGORIES:
-                    if files[category] and not fully_processed:
+                    # process files
+                    for category in FILE_CATEGORIES:
+                        if not files[category] or fully_processed:
+                            continue
+
                         interesting_files = await get_interesting_files(
                             files[category], project["accession"], tmp_dir
                         )
 
                         for ext, flist in interesting_files.items():
-                            if flist:
-                                main_source_type = ext
-                                try:
-                                    fully_processed = import_files(
-                                        db_engine,
-                                        flist,
-                                        project["accession"],
-                                        logger,
-                                    )
-                                except FileParserError as e:
-                                    logger.error(
-                                        f"Failed to import '{ext}' files: {e}",
-                                        exc_info=True,
-                                        stack_info=True,
-                                        extra={
-                                            "ext": str(ext),
-                                            "project_accession": project["accession"],
-                                        },
-                                    )
-                                    continue
+                            if not flist:
+                                continue
 
-                if fully_processed:
-                    imported += 1
-                    # TODO: set "complete=fully_processed" flag for project
-                else:
-                    errors += 1
-                    if not (files["result"] or files["search"] or files["other"]):
-                        logger.warning(
-                            f"No files found for project '{project['accession']}'"
-                            f"from backend {backend_enum.name}.",
-                        )
-                    elif not main_source_type:
-                        logger.warning(
-                            f"No file could be parsed for project '{project['accession']}'"
-                            f"from backend {backend_enum.name}.",
-                        )
-                    elif not fully_processed:
-                        logger.warning(
-                            f"'{main_source_type}' files could not be completely parsed for project"
-                            f" '{project['accession']}' from backend {backend_enum.name}.",
-                        )
+                            main_source_type = ext
+                            try:
+                                fully_processed = import_files(
+                                    db_engine,
+                                    flist,
+                                    project["accession"],
+                                    logger,
+                                )
+                            except FileParserError as e:
+                                logger.error(
+                                    f"Failed to import '{ext}' files: {e}",
+                                    exc_info=True,
+                                    stack_info=True,
+                                    extra={
+                                        "ext": str(ext),
+                                        "project_accession": project["accession"],
+                                    },
+                                )
+                                continue
+
+                    if fully_processed:
+                        imported += 1
+                        # TODO: set "complete=fully_processed" flag for project
+                    else:
+                        errors += 1
+                        error_projects.append((project.get("accession"), "Incomplete processing"))
+                        if not (files["result"] or files["search"] or files["other"]):
+                            logger.warning(
+                                f"No files found for project '{project['accession']}'"
+                                f"from backend {backend_enum.name}.",
+                            )
+                        elif not main_source_type:
+                            logger.warning(
+                                f"No file could be parsed for project '{project['accession']}'"
+                                f"from backend {backend_enum.name}.",
+                            )
+                        elif not fully_processed:
+                            logger.warning(
+                                f"'{main_source_type}' files could not be completely parsed for "
+                                f"project '{project['accession']}' from backend {backend_enum.name}.",
+                            )
 
         if imported > 0 or errors > 0:
             logger.info("Finished importing from backend %s.", backend_enum.name)

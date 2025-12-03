@@ -17,8 +17,8 @@ def test_txt_zip_parser_basic():
         Path("tests/txt_zip/fixtures/project2/peptides.txt"),
     )
     parsed_data = file_parser.parse_file(
-        [evidence_path, summary_path, peptides_path], mock_project_accession
-    )[0]
+        (evidence_path, summary_path, peptides_path), mock_project_accession
+    )
 
     assert len(parsed_data.peptides) == 4
     assert len(parsed_data.peptide_modifications) == 6
@@ -43,8 +43,8 @@ def test_txt_zip_parser():
         Path("tests/txt_zip/fixtures/project1/peptides.txt"),
     )
     parsed_data = file_parser.parse_file(
-        [evidence_path, summary_path, peptides_path], mock_project_accession
-    )[0]
+        (evidence_path, summary_path, peptides_path), mock_project_accession
+    )
 
     peptides = parsed_data.peptides
     peptide_modifications = parsed_data.peptide_modifications
@@ -166,8 +166,8 @@ def test_usi_fields_extraction():
         Path("tests/txt_zip/fixtures/project1/peptides.txt"),
     )
     parsed_data = file_parser.parse_file(
-        [evidence_path, summary_path, peptides_path], mock_project_accession
-    )[0]
+        (evidence_path, summary_path, peptides_path), mock_project_accession
+    )
     psms = parsed_data.psms
 
     # At least some PSMs should have USI fields populated

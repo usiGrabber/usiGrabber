@@ -19,7 +19,6 @@ from usigrabber.file_parser.errors import (
     TxtZipImportError,
     TxtZipParseError,
 )
-from usigrabber.file_parser.helpers import get_txt_triples
 from usigrabber.file_parser.models import ImportStats, ParsedTxtZipData
 from usigrabber.file_parser.txt_zip.parsing_functions import (
     link_modifications,
@@ -41,31 +40,30 @@ class TxtZipFileParser(BaseFileParser):
     def format_name(self) -> str:
         return "txt"
 
-    def parse_file(self, path_or_pathlist, project_accession: str) -> list[ParsedTxtZipData]:
+    def parse_file(self, path, project_accession: str) -> ParsedTxtZipData:
         """Parse txt.zip files by triples of evidence, summary and peptides .txt-files.
         Args:
-                path_or_pathlist: Path or list of Paths to the txt files
+                path: triple of Paths to the txt files
                 project_accession: PRIDE project accession
         Returns:
                 List of ParsedTxtZipData containing all parsed records
         """
-        all_paths = path_or_pathlist if isinstance(path_or_pathlist, list) else [path_or_pathlist]
-        txt_triples = get_txt_triples(all_paths)
-        parsed_data_list = []
-        for triple in txt_triples:
-            evidence_path, summary_path, peptides_path = triple
-            try:
-                parsed_data = parse_txt_zip(
-                    evidence_path,
-                    summary_path,
-                    peptides_path,
-                    project_accession,
-                )
-                parsed_data_list.append(parsed_data)
-            except TxtZipParseError as e:
-                logger.warning(f"Skipping malformed txt file {evidence_path.name}: {e}")
-                continue
-        return parsed_data_list
+        evidence_path, summary_path, peptides_path = (
+            path if isinstance(path, tuple) else (path, path, path)
+        )
+        try:
+            parsed_data = parse_txt_zip(
+                evidence_path,
+                summary_path,
+                peptides_path,
+                project_accession,
+            )
+            return parsed_data
+
+        except TxtZipParseError as e:
+            error_msg = f"Failed to parse txt files: {e}"
+            logger.error(error_msg, exc_info=True)
+            raise TxtZipParseError(error_msg) from e
 
     def persist(self, engine: Engine, parsed: ParsedTxtZipData, stats: ImportStats):
         """Persist parsed txt data to the database with debug logging."""

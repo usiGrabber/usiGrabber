@@ -17,7 +17,7 @@ def test_mzid_parser_with_full_file(full_mzid_path):
     mock_project_accession = "PXD000001"
     file_parser = MzidFileParser()
     # Single ParsedMzidData expected
-    parsed_data = file_parser.parse_file(full_mzid_path, mock_project_accession)[0]
+    parsed_data = file_parser.parse_file(full_mzid_path, mock_project_accession)
 
     mzid_file = parsed_data.mzid_file
     peptides = parsed_data.peptides
@@ -144,7 +144,7 @@ def test_usi_fields_extraction(full_mzid_path):
     mock_project_accession = "PXD000001"
     file_parser = MzidFileParser()
     # Single ParsedMzidData expected
-    parsed_data = file_parser.parse_file(full_mzid_path, mock_project_accession)[0]
+    parsed_data = file_parser.parse_file(full_mzid_path, mock_project_accession)
 
     psms = parsed_data.psms
 

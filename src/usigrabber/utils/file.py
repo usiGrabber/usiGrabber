@@ -20,7 +20,7 @@ from usigrabber.backends.base import FileMetadata
 logger = logging.getLogger(__name__)
 
 # empty string for folders (no extension)
-FILETYPE_ALLOWLIST = {".mzid", "", ".txt"}
+FILETYPE_ALLOWLIST = {".mzid", ".mzTab", ".txt"}
 ARCHIVE_TYPES = {".zip", ".gz", ".tar", ".rar", ".7z"}
 PARALLEL_DOWNLOADS = int(os.getenv("PARALLEL_DOWNLOADS", "10"))
 INTERESTING_TXT_FILES = {"evidence", "summary", "peptides"}
@@ -271,8 +271,6 @@ def get_files_for_download(
     Returns:
         List of FileMetadata objects selected for download
     """
-    files_to_download: list[FileMetadata] = []
-
     # 1. Prefer .mzid files
     if all_files.get(".mzid", []):
         return all_files[".mzid"]
@@ -290,7 +288,7 @@ def get_files_for_download(
         if txt_zip_files or txt_files:
             return txt_zip_files + txt_files
 
-    return files_to_download
+    return []
 
 
 @contextmanager

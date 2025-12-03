@@ -40,9 +40,9 @@ class MzidFileParser(BaseFileParser):
     def format_name(self) -> str:
         return "mzIdentML"
 
-    def parse_file(self, path_or_pathlist, project_accession: str) -> list[ParsedMzidData]:
+    def parse_file(self, path, project_accession: str) -> ParsedMzidData:
         """Parse the mzID file into ParsedMzidData."""
-        path = path_or_pathlist if isinstance(path_or_pathlist, Path) else path_or_pathlist[0]
+        path = path if isinstance(path, Path) else path[0]
         logger.debug(f"Parsing mzID file: '{path.name}'")
 
         if not path.exists():
@@ -86,7 +86,7 @@ class MzidFileParser(BaseFileParser):
                 )
 
                 logger.debug(f"Successfully parsed '{path.name}'")
-                return [parsed_data]
+                return parsed_data
 
         except PyteomicsError as e:
             error_msg = f"Failed to parse mzID file: {e}"
