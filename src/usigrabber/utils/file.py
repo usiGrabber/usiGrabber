@@ -175,7 +175,7 @@ def extract_archive(
 
         # Recurse only into REAL archive files
         if is_archive_file(member_path):
-            next_extract_dir = extract_to / member_path.stem
+            next_extract_dir = extract_to / str(member_path.stem).replace(".", "_")
             extracted_members.extend(extract_archive(member_path, next_extract_dir))
         else:
             extracted_members.append(member_path)
