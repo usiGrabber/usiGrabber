@@ -141,16 +141,16 @@ def add_cv_params_to_project(session: Session, project: Project, all_cvs: list[R
         filters = []
         for cv in cvs:
             if cv.value is None:
-                filters.append(and_(CvParam.name == cv.name, CvParam.value.is_(None)))  # pyright: ignore[reportAttributeAccessIssue, reportOptionalMemberAccess]
+                filters.append(and_(CvParam.accession == cv.name, CvParam.value.is_(None)))  # pyright: ignore[reportAttributeAccessIssue, reportOptionalMemberAccess]
             else:
-                filters.append(and_(CvParam.name == cv.name, CvParam.value == cv.value))
+                filters.append(and_(CvParam.accession == cv.name, CvParam.value == cv.value))
 
         statement = select(CvParam).where(or_(*filters))
         existing = session.exec(statement)
         existing_params = list(existing.all())
 
         # Map existing for fast lookup
-        existing_map = {(cv.name, cv.value): cv for cv in existing_params}
+        existing_map = {(cv.accession, cv.value): cv for cv in existing_params}
 
         # Step 3: Prepare CvParams to add
         new_cvs = []
@@ -158,7 +158,7 @@ def add_cv_params_to_project(session: Session, project: Project, all_cvs: list[R
             name, value = cv.name, cv.value
             key = (name, value)
             if key not in existing_map:
-                cv_param = CvParam(name=name, value=value)
+                cv_param = CvParam(accession=name, value=value)
                 session.add(cv_param)
 
                 existing_map[key] = cv_param

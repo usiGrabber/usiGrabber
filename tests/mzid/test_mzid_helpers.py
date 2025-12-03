@@ -5,7 +5,7 @@ Unit tests for pure parsing helper functions with no database dependencies.
 Tests edge cases, error handling, and data transformations.
 """
 
-from usigrabber.file_parser.mzid.helpers import (
+from usigrabber.file_parser.helpers import (
     extract_score_values,
     extract_unimod_id_and_name,
     parse_modification_location,

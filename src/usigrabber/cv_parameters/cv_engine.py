@@ -4,19 +4,15 @@ from typing import Self, assert_never
 from sqlmodel import Session, and_, or_, select
 
 from usigrabber.db import CvParam as DBCVParam
+from usigrabber.db import Project
 
 
 @dataclass
 class CVParam:
-    term: str
+    accession: str
     """
-    Term with a format like: MS:1000463
+    Accession with a format like: MS:1000463
     """
-    cv_label: str | None = None
-    """
-    Optionally if the CV part of the term is differnt. Can be dangerous to use
-    """
-    name: str | None = None
     value: str | float | int | None = None
 
 
@@ -59,33 +55,54 @@ class CVInjector:
 
     async def _flush_data_to_db(self) -> None:
         assert self._session
+
+        # Early return if buffer is empty
+        if not self._cv_param_buffer:
+            return
+
         filters = []
         for cv in self._cv_param_buffer:
             if cv.value is None:
-                filters.append(and_(DBCVParam.name == cv.name, DBCVParam.value.is_(None)))  # pyright: ignore[reportAttributeAccessIssue, reportOptionalMemberAccess] (is_ does not have the correct linter error)
+                filters.append(and_(DBCVParam.accession == cv.accession, DBCVParam.value.is_(None)))  # pyright: ignore[reportAttributeAccessIssue, reportOptionalMemberAccess] (is_ does not have the correct linter error)
             else:
-                filters.append(and_(DBCVParam.name == cv.name, DBCVParam.value == cv.value))
+                filters.append(
+                    and_(DBCVParam.accession == cv.accession, DBCVParam.value == cv.value)
+                )
 
         statement = select(DBCVParam).where(or_(*filters))
         existing = self._session.exec(statement)
         existing_params = list(existing.all())
 
         # Map existing for fast lookup
-        existing_map = {(cv.name, cv.value): cv for cv in existing_params}
+        existing_map = {(cv.accession, cv.value): cv for cv in existing_params}
 
         # Step 3: Prepare CvParams to add
         new_cvs = []
         for cv in self._cv_param_buffer:
-            name, value = cv.term, cv.value
+            name, value = cv.accession, cv.value
             db_value = str(value) if value is not None else None
             key = (name, db_value)
             if key not in existing_map:
-                cv_param = DBCVParam(name=name, value=str(value) if value is not None else None)
+                cv_param = DBCVParam(
+                    accession=name, value=str(value) if value is not None else None
+                )
                 self._session.add(cv_param)
 
                 existing_map[key] = cv_param
                 new_cvs.append(cv_param)
         self._session.flush()  # Assigns ID
+
+        # Step 4: Link all cv_params to project
+        # Get the project and append cv_params to its cv_params list
+        project = self._session.get(Project, self._project_accession)
+        if project:
+            # Get existing cv_param IDs for this project to avoid duplicates
+            existing_cv_param_ids = {cv.id for cv in project.cv_params}
+            # Append only new cv_params
+            for cv_param in existing_map.values():
+                if cv_param.id not in existing_cv_param_ids:
+                    project.cv_params.append(cv_param)
+
         self._cv_param_buffer = []
 
     async def add(self, data: CVTuple | CVParam):

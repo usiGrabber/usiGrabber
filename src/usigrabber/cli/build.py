@@ -14,12 +14,8 @@ from usigrabber.backends import BackendEnum
 from usigrabber.cli import app
 from usigrabber.db import Project, create_db_and_tables, load_db_engine
 from usigrabber.db.cli import reset as db_reset
-from usigrabber.file_parser import (
-    MzidImportError,
-    MzidParseError,
-    import_all_txt_zip,
-    import_mzid,
-)
+from usigrabber.file_parser import import_files
+from usigrabber.file_parser.errors import FileParserError
 from usigrabber.utils import get_cache_dir
 from usigrabber.utils.file import (
     get_interesting_files,
@@ -28,6 +24,7 @@ from usigrabber.utils.file import (
 
 CACHE_DIR = get_cache_dir()
 STANDARD_BACKENDS = [enum for enum in BackendEnum]
+FILE_CATEGORIES = ["result", "search", "other"]
 logger = logging.getLogger(__name__)
 
 
@@ -125,8 +122,9 @@ async def async_build(
         with Session(db_engine) as session, temporary_path() as tmp_dir_default:
             async for project in backend.get_new_projects(existing_accessions):
                 tmp_dir = Path(tmp_dir_default / project["accession"])
-                (tmp_dir).mkdir()
+                tmp_dir.mkdir()
                 fully_processed: bool = False
+                main_source_type = None
 
                 try:
                     await backend.dump_project_to_db(session, project)
@@ -137,124 +135,58 @@ async def async_build(
                     continue
 
                 session.commit()
-                imported += 1
                 # download files
                 files = backend.get_files_for_project(project["accession"])
 
-                processed_files = 0
-                main_source_type = None
-
                 # process files
-                if files["result"]:
-                    interesting_files = await get_interesting_files(
-                        files["result"], project["accession"], tmp_dir
-                    )
-
-                    # access files based on priority
-
-                    # Process mzID file
-                    if not main_source_type and interesting_files[".mzid"]:
-                        main_source_type = ".mzid"
-                        for mzid_file in interesting_files[".mzid"]:
-                            try:
-                                stats = import_mzid(db_engine, mzid_file, project["accession"])
-                                duration_str = (
-                                    f"{stats.duration_seconds:.1f}s"
-                                    if stats.duration_seconds is not None
-                                    else "N/A"
-                                )
-                                logger.info(
-                                    f"Imported {stats.psm_count:,} PSMs from {mzid_file.name} "
-                                    f"({duration_str})"
-                                )
-                                processed_files += 1
-                            except MzidParseError as e:
-                                logger.warning(
-                                    f"Skipping malformed mzID file {mzid_file.name}: {e}"
-                                )
-                                continue
-                            except MzidImportError as e:
-                                logger.error(
-                                    f"Failed to import mzID file {mzid_file.name}: {e}",
-                                    exc_info=True,
-                                    stack_info=True,
-                                    extra={
-                                        "mzid_file": str(mzid_file),
-                                        "project_accession": project["accession"],
-                                    },
-                                )
-                                errors += 1
-                                continue
-                        if processed_files == len(interesting_files[".mzid"]):
-                            fully_processed = True
-                            continue
-
-                    # Process mzTab file
-                    # TODO: uncomment, if mztab parser is implemented!
-                    # if not main_source_type and interesting_files[".mzTab"]:
-                    # main_source_type = ".mztab"
-                    # for mztab_file in interesting_files[".mzTab"]:
-                    # logger.debug(f"Found mzTab: {mztab_file}, but cannot yet parse it")
-                    # try:
-                    #     parse(mztab_file)
-                    #     processed_files += 1
-                    # except Exception as e:
-                    #     pass
-                    # if processed_files == len(interesting_files[".mztab"]):
-                    #     fully_processed = True
-                    #     continue
-
-                if files["search"] and not fully_processed:
-                    interesting_files = await get_interesting_files(
-                        files["search"], project["accession"], tmp_dir
-                    )
-
-                    # Process maxQuant txt output
-                    if not main_source_type and interesting_files[".txt"]:
-                        main_source_type = ".txt"
-                        processed_files, errors, fully_processed = import_all_txt_zip(
-                            db_engine,
-                            interesting_files[".txt"],
-                            project["accession"],
-                            errors,
+                for category in FILE_CATEGORIES:
+                    if files[category] and not fully_processed:
+                        interesting_files = await get_interesting_files(
+                            files[category], project["accession"], tmp_dir
                         )
-                        if fully_processed:
-                            continue
 
-                if files["other"] and not fully_processed:
-                    interesting_files = await get_interesting_files(
-                        files["other"], project["accession"], tmp_dir
-                    )
+                        for ext, flist in interesting_files.items():
+                            if flist:
+                                main_source_type = ext
+                                try:
+                                    fully_processed = import_files(
+                                        db_engine,
+                                        flist,
+                                        project["accession"],
+                                        logger,
+                                    )
+                                except FileParserError as e:
+                                    logger.error(
+                                        f"Failed to import '{ext}' files: {e}",
+                                        exc_info=True,
+                                        stack_info=True,
+                                        extra={
+                                            "ext": str(ext),
+                                            "project_accession": project["accession"],
+                                        },
+                                    )
+                                    continue
 
-                    # Process maxQuant txt output
-                    if not main_source_type and interesting_files[".txt"]:
-                        main_source_type = ".txt"
-                        processed_files, errors, fully_processed = import_all_txt_zip(
-                            db_engine,
-                            interesting_files[".txt"],
-                            project["accession"],
-                            errors,
-                        )
-                        if fully_processed:
-                            continue
-
-                if not files:
-                    logger.warning(
-                        f"No results/search files found for project '{project['accession']}'"
-                        f"from backend {backend_enum.name}.",
-                    )
-                elif not main_source_type:
-                    logger.warning(
-                        f"No file could be parsed for project '{project['accession']}'"
-                        f"from backend {backend_enum.name}.",
-                    )
-                elif not fully_processed:
-                    logger.warning(
-                        f"'{main_source_type}' files could not be completely parsed for project"
-                        f"'{project['accession']}' from backend {backend_enum.name}.",
-                    )
-
+                if fully_processed:
+                    imported += 1
                     # TODO: set "complete=fully_processed" flag for project
+                else:
+                    errors += 1
+                    if not (files["result"] or files["search"] or files["other"]):
+                        logger.warning(
+                            f"No files found for project '{project['accession']}'"
+                            f"from backend {backend_enum.name}.",
+                        )
+                    elif not main_source_type:
+                        logger.warning(
+                            f"No file could be parsed for project '{project['accession']}'"
+                            f"from backend {backend_enum.name}.",
+                        )
+                    elif not fully_processed:
+                        logger.warning(
+                            f"'{main_source_type}' files could not be completely parsed for project"
+                            f" '{project['accession']}' from backend {backend_enum.name}.",
+                        )
 
         if imported > 0 or errors > 0:
             logger.info("Finished importing from backend %s.", backend_enum.name)

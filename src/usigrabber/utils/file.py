@@ -23,6 +23,7 @@ logger = logging.getLogger(__name__)
 FILETYPE_ALLOWLIST = {".mzid", "", ".txt"}
 ARCHIVE_TYPES = {".zip", ".gz", ".tar", ".rar", ".7z"}
 PARALLEL_DOWNLOADS = int(os.getenv("PARALLEL_DOWNLOADS", "10"))
+INTERESTING_TXT_FILES = {"evidence", "summary", "peptides"}
 
 
 async def download_ftp(
@@ -76,7 +77,7 @@ async def download_ftp(
     raise RuntimeError("Unreachable: retry loop ended without returning or raising")
 
 
-async def download_ftp_with_semamphore(
+async def download_ftp_with_semaphore(
     semaphore: asyncio.Semaphore,
     url: str,
     out_dir: Path,
@@ -186,6 +187,7 @@ def extract_archive(
 async def get_interesting_files(
     files: list[FileMetadata], accession: str, tmp_dir: Path
 ) -> dict[str, list[Path]]:
+    all_files: dict[str, list[FileMetadata]] = {ext: [] for ext in FILETYPE_ALLOWLIST}
     interesting_files: dict[str, list[Path]] = {ext: [] for ext in FILETYPE_ALLOWLIST}
     files_to_be_downloaded: list[FileMetadata] = []
     for file in files:
@@ -198,17 +200,20 @@ async def get_interesting_files(
             file_base, file_ext = os.path.splitext(file_base)
 
         if (file_ext not in FILETYPE_ALLOWLIST) and ("txt.zip" not in str(filename)):
+            # txt.zip can be zipped itself, why we check for it specifically here
             logger.debug(f"Skipping file {filename} with unsupported extension {file_ext}.")
             continue
-        if file_ext == ".txt" and file_base not in ("evidence", "summary", "peptides"):
+        if file_ext == ".txt" and file_base not in INTERESTING_TXT_FILES:
             logger.debug(f"Skipping file {filename} as it is not interesting.")
             continue
 
-        files_to_be_downloaded.append(file)
+        all_files[file_ext].append(file)
+
+    files_to_be_downloaded = get_files_for_download(all_files)
 
     if len(files_to_be_downloaded) == 0:
         logger.warning(
-            f"Found {files[0]['category']} files for project {accession},"
+            f"Found {files[0]['category']} files for project {accession}, "
             f"but none match the supported file types.",
         )
         return interesting_files
@@ -216,7 +221,7 @@ async def get_interesting_files(
     sem = asyncio.Semaphore(PARALLEL_DOWNLOADS)
     paths = await asyncio.gather(
         *[
-            download_ftp_with_semamphore(
+            download_ftp_with_semaphore(
                 semaphore=sem,
                 url=file["filepath"],
                 out_dir=tmp_dir,
@@ -236,10 +241,10 @@ async def get_interesting_files(
             continue
 
         filesize_in_mb = files_to_be_downloaded[idx]["file_size"] / (1024 * 1024)
-        logger.debug(f"Processing result file '{filename}' " + f"({filesize_in_mb:,.2f} MB)")
+        logger.debug(f"Processing result file '{filename}' ({filesize_in_mb:,.2f} MB)")
 
         # contains all files extracted from archive
-        extract_dir = str(os.path.splitext(filename)) + "_extracted"
+        extract_dir = os.path.splitext(filename)[0] + "_extracted"
         extracted_files = extract_archive(archive_path=path, extract_to=path.parent / extract_dir)
 
         for f in extracted_files:
@@ -247,6 +252,45 @@ async def get_interesting_files(
             if ext in FILETYPE_ALLOWLIST:
                 interesting_files[ext].append(f)
     return interesting_files
+
+
+def get_files_for_download(
+    all_files: dict[str, list[FileMetadata]],
+) -> list[FileMetadata]:
+    """
+    From the available files, select the best candidates for download.
+
+    Preference order:
+    1. .mzid files
+    2. .mzTab files
+    2. txt.zip and .txt files
+
+    Args:
+        all_files: Dictionary mapping file extensions to lists of FileMetadata
+
+    Returns:
+        List of FileMetadata objects selected for download
+    """
+    files_to_download: list[FileMetadata] = []
+
+    # 1. Prefer .mzid files
+    if all_files.get(".mzid", []):
+        return all_files[".mzid"]
+
+    # 2. Next prefer .mzTab files
+    elif all_files.get(".mzTab", []):
+        return all_files[".mzTab"]
+
+    # 3. Next prefer txt.zip/.txt files
+    else:
+        txt_zip_files = [
+            f for f in all_files.get("", []) if f["filepath"].lower().endswith("txt.zip")
+        ]
+        txt_files = all_files.get(".txt", [])
+        if txt_zip_files or txt_files:
+            return txt_zip_files + txt_files
+
+    return files_to_download
 
 
 @contextmanager

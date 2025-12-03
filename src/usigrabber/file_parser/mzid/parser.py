@@ -1,22 +1,23 @@
-"""
-mzID Parser Orchestration
-
-Main parsing and import functions that orchestrate the parsing process
-and handle database operations.
-"""
-
+# file_parser/mzid/parser.py
 import logging
 from pathlib import Path
 
 from pyteomics import mzid
 from pyteomics.auxiliary import PyteomicsError
-from sqlalchemy.engine.base import Engine
-from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy import insert
+from sqlalchemy.engine import Engine
 from sqlmodel import Session
 
+from usigrabber.db.schema import (
+    Peptide,
+    PeptideEvidence,
+    PeptideModification,
+    PeptideSpectrumMatch,
+    PSMPeptideEvidence,
+)
+from usigrabber.file_parser.base import BaseFileParser, register_parser
 from usigrabber.file_parser.errors import MzidImportError, MzidParseError
-from usigrabber.file_parser.models import ImportStats
-from usigrabber.file_parser.mzid.models import ParsedMzidData
+from usigrabber.file_parser.models import ImportStats, ParsedMzidData
 from usigrabber.file_parser.mzid.parsing_functions import (
     link_modifications,
     parse_db_sequences,
@@ -29,140 +30,95 @@ from usigrabber.file_parser.mzid.parsing_functions import (
 logger = logging.getLogger(__name__)
 
 
-def parse_mzid_file(mzid_path: Path, project_accession: str) -> ParsedMzidData:
-    """
-    Parse an mzIdentML file and return all parsed data structures.
+@register_parser
+class MzidFileParser(BaseFileParser):
+    @property
+    def file_extensions(self) -> set[str]:
+        return {".mzid"}
 
-    This function performs pure parsing with no database operations.
+    @property
+    def format_name(self) -> str:
+        return "mzIdentML"
 
-    Args:
-            mzid_path: Path to the mzIdentML file
-            project_accession: PRIDE project accession
+    def parse_file(self, path_or_pathlist, project_accession: str) -> list[ParsedMzidData]:
+        """Parse the mzID file into ParsedMzidData."""
+        path = path_or_pathlist if isinstance(path_or_pathlist, Path) else path_or_pathlist[0]
+        logger.debug(f"Parsing mzID file: '{path.name}'")
 
-    Returns:
-            ParsedMzidData containing all parsed records
+        if not path.exists():
+            error_msg = f"File not found: {path}"
+            logger.error(error_msg)
+            raise MzidParseError(error_msg)
 
-    Raises:
-            MzidParseError: If file cannot be read or parsed
-    """
-    # Validate file exists
-    if not mzid_path.exists():
-        error_msg = f"File not found: {mzid_path}"
-        logger.error(error_msg)
-        raise MzidParseError(error_msg)
+        try:
+            with mzid.MzIdentML(str(path), retrieve_refs=False) as reader:
+                logger.debug("Phase 0: Parsing file metadata...")
+                mzid_file = parse_mzid_metadata(reader, path, project_accession)
 
-    try:
-        # Parse mzID file with retrieve_refs=False
-        with mzid.MzIdentML(str(mzid_path), retrieve_refs=False) as reader:
-            mzid_file = parse_mzid_metadata(reader, mzid_path, project_accession)
+                logger.debug("Phase 1: Parsing database sequences...")
+                db_seq_map = parse_db_sequences(reader)
 
-            # Phase 1: Parse DB sequences
-            logger.debug("Phase 1: Parsing database sequences...")
-            db_sequence_map = parse_db_sequences(reader)
+                logger.debug("Phase 2: Parsing peptides...")
+                peptide_id_map, peptide_mods, peptides_batch = parse_peptides(reader)
 
-            # Phase 2: Parse peptides
-            logger.debug("Phase 2: Parsing peptides...")
-            peptide_id_map, peptide_mods, peptides_batch = parse_peptides(reader)
+                logger.debug("Phase 3: Parsing peptide evidence...")
+                pe_id_map, peptide_evidence_batch = parse_peptide_evidence(reader, db_seq_map)
 
-            # Phase 3: Parse peptide evidence
-            logger.debug("Phase 3: Parsing peptide evidence...")
-            pe_id_map, peptide_evidence_batch = parse_peptide_evidence(reader, db_sequence_map)
+                logger.debug("Phase 4: Parsing spectrum identification results (PSMs)...")
+                psm_batch, junction_batch = parse_psms(
+                    reader,
+                    project_accession,
+                    mzid_file.id,
+                    peptide_id_map,
+                    pe_id_map,
+                )
 
-            # Phase 4: Parse PSMs
-            logger.debug("Phase 4: Parsing spectrum identification results...")
-            psm_batch, junction_batch = parse_psms(
-                reader,
-                project_accession,
-                mzid_file.id,
-                peptide_id_map,
-                pe_id_map,
-            )
+                logger.debug("Phase 5: Linking peptide modifications...")
+                mod_batch = link_modifications(peptide_mods)
 
-            # Phase 5: Link modifications
-            logger.debug("Phase 5: Linking peptide modifications...")
-            mod_batch = link_modifications(peptide_mods)
+                parsed_data = ParsedMzidData(
+                    mzid_file=mzid_file,
+                    peptides=peptides_batch,
+                    peptide_modifications=mod_batch,
+                    peptide_evidence=peptide_evidence_batch,
+                    psms=psm_batch,
+                    psm_peptide_evidence_junctions=junction_batch,
+                )
 
-            # Return all parsed data
-            parsed_data = ParsedMzidData(
-                mzid_file=mzid_file,
-                peptides=peptides_batch,
-                peptide_modifications=mod_batch,
-                peptide_evidence=peptide_evidence_batch,
-                psms=psm_batch,
-                psm_peptide_evidence_junctions=junction_batch,
-            )
+                logger.debug(f"Successfully parsed '{path.name}'")
+                return [parsed_data]
 
-            return parsed_data
+        except PyteomicsError as e:
+            error_msg = f"Failed to parse mzID file: {e}"
+            logger.error(error_msg, exc_info=True)
+            raise MzidParseError(error_msg) from e
 
-    except PyteomicsError as e:
-        error_msg = f"Failed to parse mzID file: {e}"
-        logger.error(error_msg, exc_info=True)
-        raise MzidParseError(error_msg) from e
-
-
-def import_mzid(engine: Engine, mzid_path: Path, project_accession: str) -> ImportStats:
-    """
-    Import an mzIdentML file into the database.
-
-    This function orchestrates parsing and database persistence:
-    1. Parses the mzID file using parse_mzid_file()
-    2. Persists all parsed data to the database in a single transaction
-
-    Args:
-            mzid_path: Path to the mzIdentML file
-            project_accession: PRIDE project accession
-
-    Returns:
-            ImportStats object containing import statistics and status
-
-    Raises:
-            MzidParseError: If file cannot be read or parsed
-            MzidImportError: If database operations fail
-    """
-    # Initialize stats tracker
-    stats = ImportStats(
-        file_name=mzid_path.name,
-        project_accession=project_accession,
-    )
-    logger.debug(f"Importing mzID file: '{mzid_path.name}'")
-
-    try:
-        # Step 1: Parse the mzID file (pure parsing, no DB operations)
-        parsed_data = parse_mzid_file(mzid_path, project_accession)
-
-        stats.mark_parsing_complete()
-
-        # Step 2: Persist everything to the database
-        with Session(engine) as session:
-            session.add(parsed_data.mzid_file)
-            session.add_all(parsed_data.peptides)
-            session.add_all(parsed_data.peptide_evidence)
-            session.add_all(parsed_data.psms)
-            session.add_all(parsed_data.psm_peptide_evidence_junctions)
-            session.add_all(parsed_data.peptide_modifications)
-            session.commit()
-
-        # Update stats
-        stats.peptide_count = len(parsed_data.peptides)
-        stats.modification_count = len(parsed_data.peptide_modifications)
-        stats.peptide_evidence_count = len(parsed_data.peptide_evidence)
-        stats.psm_count = len(parsed_data.psms)
-        stats.mark_complete()
-
-        logger.debug(stats.summary(), extra={"fileStats": stats.dict_summary()})
-        return stats
-
-    except MzidParseError as e:
-        # Re-raise parsing errors with updated stats
-        stats.mark_failed(str(e))
-        raise
-    except SQLAlchemyError as e:
-        error_msg = f"Database error during import: {e}"
-        logger.error(error_msg, exc_info=True)
-        stats.mark_failed(error_msg)
-        raise MzidImportError(error_msg) from e
-    except Exception as e:
-        error_msg = f"Unexpected error during import: {e}"
-        logger.error(error_msg, exc_info=True)
-        stats.mark_failed(error_msg)
-        raise MzidImportError(error_msg) from e
+    def persist(self, engine: Engine, parsed: ParsedMzidData, stats: ImportStats):
+        """Persist parsed mzID data to the database with debug logging."""
+        logger.debug(f"Persisting mzID data to database for file '{stats.file_name}'")
+        try:
+            with Session(engine) as session:
+                session.add(parsed.mzid_file)
+                session.commit()
+                if parsed.peptides:
+                    session.execute(insert(Peptide), parsed.peptides)
+                    stats.peptide_count = len(parsed.peptides)
+                if parsed.peptide_evidence:
+                    session.execute(insert(PeptideEvidence), parsed.peptide_evidence)
+                    stats.peptide_evidence_count = len(parsed.peptide_evidence)
+                if parsed.psms:
+                    session.execute(insert(PeptideSpectrumMatch), parsed.psms)
+                    stats.psm_count = len(parsed.psms)
+                if parsed.psm_peptide_evidence_junctions:
+                    session.execute(
+                        insert(PSMPeptideEvidence), parsed.psm_peptide_evidence_junctions
+                    )
+                if parsed.peptide_modifications:
+                    session.execute(insert(PeptideModification), parsed.peptide_modifications)
+                    stats.modification_count = len(parsed.peptide_modifications)
+                session.commit()
+            logger.debug(f"Successfully imported mzID data for file '{stats.file_name}'")
+        except Exception as e:
+            error_msg = f"Database import failed for file '{stats.file_name}': {e}"
+            logger.error(error_msg, exc_info=True)
+            raise MzidImportError(error_msg) from e
