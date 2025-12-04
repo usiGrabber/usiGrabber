@@ -11,7 +11,7 @@ from usigrabber.db.schema import (
 )
 from usigrabber.file_parser.mzid.helpers import (
     extract_score_values,
-    extract_unimod_id_and_name,
+    extract_unimod_id_or_name,
     extract_usi_fields,
     generate_modification_signature,
     parse_modification_location,
@@ -264,7 +264,7 @@ def parse_modification_list(modifications: list[dict[str, Any]]) -> list[dict[st
     parsed_mods = []
     for mod in modifications:
         # Extract UNIMOD ID, name, location, and residues
-        unimod_id, name = extract_unimod_id_and_name(mod)
+        unimod_id, name = extract_unimod_id_or_name(mod)
         location, residues = parse_modification_location(mod)
 
         mod_uuid = generate_deterministic_modification_uuid(unimod_id, name, location, residues)

@@ -107,6 +107,7 @@ def extract_archive(
     Returns a list of extracted file paths.
     """
     archive_path = archive_path.resolve()
+    extract_to = extract_to.resolve()
 
     extract_to.mkdir(parents=True, exist_ok=False)
 

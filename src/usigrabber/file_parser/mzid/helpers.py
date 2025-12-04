@@ -15,7 +15,7 @@ from usigrabber.utils import get_unimod_db
 logger = logging.getLogger(__name__)
 
 
-def extract_unimod_id_and_name(mod_data: dict) -> tuple[int | None, str | None]:
+def extract_unimod_id_or_name(mod_data: dict) -> tuple[int | None, str | None]:
     """
     Extract UNIMOD ID and name from modification data.
 
@@ -23,7 +23,8 @@ def extract_unimod_id_and_name(mod_data: dict) -> tuple[int | None, str | None]:
             mod_data: Modification dictionary
 
     Returns:
-            UNIMOD ID as integer, or None if not found. Also returns modification name.
+            UNIMOD ID as integer, or None if not found.
+            Returns modification name if unimod ID not found and name is available.
 
     """
     # Check if cvParam exists
@@ -43,7 +44,7 @@ def extract_unimod_id_and_name(mod_data: dict) -> tuple[int | None, str | None]:
             if "UNIMOD:" in accession and len(accession) > 7:
                 try:
                     # Extract number from "UNIMOD:35" format
-                    return int(accession.split(":")[-1]), mod_name
+                    return int(accession.split(":")[-1]), None
                 except (ValueError, IndexError):
                     pass
             name = param.get("name", "")
@@ -57,7 +58,8 @@ def extract_unimod_id_and_name(mod_data: dict) -> tuple[int | None, str | None]:
 
     if uid is None:
         logger.debug("No UNIMOD ID found for modification: %s", mod_data)
-    return uid, mod_name
+        return None, mod_name
+    return uid, None
 
 
 @lru_cache(maxsize=420)
