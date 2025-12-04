@@ -40,13 +40,6 @@ def engine_fixture() -> Generator[Engine, Any, None]:
 
 @pytest.fixture(name="session")
 def seeded_session(engine: Engine) -> Generator[Session, Any, None]:
-    seed_minimal_data(engine)
-    logger.warning("Using seeded in-memory sqlite database for testing.")
-    with Session(engine) as session:
-        yield session
-    engine = create_engine(
-        "sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool
-    )
     create_db_and_tables(engine)
     seed_minimal_data(engine)
     logger.warning("Using seeded in-memory sqlite database for testing.")
