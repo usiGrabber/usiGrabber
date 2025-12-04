@@ -6,7 +6,10 @@ These functions extract and transform data from mzIdentML elements.
 """
 
 import logging
+import re
+import subprocess
 from functools import lru_cache
+from pathlib import Path
 from typing import Any, cast
 
 from usigrabber.db.schema import IndexType
@@ -140,24 +143,22 @@ def normalize_residues(residues: Any) -> str:
     return str(residues) if residues else ""
 
 
-def extract_usi_fields(sir: dict) -> tuple[IndexType | None, int | None, str | None]:
+def extract_index_type_and_number(sir: dict) -> tuple[IndexType | None, int | None]:
     """
     Extract USI-related fields from SpectrumIdentificationResult.
 
     Parses spectrum title (MS:1000796) or scan number (MS:1001115) cvParams to extract:
     - index_type: Type of spectrum index (scan, index, nativeId, or trace)
     - index_number: Spectrum index number
-    - ms_run: MS run identifier from raw file name
 
     Args:
-            sir: SpectrumIdentificationResult dictionary
+        sir: SpectrumIdentificationResult dictionary
 
     Returns:
-            Tuple of (index_type, index_number, ms_run)
+        Tuple of (index_type, index_number)
     """
     index_type: IndexType | None = None
     index_number: int | None = None
-    ms_run: str | None = None
 
     # First try to parse from spectrumID attribute
     spectrum_id = sir.get("spectrumID", "")
@@ -188,41 +189,72 @@ def extract_usi_fields(sir: dict) -> tuple[IndexType | None, int | None, str | N
     scan_number_value: str | None = sir.get("scan number(s)")
 
     # Parse spectrum title (MS:1000796)
-    if spectrum_title:
+    if spectrum_title and "scan=" in spectrum_title:
         # Example format:
         # "OTE0019_York_060813_JH16.3285.3285.2 File:\"OTE0019_York_060813_JH16.raw\",
         #  NativeID:\"controllerType=0 controllerNumber=1 scan=3285\""
 
         # Extract scan number from NativeID if present (overwrites existing spectrum id)
-        if "scan=" in spectrum_title:
-            try:
-                scan_part = spectrum_title.split("scan=")[1]
-                scan_num_str = scan_part.split('"')[0].split()[0]
-                index_number = int(scan_num_str)
-                index_type = IndexType.scan
-            except (ValueError, IndexError):
-                pass
-
-        # Extract MS run from File field
-        if 'File:"' in spectrum_title or "File:&quot;" in spectrum_title:
-            try:
-                # Handle both " and &quot; encodings
-                file_part = spectrum_title.split("File:")[1]
-                if file_part.startswith("&quot;"):
-                    file_name = file_part.split("&quot;")[1]
-                else:
-                    file_name = file_part.split('"')[1]
-                # Remove .raw extension
-                ms_run = file_name.replace(".raw", "").replace(".RAW", "")
-            except IndexError:
-                pass
+        try:
+            match = re.search(r"scan=(\d+)", spectrum_title)
+            if match:
+                index_number = int(match.group(1))
+            index_type = IndexType.scan
+        except (ValueError, IndexError):
+            pass
 
     # Parse scan number(s) (MS:1001115)
     if scan_number_value and index_type is None:
         try:
-            index_type = IndexType.scan
             index_number = int(scan_number_value)
+            index_type = IndexType.scan
         except (ValueError, TypeError):
             pass
 
-    return index_type, index_number, ms_run
+    return index_type, index_number
+
+
+SPECTRUM_ID_FORMAT_MAPPING = {
+    "MS:1000774": IndexType.index,
+    "MS:1000776": IndexType.scan,
+    "MS:1000768": IndexType.scan,
+    "MS:1001530": IndexType.nativeId,
+}
+
+# Set to track already logged exceptions
+# WARNING: not thread-safe, but acceptable for this use case
+exceptions = set()
+
+
+def get_spectrum_id_format(cv_param: str) -> IndexType | None:
+    """
+    Map SpectrumIDFormat accession to human-readable format.
+
+    Args:
+        cv_param: SpectrumIDFormat cvParam accession
+
+    Returns:
+        Human-readable format string or None if not found
+    """
+    id_format = SPECTRUM_ID_FORMAT_MAPPING.get(cv_param)
+    if not id_format:
+        if cv_param not in exceptions:
+            # only print each exception once
+            logger.warning("Unknown SpectrumIDFormat accession: %s", cv_param)
+            exceptions.add(cv_param)
+        return None
+    return id_format
+
+
+def extract_xml_subtree(xml_path: Path, tag: str) -> str:
+    """
+    Use sed to extract XML subtree from a file and return as string.
+    """
+    cmd = ["sed", "-n", rf"/<{tag}>/,/<\/{tag}>/p", str(xml_path)]
+    proc = subprocess.run(
+        cmd,
+        text=True,
+        capture_output=True,
+        check=True,
+    )
+    return proc.stdout.strip()

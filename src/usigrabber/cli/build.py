@@ -27,6 +27,7 @@ logger = logging.getLogger(__name__)
 # empty string for folders (no extension)
 FILETYPE_ALLOWLIST = {".mzid", "", ".mztab"}
 
+MAX_FILESIZE_BYTES = 5 * 1024**3  # 5 GB
 PARALLEL_DOWNLOADS = int(os.getenv("PARALLEL_DOWNLOADS", "10"))
 
 
@@ -75,6 +76,12 @@ async def async_build(
     cache_dir: Path = CACHE_DIR,
 ) -> None:
     """Build USI database."""
+
+    if os.name == "nt":
+        raise RuntimeError(
+            "Windows is not supported. This application requires the 'sed' command-line utility, "
+            "which is available by default on most Linux and macOS systems."
+        )
 
     logger.info("Building database.")
 
@@ -151,6 +158,17 @@ async def async_build(
                             file_url = file["filepath"]
                             filename = os.path.basename(file_url)
 
+                            if file["file_size"] > MAX_FILESIZE_BYTES:
+                                logger.warning(
+                                    "Skipping file '%s' in project %s due "
+                                    + "to size (%.2f GiB > %.2f GiB).",
+                                    filename,
+                                    project["accession"],
+                                    file["file_size"] / (1024**3),
+                                    MAX_FILESIZE_BYTES / (1024**3),
+                                )
+                                continue
+
                             # find actual file extension, without archives
                             file_base, file_ext = os.path.splitext(filename)
                             while file_ext in {".zip", ".gz", ".tar", ".rar", ".7z"}:
@@ -176,36 +194,26 @@ async def async_build(
 
                         # download all matching files asynchronously (limit concurrency)
                         sem = asyncio.Semaphore(PARALLEL_DOWNLOADS)
-                        paths = await asyncio.gather(
-                            *[
-                                download_ftp_with_semamphore(
-                                    semaphore=sem,
-                                    url=file["filepath"],
-                                    out_dir=tmp_dir / project["accession"] / str(idx),
-                                )
-                                for idx, file in enumerate(files_to_be_downloaded)
-                            ],
-                            return_exceptions=True,
-                        )
+                        path_coros = [
+                            download_ftp_with_semamphore(
+                                semaphore=sem,
+                                url=file["filepath"],
+                                out_dir=tmp_dir / project["accession"] / str(idx),
+                            )
+                            for idx, file in enumerate(files_to_be_downloaded)
+                        ]
 
-                        for idx, path in enumerate(paths):
-                            filename = os.path.basename(files_to_be_downloaded[idx]["filepath"])
-                            if isinstance(path, BaseException):
+                        for fut in asyncio.as_completed(path_coros):
+                            try:
+                                path = await fut
+                            except Exception as e:
                                 logger.error(
-                                    "Failed to download file %s for project %s.",
-                                    filename,
+                                    "Error in while downloading file for project %s: %s",
                                     project["accession"],
+                                    e,
                                     exc_info=True,
                                 )
                                 continue
-
-                            filesize_in_mb = files_to_be_downloaded[idx]["file_size"] / (
-                                1024 * 1024
-                            )
-                            logger.debug(
-                                f"Processing result file '{filename}' "
-                                + f"({filesize_in_mb:,.2f} MB)"
-                            )
 
                             # contains all files extracted from archive
                             extracted_files = extract_archive(

@@ -1,22 +1,85 @@
 import logging
+import os
 import uuid
 from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+from lxml import etree as ET  # pyright: ignore
 from pyteomics import mzid
 
-from usigrabber.db.schema import (
-    MzidFile,
-)
+from usigrabber.db.schema import IndexType, MzidFile
 from usigrabber.file_parser.helpers import (
+    extract_index_type_and_number,
     extract_score_values,
     extract_unimod_id_and_name,
-    extract_usi_fields,
+    extract_xml_subtree,
+    get_spectrum_id_format,
     parse_modification_location,
 )
+from usigrabber.utils.file import parse_basename
 
 logger = logging.getLogger(__name__)
+
+
+def parse_spectra_data(mzid_path: Path) -> dict[str, tuple[str, IndexType | None]]:
+    """
+    Parse SpectraData information to extract MS run name and SpectrumIDFormat.
+    This approach parses the `<Inputs>` subtree from the mzID file directly,
+    to avoid having to go through the entire file.
+
+    Args:
+        mzid_path: Path to the mzIdentML file
+    Returns:
+        Dictionary mapping spectra_id to tuple of (ms_run_name, IndexType enum value or None)
+    """
+    spectra_data_map: dict[str, tuple[str, IndexType | None]] = {}
+
+    xml_snippet = extract_xml_subtree(mzid_path, tag="Inputs")
+    root = ET.fromstring(xml_snippet)
+
+    for child in root:
+        if child.tag != "SpectraData":
+            continue
+
+        spectra_id = child.get("id")
+        if not spectra_id:
+            continue
+        ms_run_name = child.get("name") or child.get("location")
+        if not ms_run_name:
+            logger.warning(
+                "SpectraData element with id '%s' has no 'name' or 'location' attribute. File: %s",
+                spectra_id,
+                mzid_path.name,
+            )
+            continue
+        basename = parse_basename(ms_run_name)
+        ms_run_name, ext = os.path.splitext(basename)
+
+        # keep stripping extensions until none left
+        while ext != "":
+            ms_run_name, ext = os.path.splitext(ms_run_name)
+
+        # Extract SpectrumIDFormat accession from nested cvParam
+        spectrum_id_format: str | None = None
+        spectrum_id_format_cv = child.find(".//SpectrumIDFormat/cvParam")
+        if spectrum_id_format_cv is not None:
+            spectrum_id_format = spectrum_id_format_cv.get("accession")
+
+        if spectrum_id_format is None:
+            logger.warning(
+                "SpectraData element with id '%s' has no SpectrumIDFormat cvParam. File: %s",
+                spectra_id,
+                mzid_path.name,
+            )
+            continue
+
+        spectra_data_map[spectra_id] = (
+            ms_run_name,
+            get_spectrum_id_format(cv_param=spectrum_id_format),
+        )
+
+    return spectra_data_map
 
 
 def parse_software_info(reader: mzid.MzIdentML) -> tuple[str | None, str | None]:
@@ -262,6 +325,7 @@ def parse_psms(
     mzid_file_id: uuid.UUID,
     peptide_id_map: dict[str, uuid.UUID],
     pe_id_map: dict[str, uuid.UUID],
+    spectra_data_map: dict[str, tuple[str, IndexType | None]],
 ) -> tuple[list[dict], list[dict]]:
     """
     Parse SpectrumIdentificationResult elements.
@@ -286,7 +350,8 @@ def parse_psms(
         spectrum_id: str = sir.get("spectrumID", "")
 
         # Extract USI-related fields from the SpectrumIdentificationResult
-        index_type, index_number, ms_run = extract_usi_fields(sir)
+        ms_run: str | None = None
+        index_type, index_number = extract_index_type_and_number(sir)
 
         # Get list of spectrum identification items (PSMs)
         sii_list: dict[str, Any] | list[dict[str, Any]] = sir.get("SpectrumIdentificationItem", [])
@@ -304,6 +369,13 @@ def parse_psms(
 
             # Extract score values using helper function
             score_values: dict[str, float] = extract_score_values(sii)
+
+            spectraData_ref = sir.get("spectraData_ref", "")
+            spectra_data = spectra_data_map.get(spectraData_ref)
+            if spectra_data:
+                ms_run = spectra_data[0]
+                if spectra_data[1]:
+                    index_type = spectra_data[1]
 
             # Create PSM record
             psm_id = uuid.uuid4()
