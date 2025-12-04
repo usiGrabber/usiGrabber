@@ -112,5 +112,5 @@ class ParsedMzidData(NamedTuple):
 class ParsedMztabData(NamedTuple):
     """Container for all parsed data from an mzTab file."""
 
-    peptides: list[dict]
+    modified_peptides: list[dict]
     psms: list[dict]
