@@ -237,7 +237,7 @@ class Modification(SQLModel, table=True):
 
     __tablename__ = "modifications"
 
-    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    id: uuid.UUID = Field(primary_key=True)
     unimod_id: int | None = Field(description="Unimod id, e.g., '35' for 'UNIMOD:35' accession")
     name: str | None = Field(
         description="Modification name. Used as fallback if UNIMOD id not available."
