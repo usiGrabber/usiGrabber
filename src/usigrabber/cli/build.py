@@ -27,6 +27,12 @@ STANDARD_BACKENDS = [enum for enum in BackendEnum]
 FILE_CATEGORIES = ["result", "search", "other"]
 logger = logging.getLogger(__name__)
 
+# empty string for folders (no extension)
+FILETYPE_ALLOWLIST = {".mzid", "", ".mztab"}
+
+MAX_FILESIZE_BYTES = 5 * 1024**3  # 5 GB
+PARALLEL_DOWNLOADS = int(os.getenv("PARALLEL_DOWNLOADS", "10"))
+
 
 @app.command()
 def build(
@@ -73,6 +79,12 @@ async def async_build(
     cache_dir: Path = CACHE_DIR,
 ) -> None:
     """Build USI database."""
+
+    if os.name == "nt":
+        raise RuntimeError(
+            "Windows is not supported. This application requires the 'sed' command-line utility, "
+            "which is available by default on most Linux and macOS systems."
+        )
 
     logger.info("Building database.")
 
@@ -189,7 +201,8 @@ async def async_build(
                         elif not fully_processed:
                             logger.warning(
                                 f"'{main_source_type}' files could not be completely parsed for "
-                                f"project '{project['accession']}' from backend {backend_enum.name}.",
+                                f"project '{project['accession']}'"
+                                f" from backend {backend_enum.name}.",
                             )
 
         if imported > 0 or errors > 0:

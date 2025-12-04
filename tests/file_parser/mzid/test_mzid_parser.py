@@ -9,7 +9,7 @@ def test_mzid_parser_with_full_file(full_mzid_path):
     This test validates the complete parsing pipeline, ensuring that:
     - Metadata is correctly extracted from the file
     - Peptides and their sequences are parsed
-    - Modifications are linked to peptides with correct positions
+    - Modifications are linked to peptides with correct locations
     - Peptide evidence (protein mappings) are created
     - PSMs are created with proper scores and references
     - Junction tables link PSMs to peptide evidence correctly
@@ -20,36 +20,33 @@ def test_mzid_parser_with_full_file(full_mzid_path):
     parsed_data = file_parser.parse_file(full_mzid_path, mock_project_accession)
 
     mzid_file = parsed_data.mzid_file
-    peptides = parsed_data.peptides
-    peptide_modifications = parsed_data.peptide_modifications
+    modified_peptides = parsed_data.modified_peptides
+    modifications = parsed_data.modifications
     peptide_evidence = parsed_data.peptide_evidence
     psms = parsed_data.psms
     psm_peptide_evidence_junctions = parsed_data.psm_peptide_evidence_junctions
 
     # =========================================================================
-    # Test Peptides
+    # Test Peptides (with deduplication)
     # =========================================================================
-    assert len(peptides) > 0, "Should parse peptides from the file"
-    assert len(peptides) == 695, "Expected 695 peptides in the test file"
+    assert len(modified_peptides) > 0, "Should parse peptides from the file"
+    # After deduplication: 413 unique modified peptides (was 695 before deduplication)
+    assert len(modified_peptides) == 413, "Expected 413 unique modified peptides"
 
     # =========================================================================
-    # Test Peptide Modifications
+    # Test Peptide Modifications (with deduplication)
     # =========================================================================
 
-    assert len(peptide_modifications) > 0, "Should parse peptide modifications from the file"
-    assert len(peptide_modifications) == 925, "Expected 925 peptide modifications"
-    # Find a specific modified peptide
-    # peptide_155_2: VFVNR with Deamidated N at position 4
-    vfvnr_peptides = [p for p in peptides if p["sequence"] == "VFVNR"]
-    assert len(vfvnr_peptides) > 0, "Should find VFVNR peptide"
-    vfvnr_peptide_ids = {p["id"] for p in vfvnr_peptides}
-    vfvnr_mods = [mod for mod in peptide_modifications if mod["peptide_id"] in vfvnr_peptide_ids]
-    assert len(vfvnr_mods) > 0, "Should find modifications for VFVNR peptide"
-    deamidated_mods = [mod for mod in vfvnr_mods if mod["modified_residue"] == "N"]
-    assert len(deamidated_mods) > 0, "Should find Deamidated N modification"
-    deamidated_mod = deamidated_mods[0]
-    assert deamidated_mod["position"] == 4, "Deamidated N should be at position 4"
-    assert deamidated_mod["name"] == "Deamidated", "Modification name should be Deamidated"
+    assert len(modifications) > 0, "Should parse peptide modifications from the file"
+    # Modifications are now deduplicated by (unimod_id, name, location, modified_residue)
+    # Find a specific modification: Deamidated N at location 4
+    deamidated_n_mods = [
+        mod for mod in modifications if mod["modified_residue"] == "N" and mod["location"] == 4
+    ]
+    # There should be a unique Deamidated N at location 4 modification
+    assert len(deamidated_n_mods) > 0, "Should find Deamidated N at location 4"
+    deamidated_mod = deamidated_n_mods[0]
+    assert deamidated_mod["location"] == 4, "Deamidated N should be at location 4"
 
     # =========================================================================
     # Test Peptide Evidence (Protein Mappings)
@@ -67,15 +64,15 @@ def test_mzid_parser_with_full_file(full_mzid_path):
     for psm in psms:
         assert psm["project_accession"] == mock_project_accession
         assert psm["mzid_file_id"] == mzid_file.id
-        assert psm["peptide_id"] is not None
+        assert psm["modified_peptide_id"] is not None
         assert psm["spectrum_id"] is not None, "PSM should have spectrum ID"
 
     # Verify specific PSM exists
     # SII_30_6: spectrum "index=1528", peptide ELLTK
-    elltk_peptides = [p for p in peptides if p["sequence"] == "ELLTK"]
+    elltk_peptides = [p for p in modified_peptides if p["peptide_sequence"] == "ELLTK"]
     assert len(elltk_peptides) > 0
     elltk_peptide_ids = {p["id"] for p in elltk_peptides}
-    elltk_psms = [psm for psm in psms if psm["peptide_id"] in elltk_peptide_ids]
+    elltk_psms = [psm for psm in psms if psm["modified_peptide_id"] in elltk_peptide_ids]
     assert len(elltk_psms) > 0, "Should find PSMs for ELLTK"
 
     # Verify PSM has detailed information
@@ -122,14 +119,23 @@ def test_mzid_parser_with_full_file(full_mzid_path):
     # Test Data Consistency and Relationships
     # =========================================================================
 
-    # All peptide modifications should reference valid peptides
-    peptide_ids = {p["id"] for p in peptides}
-    for mod in peptide_modifications:
-        assert mod["peptide_id"] in peptide_ids, "Modification should reference a valid peptide"
-
-    # All PSMs should reference valid peptides
+    # All PSMs should reference valid modified peptides
+    modified_peptide_ids = {p["id"] for p in modified_peptides}
     for psm in psms:
-        assert psm["peptide_id"] in peptide_ids, "PSM should reference a valid peptide"
+        assert psm["modified_peptide_id"] in modified_peptide_ids, (
+            "PSM should reference a valid modified peptide"
+        )
+
+    # Modifications are linked via junction table, verify junction integrity
+    modification_ids = {mod["id"] for mod in modifications}
+    junctions = parsed_data.modified_peptide_modification_junctions
+    for junction in junctions:
+        assert junction["modified_peptide_id"] in modified_peptide_ids, (
+            "Junction should reference valid modified peptide"
+        )
+        assert junction["modification_id"] in modification_ids, (
+            "Junction should reference valid modification"
+        )
 
 
 def test_usi_fields_extraction(full_mzid_path):

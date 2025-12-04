@@ -1,22 +1,97 @@
 import logging
+import os
 import uuid
 from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+from lxml import etree as ET  # pyright: ignore
 from pyteomics import mzid
 
-from usigrabber.db.schema import (
-    MzidFile,
+from usigrabber.db.schema import IndexType, MzidFile
+from usigrabber.file_parser.models import (
+    ModificationDict,
+    ModifiedPeptideDict,
+    ModifiedPeptideModificationJunctionDict,
+    PeptideEvidenceDict,
+    PeptideSpectrumMatchDict,
+    PSMPeptideEvidenceDict,
 )
-from usigrabber.file_parser.helpers import (
+from usigrabber.file_parser.mzid.helpers import (
+    extract_index_type_and_number,
     extract_score_values,
-    extract_unimod_id_and_name,
-    extract_usi_fields,
+    extract_unimod_id_or_name,
+    extract_xml_subtree,
+    get_spectrum_id_format,
     parse_modification_location,
 )
+from usigrabber.file_parser.uuid_helpers import (
+    generate_deterministic_modification_uuid,
+    generate_deterministic_peptide_uuid,
+)
+from usigrabber.utils.file import parse_basename
 
 logger = logging.getLogger(__name__)
+
+
+def parse_spectra_data(mzid_path: Path) -> dict[str, tuple[str, IndexType | None]]:
+    """
+    Parse SpectraData information to extract MS run name and SpectrumIDFormat.
+    This approach parses the `<Inputs>` subtree from the mzID file directly,
+    to avoid having to go through the entire file.
+
+    Args:
+        mzid_path: Path to the mzIdentML file
+    Returns:
+        Dictionary mapping spectra_id to tuple of (ms_run_name, IndexType enum value or None)
+    """
+    spectra_data_map: dict[str, tuple[str, IndexType | None]] = {}
+
+    xml_snippet = extract_xml_subtree(mzid_path, tag="Inputs")
+    root = ET.fromstring(xml_snippet)
+
+    for child in root:
+        if child.tag != "SpectraData":
+            continue
+
+        spectra_id = child.get("id")
+        if not spectra_id:
+            continue
+        ms_run_name = child.get("name") or child.get("location")
+        if not ms_run_name:
+            logger.warning(
+                "SpectraData element with id '%s' has no 'name' or 'location' attribute. File: %s",
+                spectra_id,
+                mzid_path.name,
+            )
+            continue
+        basename = parse_basename(ms_run_name)
+        ms_run_name, ext = os.path.splitext(basename)
+
+        # keep stripping extensions until none left
+        while ext != "":
+            ms_run_name, ext = os.path.splitext(ms_run_name)
+
+        # Extract SpectrumIDFormat accession from nested cvParam
+        spectrum_id_format: str | None = None
+        spectrum_id_format_cv = child.find(".//SpectrumIDFormat/cvParam")
+        if spectrum_id_format_cv is not None:
+            spectrum_id_format = spectrum_id_format_cv.get("accession")
+
+        if spectrum_id_format is None:
+            logger.warning(
+                "SpectraData element with id '%s' has no SpectrumIDFormat cvParam. File: %s",
+                spectra_id,
+                mzid_path.name,
+            )
+            continue
+
+        spectra_data_map[spectra_id] = (
+            ms_run_name,
+            get_spectrum_id_format(cv_param=spectrum_id_format),
+        )
+
+    return spectra_data_map
 
 
 def parse_software_info(reader: mzid.MzIdentML) -> tuple[str | None, str | None]:
@@ -158,57 +233,131 @@ def parse_db_sequences(reader: mzid.MzIdentML) -> dict[str, str]:
     return db_sequence_map
 
 
-def parse_peptides(
+def parse_peptides_and_modifications(
     reader: mzid.MzIdentML,
-) -> tuple[dict[str, uuid.UUID], dict[uuid.UUID, list[dict[str, Any]]], list[dict]]:
+) -> tuple[
+    dict[str, uuid.UUID],
+    list[ModifiedPeptideDict],
+    list[ModificationDict],
+    list[ModifiedPeptideModificationJunctionDict],
+]:
     """
-    Parse Peptide elements.
-    Creates a new Peptide record for each mzID Peptide element.
+    Parse Peptide elements and their modifications in a single pass.
+    Creates ModifiedPeptide and Modification records with deterministic UUID IDs,
+    tracking modifications as we go to avoid duplication.
 
     Args:
-                    reader: MzIdentML reader instance
+        reader: MzIdentML reader instance
 
     Returns:
-                    Tuple of:
-                    - peptide_id_map: Maps mzID peptide IDs to database Peptide.id
-                    - peptide_mods: Maps database Peptide.id to list of modification data
-                    - List of Peptide records created
+        Tuple of:
+        - peptide_id_map: Maps mzID peptide IDs to ModifiedPeptide.id (UUID)
+        - List of ModifiedPeptide records created
+        - List of Modification records created
+        - List of ModifiedPeptideModificationJunction records
     """
 
     peptide_id_map: dict[str, uuid.UUID] = {}
-    peptide_mods: dict[uuid.UUID, list[dict[str, Any]]] = {}
-    peptides_batch: list[dict] = []
+    # Use dict for deduplication - same modified peptide UUID = same record
+    peptides_dict: dict[uuid.UUID, ModifiedPeptideDict] = {}
+
+    # Track modifications as we parse peptides
+    modifications_dict: dict[uuid.UUID, ModificationDict] = {}
+    junction_set: set[tuple[uuid.UUID, uuid.UUID]] = set()  # (modified_peptide_id, mod_id)
 
     for peptide_elem in reader.iterfind("Peptide"):
-        mzid_peptide_id = peptide_elem.get("id", "")
-        sequence = peptide_elem.get("PeptideSequence", "")
+        mzid_peptide_id: str = peptide_elem.get("id", "")
+        sequence: str = peptide_elem.get("PeptideSequence", "")
+        if not sequence:
+            sequence = peptide_elem.get("Seq", "")
         if not mzid_peptide_id or not sequence:
             logger.warning(f"Skipping invalid Peptide element: {peptide_elem}")
             continue
 
-        pep_id = uuid.uuid4()
-        peptide_dict = {
-            "id": pep_id,
-            "sequence": sequence,
-            "length": len(sequence),
-        }
-        peptides_batch.append(peptide_dict)
-        peptide_id_map[mzid_peptide_id] = pep_id
-
-        modifications = peptide_elem.get("Modification")
+        # Extract modifications to build composite ID
+        modifications: dict[str, Any] | list[dict[str, Any]] | None = peptide_elem.get(
+            "Modification"
+        )
+        mod_list = []
         if modifications:
             if not isinstance(modifications, list):
                 modifications = [modifications]
-            peptide_mods[pep_id] = modifications
+            mod_list = modifications
 
-    logger.debug(f"Created {len(peptides_batch)} peptide records")
-    return peptide_id_map, peptide_mods, peptides_batch
+        # Step 1: Parse modifications from raw mzID format
+        parsed_mods = parse_modification_list(mod_list)
+
+        # Step 2: Generate deterministic UUID from sequence and modifications
+        # This ensures identical modified peptides get the same UUID across all files
+        modified_peptide_id = generate_deterministic_peptide_uuid(sequence, parsed_mods)
+
+        peptide_dict: ModifiedPeptideDict = {
+            "id": modified_peptide_id,
+            "peptide_sequence": sequence,
+        }
+        # Deduplicate: if same modified_peptide_id already exists, skip adding again and skip mods
+        if modified_peptide_id not in peptides_dict:
+            peptides_dict[modified_peptide_id] = peptide_dict
+
+            for mod in parsed_mods:
+                mod_id = mod["id"]
+                modifications_dict[mod_id] = mod
+                # Add junction entry (set automatically deduplicates)
+                junction_set.add((modified_peptide_id, mod_id))
+
+        peptide_id_map[mzid_peptide_id] = modified_peptide_id
+
+    # Convert collections to lists for batch insertion
+    peptides_batch = list(peptides_dict.values())
+    modifications_batch = list(modifications_dict.values())
+    junction_batch: list[ModifiedPeptideModificationJunctionDict] = [
+        {"modified_peptide_id": mp_id, "modification_id": mod_id} for mp_id, mod_id in junction_set
+    ]
+
+    logger.debug(
+        f"Created {len(peptides_batch)} unique modified peptide records, "
+        f"{len(modifications_batch)} unique modifications, and "
+        f"{len(junction_batch)} unique junction entries"
+    )
+    return peptide_id_map, peptides_batch, modifications_batch, junction_batch
+
+
+def parse_modification_list(modifications: list[dict[str, Any]]) -> list[ModificationDict]:
+    """
+    Parse raw modification data from mzID into standardized format.
+
+    Args:
+        modifications: List of raw modification dictionaries from mzID
+
+    Returns:
+        List of parsed modification dicts with keys: id, unimod_id, name, location, modified_residue
+    """
+    if not modifications:
+        return []
+
+    parsed_mods: list[ModificationDict] = []
+    for mod in modifications:
+        # Extract UNIMOD ID, name, location, and residues
+        unimod_id, name = extract_unimod_id_or_name(mod)
+        location, residues = parse_modification_location(mod)
+
+        mod_uuid = generate_deterministic_modification_uuid(unimod_id, name, location, residues)
+        mod_dict: ModificationDict = {
+            "id": mod_uuid,
+            "unimod_id": unimod_id,
+            "name": name,
+            "location": location,
+            "modified_residue": residues,
+        }
+        parsed_mods.append(mod_dict)
+
+    return parsed_mods
 
 
 def parse_peptide_evidence(
     reader: mzid.MzIdentML,
     db_sequence_map: dict[str, str],
-) -> tuple[dict[str, uuid.UUID], list[dict]]:
+) -> tuple[dict[str, uuid.UUID], list[PeptideEvidenceDict]]:
     """
     Parse PeptideEvidence elements.
 
@@ -224,7 +373,7 @@ def parse_peptide_evidence(
 
     pe_id_map: dict[str, uuid.UUID] = {}
 
-    peptide_evidence_batch: list[dict] = []
+    peptide_evidence_batch: list[PeptideEvidenceDict] = []
 
     for pe_elem in reader.iterfind("PeptideEvidence"):
         mzid_pe_id: str = pe_elem.get("id", "")
@@ -238,7 +387,7 @@ def parse_peptide_evidence(
 
         # Create peptide evidence record
         pe_id = uuid.uuid4()
-        pe_dict = {
+        pe_dict: PeptideEvidenceDict = {
             "id": pe_id,
             "protein_accession": protein_accession,
             "is_decoy": pe_elem.get("isDecoy", None),
@@ -260,7 +409,8 @@ def parse_psms(
     mzid_file_id: uuid.UUID,
     peptide_id_map: dict[str, uuid.UUID],
     pe_id_map: dict[str, uuid.UUID],
-) -> tuple[list[dict], list[dict]]:
+    spectra_data_map: dict[str, tuple[str, IndexType | None]],
+) -> tuple[list[PeptideSpectrumMatchDict], list[PSMPeptideEvidenceDict]]:
     """
     Parse SpectrumIdentificationResult elements.
 
@@ -268,7 +418,7 @@ def parse_psms(
                     reader: MzIdentML reader instance
                     project_accession: PRIDE project accession
                     mzid_file_id: Database ID of the MzidFile record
-                    peptide_id_map: Mapping from mzID peptide IDs to database Peptide.id
+                    peptide_id_map: Mapping from mzID peptide refs to ModifiedPeptide.id (UUID)
                     pe_id_map: Mapping from mzID peptide evidence IDs to database PeptideEvidence.id
 
     Returns:
@@ -277,14 +427,15 @@ def parse_psms(
                     - List of PSMPeptideEvidence junction records
     """
 
-    psm_batch: list[dict] = []
-    junction_batch: list[dict] = []
+    psm_batch: list[PeptideSpectrumMatchDict] = []
+    junction_batch: list[PSMPeptideEvidenceDict] = []
 
     for sir in reader.iterfind("SpectrumIdentificationResult"):
         spectrum_id: str = sir.get("spectrumID", "")
 
         # Extract USI-related fields from the SpectrumIdentificationResult
-        index_type, index_number, ms_run = extract_usi_fields(sir)
+        ms_run: str | None = None
+        index_type, index_number = extract_index_type_and_number(sir)
 
         # Get list of spectrum identification items (PSMs)
         sii_list: dict[str, Any] | list[dict[str, Any]] = sir.get("SpectrumIdentificationItem", [])
@@ -292,24 +443,31 @@ def parse_psms(
             sii_list = [sii_list]
 
         for sii in sii_list:
-            # Look up database peptide ID
+            # Look up modified peptide ID using mzID peptide reference
             peptide_ref: str = sii.get("peptide_ref", "")
-            db_peptide_id: uuid.UUID | None = peptide_id_map.get(peptide_ref)
+            modified_peptide_id: uuid.UUID | None = peptide_id_map.get(peptide_ref)
 
-            if not db_peptide_id:
+            if not modified_peptide_id:
                 logger.warning(f"Peptide_ref '{peptide_ref}' not found in map")
                 continue
 
             # Extract score values using helper function
             score_values: dict[str, float] = extract_score_values(sii)
 
+            spectraData_ref = sir.get("spectraData_ref", "")
+            spectra_data = spectra_data_map.get(spectraData_ref)
+            if spectra_data:
+                ms_run = spectra_data[0]
+                if spectra_data[1]:
+                    index_type = spectra_data[1]
+
             # Create PSM record
             psm_id = uuid.uuid4()
-            psm = {
+            psm: PeptideSpectrumMatchDict = {
                 "id": psm_id,
                 "project_accession": project_accession,
                 "mzid_file_id": mzid_file_id,
-                "peptide_id": db_peptide_id,
+                "modified_peptide_id": modified_peptide_id,
                 "spectrum_id": spectrum_id,
                 "charge_state": sii.get("chargeState"),
                 "experimental_mz": sii.get("experimentalMassToCharge"),
@@ -332,55 +490,12 @@ def parse_psms(
                 db_pe_id: uuid.UUID | None = pe_id_map.get(pe_ref_id)
 
                 if db_pe_id:
-                    junction_batch.append(
-                        {
-                            "id": uuid.uuid4(),
-                            "psm_id": psm_id,
-                            "peptide_evidence_id": db_pe_id,
-                        }
-                    )
+                    junction_dict: PSMPeptideEvidenceDict = {
+                        "id": uuid.uuid4(),
+                        "psm_id": psm_id,
+                        "peptide_evidence_id": db_pe_id,
+                    }
+                    junction_batch.append(junction_dict)
 
     logger.debug(f"Parsed {len(psm_batch)} PSMs and {len(junction_batch)} junctions")
     return psm_batch, junction_batch
-
-
-def link_modifications(
-    peptide_mods: dict[uuid.UUID, list[dict[str, Any]]],
-) -> list[dict]:
-    """
-    Create PeptideModification records for all peptides with modifications.
-
-    Args:
-        peptide_mods: Mapping from database Peptide.id to list of modification data
-
-    Returns:
-        List of PeptideModification records created
-    """
-
-    peptide_mod_batch: list[dict] = []
-
-    for peptide_id, mods in peptide_mods.items():
-        for mod in mods:
-            # Extract UNIMOD ID
-            unimod_id, name = extract_unimod_id_and_name(mod)
-
-            location, residues = parse_modification_location(mod)
-
-            # Skip modifications without valid location
-            if location is None:
-                logger.warning(f"No location found for modification: {mod}")
-
-            # Create modification record
-            peptide_mod_batch.append(
-                {
-                    "id": uuid.uuid4(),
-                    "peptide_id": peptide_id,
-                    "unimod_id": unimod_id,
-                    "name": name,
-                    "position": location,
-                    "modified_residue": residues,
-                }
-            )
-
-    logger.debug(f"Created {len(peptide_mod_batch)} peptide modification records")
-    return peptide_mod_batch

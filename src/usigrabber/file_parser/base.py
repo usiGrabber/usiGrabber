@@ -12,10 +12,10 @@ from usigrabber.file_parser.models import (  # Import models
     ParsedTxtZipData,
 )
 
-PARSER_REGISTRY = {}
+PARSER_REGISTRY: dict[str, "BaseFileParser"] = {}
 
 
-def register_parser(cls):
+def register_parser[T: BaseFileParser](cls: type[T]) -> type[T]:
     """Decorator to auto-register parsers by extensions."""
     instance = cls()
     for ext in instance.file_extensions:
@@ -23,7 +23,7 @@ def register_parser(cls):
     return cls
 
 
-def get_parser_for_extension(ext: str):
+def get_parser_for_extension(ext: str) -> "BaseFileParser | None":
     return PARSER_REGISTRY.get(ext.lower())
 
 
