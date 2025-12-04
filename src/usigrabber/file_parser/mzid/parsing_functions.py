@@ -18,7 +18,7 @@ from usigrabber.file_parser.mzid.helpers import (
     get_spectrum_id_format,
     parse_modification_location,
 )
-from usigrabber.file_parser.mzid.uuid_helpers import (
+from usigrabber.file_parser.uuid_helpers import (
     generate_deterministic_modification_uuid,
     generate_deterministic_peptide_uuid,
 )

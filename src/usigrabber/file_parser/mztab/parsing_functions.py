@@ -4,6 +4,8 @@ import uuid
 import pandas as pd
 from pyteomics import mztab
 
+from usigrabber.file_parser.uuid_helpers import generate_deterministic_peptide_uuid
+
 logger = logging.getLogger(__name__)
 
 
@@ -24,7 +26,8 @@ def extract_mztab_data(
         seq = row.sequence  # pyright: ignore[reportAttributeAccessIssue]
 
         # Deduplicated based on sequence only for mzTab. TODO: consider modifications
-        unique_modified_peptides[seq] = {"id": seq, "peptide_sequence": seq}
+        peptide_id = generate_deterministic_peptide_uuid(seq, "")
+        unique_modified_peptides[seq] = {"id": peptide_id, "peptide_sequence": seq}
 
         psm_rows.append(
             {
