@@ -9,79 +9,19 @@ from pyteomics import mzid
 from usigrabber.db.schema import (
     MzidFile,
 )
-from usigrabber.file_parser.helpers import (
+from usigrabber.file_parser.mzid.helpers import (
     extract_score_values,
     extract_unimod_id_and_name,
     extract_usi_fields,
+    generate_modification_signature,
     parse_modification_location,
+)
+from usigrabber.file_parser.mzid.uuid_helpers import (
+    generate_deterministic_modification_uuid,
+    generate_deterministic_peptide_uuid,
 )
 
 logger = logging.getLogger(__name__)
-
-# Namespace UUIDs for generating deterministic UUIDs
-# These ensure the same properties always generate the same UUID
-MODIFICATION_NAMESPACE = uuid.UUID("a8f3c5e7-9b2d-4f1a-8c6e-3d7b5a9f2e4c")
-PEPTIDE_NAMESPACE = uuid.UUID("b9e4d6f8-0c3a-5e2b-9d7f-4a8c6e1b3d5a")
-
-
-def generate_deterministic_modification_uuid(
-    unimod_id: int | None,
-    name: str | None,
-    position: int,
-    modified_residue: str | None,
-) -> uuid.UUID:
-    """
-    Generate a deterministic UUID for a modification based on its properties.
-
-    Uses UUID v5 (SHA-1 hash-based) to ensure identical modifications always
-    receive identical UUIDs across all files and parsing runs.
-
-    Args:
-        unimod_id: UNIMOD identifier (e.g., 35 for Oxidation)
-        name: Modification name (e.g., "Oxidation")
-        position: Position in the peptide sequence
-        modified_residue: Residue(s) being modified (e.g., "M")
-
-    Returns:
-        Deterministic UUID v5 based on the modification properties
-    """
-    # Create a deterministic string representation of the modification
-    # Format: "unimod:{id}|name:{name}|pos:{position}|residue:{residue}"
-    parts = [
-        f"unimod:{unimod_id if unimod_id is not None else 'null'}",
-        f"name:{name if name is not None else 'null'}",
-        f"pos:{position}",
-        f"residue:{modified_residue if modified_residue is not None else 'null'}",
-    ]
-    mod_string = "|".join(parts)
-
-    # Generate UUID v5 using the namespace and modification string
-    return uuid.uuid5(MODIFICATION_NAMESPACE, mod_string)
-
-
-def generate_deterministic_peptide_uuid(
-    sequence: str,
-    modification_signature: str,
-) -> uuid.UUID:
-    """
-    Generate a deterministic UUID for a modified peptide based on its properties.
-
-    Uses UUID v5 (SHA-1 hash-based) to ensure identical modified peptides always
-    receive identical UUIDs across all files and parsing runs.
-
-    Args:
-        sequence: Peptide amino acid sequence (e.g., "PEPTIDESEQ")
-        modification_signature: Sorted modification signature (e.g., "unimod35@5_unimod4@10")
-
-    Returns:
-        Deterministic UUID v5 based on the peptide sequence and modifications
-    """
-    # Create a deterministic string representation of the modified peptide
-    # Format: "seq:{sequence}|mods:{signature}"
-    peptide_string = f"seq:{sequence}|mods:{modification_signature or 'none'}"
-
-    # Generate UUID v5 using the namespace and peptide string
-    return uuid.uuid5(PEPTIDE_NAMESPACE, peptide_string)
 
 
 def parse_software_info(reader: mzid.MzIdentML) -> tuple[str | None, str | None]:
@@ -223,27 +163,33 @@ def parse_db_sequences(reader: mzid.MzIdentML) -> dict[str, str]:
     return db_sequence_map
 
 
-def parse_peptides(
+def parse_peptides_and_modifications(
     reader: mzid.MzIdentML,
-) -> tuple[dict[str, uuid.UUID], dict[uuid.UUID, list[dict[str, Any]]], list[dict]]:
+) -> tuple[dict[str, uuid.UUID], list[dict], list[dict], list[dict]]:
     """
-    Parse Peptide elements.
-    Creates ModifiedPeptide records with deterministic UUID IDs.
+    Parse Peptide elements and their modifications in a single pass.
+    Creates ModifiedPeptide and Modification records with deterministic UUID IDs,
+    tracking modifications as we go to avoid duplication.
 
     Args:
-                    reader: MzIdentML reader instance
+        reader: MzIdentML reader instance
 
     Returns:
-                    Tuple of:
-                    - peptide_id_map: Maps mzID peptide IDs to ModifiedPeptide.id (UUID)
-                    - peptide_mods: Maps ModifiedPeptide.id (UUID) to list of modification data
-                    - List of ModifiedPeptide records created
+        Tuple of:
+        - peptide_id_map: Maps mzID peptide IDs to ModifiedPeptide.id (UUID)
+        - List of ModifiedPeptide records created
+        - List of Modification records created
+        - List of ModifiedPeptideModificationJunction records
     """
 
     peptide_id_map: dict[str, uuid.UUID] = {}
-    peptide_mods: dict[uuid.UUID, list[dict[str, Any]]] = {}
     # Use dict for deduplication - same modified peptide UUID = same record
     peptides_dict: dict[uuid.UUID, dict] = {}
+
+    # Track modifications as we parse peptides
+    modifications_dict: dict[tuple, dict] = {}  # key: (unimod_id, name, position, residue)
+    mod_id_map: dict[tuple, uuid.UUID] = {}  # Track unique key -> UUID mapping
+    junction_set: set[tuple[uuid.UUID, uuid.UUID]] = set()  # (modified_peptide_id, mod_id)
 
     for peptide_elem in reader.iterfind("Peptide"):
         mzid_peptide_id: str = peptide_elem.get("id", "")
@@ -266,7 +212,7 @@ def parse_peptides(
         parsed_mods = _parse_modification_list(mod_list)
 
         # Step 2: Generate signature from parsed modifications
-        mod_signature = _generate_modification_signature(parsed_mods)
+        mod_signature = generate_modification_signature(parsed_mods)
 
         # Step 3: Generate deterministic UUID from sequence and modifications
         # This ensures identical modified peptides get the same UUID across all files
@@ -280,14 +226,55 @@ def parse_peptides(
         peptides_dict[modified_peptide_id] = peptide_dict
         peptide_id_map[mzid_peptide_id] = modified_peptide_id
 
-        # Store parsed modification data for later use in link_modifications()
-        if parsed_mods:
-            peptide_mods[modified_peptide_id] = parsed_mods
+        # Process modifications immediately instead of storing for later
+        for mod in parsed_mods:
+            unimod_id = mod["unimod_id"]
+            name = mod["name"]
+            location = mod["location"]
+            residues = mod["residues"]
 
-    # Convert dict to list for batch insertion
+            # Skip modifications without valid location
+            if location is None:
+                logger.warning(f"No location found for modification: {mod}")
+                continue
+
+            # Create unique key for deduplication
+            mod_key = (unimod_id, name, location, residues)
+
+            # Only create new modification if we haven't seen this exact one before
+            if mod_key not in modifications_dict:
+                # Generate deterministic UUID based on modification properties
+                mod_id = generate_deterministic_modification_uuid(
+                    unimod_id, name, location, residues
+                )
+                modifications_dict[mod_key] = {
+                    "id": mod_id,
+                    "unimod_id": unimod_id,
+                    "name": name,
+                    "position": location,
+                    "modified_residue": residues,
+                }
+                mod_id_map[mod_key] = mod_id
+            else:
+                # Reuse existing modification UUID
+                mod_id = mod_id_map[mod_key]
+
+            # Add junction entry (set automatically deduplicates)
+            junction_set.add((modified_peptide_id, mod_id))
+
+    # Convert collections to lists for batch insertion
     peptides_batch = list(peptides_dict.values())
-    logger.debug(f"Created {len(peptides_batch)} unique modified peptide records")
-    return peptide_id_map, peptide_mods, peptides_batch
+    modifications_batch = list(modifications_dict.values())
+    junction_batch = [
+        {"modified_peptide_id": mp_id, "modification_id": mod_id} for mp_id, mod_id in junction_set
+    ]
+
+    logger.debug(
+        f"Created {len(peptides_batch)} unique modified peptide records, "
+        f"{len(modifications_batch)} unique modifications, and "
+        f"{len(junction_batch)} unique junction entries"
+    )
+    return peptide_id_map, peptides_batch, modifications_batch, junction_batch
 
 
 def _parse_modification_list(modifications: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -319,39 +306,6 @@ def _parse_modification_list(modifications: list[dict[str, Any]]) -> list[dict[s
         )
 
     return parsed_mods
-
-
-def _generate_modification_signature(parsed_mods: list[dict[str, Any]]) -> str:
-    """
-    Generate a deterministic signature string from parsed modifications for ID generation.
-
-    Args:
-        parsed_mods: List of parsed modification dicts with unimod_id, name, location, residues
-
-    Returns:
-        Sorted modification signature string (e.g., "unimod35@5_unimod4@10")
-    """
-    if not parsed_mods:
-        return ""
-
-    mod_parts = []
-    for mod in parsed_mods:
-        # Use pre-parsed data
-        unimod_id = mod["unimod_id"]
-        name = mod["name"]
-        location = mod["location"]
-
-        # Use unimod ID if available, otherwise use name
-        mod_identifier = f"unimod{unimod_id}" if unimod_id else (name or "unknown")
-        # Clean identifier to remove special characters
-        mod_identifier = mod_identifier.replace(":", "_").replace(" ", "_")
-
-        loc_str = str(location) if location is not None else "unk"
-        mod_parts.append(f"{mod_identifier}@{loc_str}")
-
-    # Sort by location to ensure deterministic IDs
-    mod_parts.sort()
-    return "_".join(mod_parts)
 
 
 def parse_peptide_evidence(
@@ -491,76 +445,3 @@ def parse_psms(
 
     logger.debug(f"Parsed {len(psm_batch)} PSMs and {len(junction_batch)} junctions")
     return psm_batch, junction_batch
-
-
-# TODO: Create separate modifications per residue if multiple residues modified?
-def link_modifications(
-    peptide_mods: dict[uuid.UUID, list[dict[str, Any]]],
-) -> tuple[list[dict], list[dict]]:
-    """
-    Create Modification records and junction table entries linking to ModifiedPeptides.
-
-    Args:
-        peptide_mods: Mapping from ModifiedPeptide.id (UUID) to list of modification data
-
-    Returns:
-        Tuple of:
-        - List of Modification records created
-        - List of ModifiedPeptideModificationJunction records
-    """
-
-    # Use dict for deduplication - key is (unimod_id, name, position, modified_residue)
-    modifications_dict: dict[tuple, dict] = {}
-    # Track unique key -> UUID mapping for junction table
-    mod_id_map: dict[tuple, uuid.UUID] = {}
-    # Use set to deduplicate junction entries (modified_peptide_id is now UUID)
-    junction_set: set[tuple[uuid.UUID, uuid.UUID]] = set()
-
-    for modified_peptide_id, mods in peptide_mods.items():
-        for mod in mods:
-            unimod_id = mod["unimod_id"]
-            name = mod["name"]
-            location = mod["location"]
-            residues = mod["residues"]
-
-            # Skip modifications without valid location
-            if location is None:
-                logger.warning(f"No location found for modification: {mod}")
-                continue
-
-            # Create unique key for deduplication
-            mod_key = (unimod_id, name, location, residues)
-
-            # Only create new modification if we haven't seen this exact one before
-            if mod_key not in modifications_dict:
-                # Generate deterministic UUID based on modification properties
-                # This ensures identical modifications across files get the same UUID
-                mod_id = generate_deterministic_modification_uuid(
-                    unimod_id, name, location, residues
-                )
-                modifications_dict[mod_key] = {
-                    "id": mod_id,
-                    "unimod_id": unimod_id,
-                    "name": name,
-                    "position": location,
-                    "modified_residue": residues,
-                }
-                mod_id_map[mod_key] = mod_id
-            else:
-                # Reuse existing modification UUID
-                mod_id = mod_id_map[mod_key]
-
-            # Add junction entry (set automatically deduplicates)
-            junction_set.add((modified_peptide_id, mod_id))
-
-    # Convert dict and set to lists for batch insertion
-    modifications_batch = list(modifications_dict.values())
-    junction_batch = [
-        {"modified_peptide_id": mp_id, "modification_id": mod_id} for mp_id, mod_id in junction_set
-    ]
-
-    logger.debug(
-        f"Created {len(modifications_batch)} unique modifications and {len(junction_batch)}"
-        " unique junction entries"
-    )
-    return modifications_batch, junction_batch

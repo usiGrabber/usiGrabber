@@ -22,11 +22,10 @@ from usigrabber.file_parser.base import BaseFileParser, register_parser
 from usigrabber.file_parser.errors import MzidImportError, MzidParseError
 from usigrabber.file_parser.models import ImportStats, ParsedMzidData
 from usigrabber.file_parser.mzid.parsing_functions import (
-    link_modifications,
     parse_db_sequences,
     parse_mzid_metadata,
     parse_peptide_evidence,
-    parse_peptides,
+    parse_peptides_and_modifications,
     parse_psms,
 )
 
@@ -60,8 +59,10 @@ class MzidFileParser(BaseFileParser):
                 logger.debug("Phase 1: Parsing database sequences...")
                 db_seq_map = parse_db_sequences(reader)
 
-                logger.debug("Phase 2: Parsing peptides...")
-                peptide_id_map, peptide_mods, peptides_batch = parse_peptides(reader)
+                logger.debug("Phase 2: Parsing peptides and modifications...")
+                peptide_id_map, peptides_batch, mod_batch, mod_junction_batch = (
+                    parse_peptides_and_modifications(reader)
+                )
 
                 logger.debug("Phase 3: Parsing peptide evidence...")
                 pe_id_map, peptide_evidence_batch = parse_peptide_evidence(reader, db_seq_map)
@@ -74,9 +75,6 @@ class MzidFileParser(BaseFileParser):
                     peptide_id_map,
                     pe_id_map,
                 )
-
-                logger.debug("Phase 5: Linking peptide modifications...")
-                mod_batch, mod_junction_batch = link_modifications(peptide_mods)
 
                 parsed_data = ParsedMzidData(
                     mzid_file=mzid_file,
