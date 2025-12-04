@@ -3,14 +3,13 @@
 from datetime import date, datetime
 
 from sqlalchemy.engine.base import Engine
-from sqlmodel import Session
+from sqlmodel import Session, select
 
 from usigrabber.db.schema import (
     IndexType,
+    ModifiedPeptide,
     MzidFile,
-    Peptide,
     PeptideEvidence,
-    PeptideModification,
     PeptideSpectrumMatch,
     Project,
     ProjectCountry,
@@ -19,6 +18,7 @@ from usigrabber.db.schema import (
     PSMPeptideEvidence,
     Reference,
 )
+from usigrabber.file_parser.uuid_helpers import generate_deterministic_peptide_uuid
 
 
 def seed_minimal_data(engine: Engine) -> None:
@@ -33,6 +33,13 @@ def seed_minimal_data(engine: Engine) -> None:
     """
 
     with Session(engine) as session:
+        # Check if data already exists
+
+        existing = session.exec(select(Project).where(Project.accession == "PXD000001")).first()
+        if existing:
+            print("⚠️  Seed data already exists. Skipping...")
+            return
+
         # 1. Create Projects
         project1 = Project(
             accession="PXD000001",
@@ -126,16 +133,24 @@ def seed_minimal_data(engine: Engine) -> None:
         session.add(mzid_file)
 
         # 2. Create peptides
-        peptide1 = Peptide(sequence="PEPTIDER", length=8)
-        peptide2 = Peptide(sequence="EXAMPLE", length=7)
-        peptide3 = Peptide(sequence="TESTSEQ", length=7)
+        seq1 = "PEPTIDER"
+        id1 = generate_deterministic_peptide_uuid(seq1, [])
+        peptide1 = ModifiedPeptide(id=id1, peptide_sequence=seq1)
+
+        seq2 = "EXAMPLE"
+        id2 = generate_deterministic_peptide_uuid(seq2, [])
+        peptide2 = ModifiedPeptide(id=id2, peptide_sequence=seq2)
+
+        seq3 = "SAMPLEPEP"
+        id3 = generate_deterministic_peptide_uuid(seq3, [])
+        peptide3 = ModifiedPeptide(id=id3, peptide_sequence=seq3)
         session.add_all([peptide1, peptide2, peptide3])
 
         # 3. Create PSMs
         psm1 = PeptideSpectrumMatch(
             project_accession="PXD000001",
             mzid_file_id=mzid_file.id,
-            peptide_id=peptide1.id,
+            modified_peptide_id=peptide1.id,
             spectrum_id="scan=1234",
             charge_state=2,
             experimental_mz=450.234,
@@ -150,7 +165,7 @@ def seed_minimal_data(engine: Engine) -> None:
         psm2 = PeptideSpectrumMatch(
             project_accession="PXD000001",
             mzid_file_id=mzid_file.id,
-            peptide_id=peptide2.id,
+            modified_peptide_id=peptide2.id,
             spectrum_id="scan=5678",
             charge_state=3,
             experimental_mz=325.678,
@@ -165,7 +180,7 @@ def seed_minimal_data(engine: Engine) -> None:
         psm3 = PeptideSpectrumMatch(
             project_accession="PXD000001",
             mzid_file_id=mzid_file.id,
-            peptide_id=peptide3.id,
+            modified_peptide_id=peptide3.id,
             spectrum_id="scan=9012",
             charge_state=2,
             experimental_mz=380.123,
@@ -211,17 +226,6 @@ def seed_minimal_data(engine: Engine) -> None:
         psm_evidence2 = PSMPeptideEvidence(psm_id=psm2.id, peptide_evidence_id=evidence2.id)
         psm_evidence3 = PSMPeptideEvidence(psm_id=psm3.id, peptide_evidence_id=evidence3.id)
         session.add_all([psm_evidence1, psm_evidence2, psm_evidence3])
-
-        # 6. Create peptide modification (optional - just one example)
-        # Using UNIMOD:35 (Oxidation of I)
-        peptide_mod = PeptideModification(
-            peptide_id=peptide1.id,
-            unimod_id=35,
-            name=None,
-            position=5,
-            modified_residue="I",
-        )
-        session.add(peptide_mod)
 
         session.commit()
 

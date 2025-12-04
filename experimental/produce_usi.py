@@ -34,7 +34,7 @@ def main():
             or not psm.ms_run
             or not psm.index_type
             or not psm.index_number
-            or not psm.peptide
+            or not psm.modified_peptide
             or not psm.charge_state
         ):
             print("Insufficient data to generate USI.")

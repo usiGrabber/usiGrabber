@@ -18,7 +18,7 @@ from usigrabber.utils import get_unimod_db
 logger = logging.getLogger(__name__)
 
 
-def extract_unimod_id_and_name(mod_data: dict) -> tuple[int | None, str | None]:
+def extract_unimod_id_or_name(mod_data: dict) -> tuple[int | None, str | None]:
     """
     Extract UNIMOD ID and name from modification data.
 
@@ -26,7 +26,8 @@ def extract_unimod_id_and_name(mod_data: dict) -> tuple[int | None, str | None]:
             mod_data: Modification dictionary
 
     Returns:
-            UNIMOD ID as integer, or None if not found. Also returns modification name.
+            UNIMOD ID as integer, or None if not found.
+            Returns modification name if unimod ID not found and name is available.
 
     """
     # Check if cvParam exists
@@ -46,7 +47,7 @@ def extract_unimod_id_and_name(mod_data: dict) -> tuple[int | None, str | None]:
             if "UNIMOD:" in accession and len(accession) > 7:
                 try:
                     # Extract number from "UNIMOD:35" format
-                    return int(accession.split(":")[-1]), mod_name
+                    return int(accession.split(":")[-1]), None
                 except (ValueError, IndexError):
                     pass
             name = param.get("name", "")
@@ -58,7 +59,9 @@ def extract_unimod_id_and_name(mod_data: dict) -> tuple[int | None, str | None]:
         # Fallback: resolve by modification name
         uid = lookup_unimod_id_by_name(mod_name)
 
-    return uid, mod_name
+    if uid is None:
+        return None, mod_name
+    return uid, None
 
 
 @lru_cache(maxsize=420)
@@ -108,13 +111,13 @@ def extract_score_values(sii: dict) -> dict[str, Any]:
 
 def parse_modification_location(mod: dict) -> tuple[int | None, str | None]:
     """
-    Extract modification location and residue information.
+    Extract modification position and residue information.
 
     Args:
             mod: Modification dictionary
 
     Returns:
-            Tuple of (location, residues_string)
+            Tuple of (position, residues_string)
     """
     location = mod.get("location")
     residues = mod.get("residues")

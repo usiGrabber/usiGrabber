@@ -3,10 +3,10 @@
 from usigrabber.db.engine import load_db_engine
 from usigrabber.db.schema import (
     CvParam,
+    Modification,
+    ModifiedPeptide,
     MzidFile,
-    Peptide,
     PeptideEvidence,
-    PeptideModification,
     PeptideSpectrumMatch,
     Project,
     ProjectCountry,
@@ -35,9 +35,9 @@ __all__ = [
     # Schema - mzID/PSM tables
     "MzidFile",
     "PeptideSpectrumMatch",
-    "Peptide",
+    "Modification",
     "PeptideEvidence",
-    "PeptideModification",
+    "ModifiedPeptide",
     "PSMPeptideEvidence",
     # Seeding
     "seed_minimal_data",

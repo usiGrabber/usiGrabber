@@ -12,9 +12,7 @@ from sqlmodel import Session, select
 from usigrabber.db import (
     CvParam,
     MzidFile,
-    Peptide,
     PeptideEvidence,
-    PeptideModification,
     PeptideSpectrumMatch,
     Project,
     ProjectCountry,
@@ -26,6 +24,7 @@ from usigrabber.db import (
     load_db_engine,
     seed_minimal_data,
 )
+from usigrabber.db.schema import Modification, ModifiedPeptide
 
 app = typer.Typer(help="Database management commands")
 console = Console()
@@ -172,10 +171,10 @@ def info(echo_sql: bool = False):
             "Countries": session.exec(select(func.count()).select_from(ProjectCountry)).one(),
             "MzID Files": session.exec(select(func.count()).select_from(MzidFile)).one(),
             "PSMs": session.exec(select(func.count()).select_from(PeptideSpectrumMatch)).one(),
-            "Peptides": session.exec(select(func.count()).select_from(Peptide)).one(),
-            "Peptide Modifications": session.exec(
-                select(func.count()).select_from(PeptideModification)
+            "Modified Peptides": session.exec(
+                select(func.count()).select_from(ModifiedPeptide)
             ).one(),
+            "Modifications": session.exec(select(func.count()).select_from(Modification)).one(),
             "Peptide Evidence": session.exec(
                 select(func.count()).select_from(PeptideEvidence)
             ).one(),
