@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Any, cast
 
 from usigrabber.db.schema import IndexType
+from usigrabber.file_parser.models import ModificationDict
 from usigrabber.utils import get_unimod_db
 
 logger = logging.getLogger(__name__)
@@ -262,7 +263,7 @@ def extract_xml_subtree(xml_path: Path, tag: str) -> str:
     return proc.stdout.strip()
 
 
-def generate_modification_signature(parsed_mods: list[dict[str, Any]]) -> str:
+def generate_modification_signature(parsed_mods: list[ModificationDict]) -> str:
     """
     Generate a deterministic signature string from parsed modifications for ID generation.
 
