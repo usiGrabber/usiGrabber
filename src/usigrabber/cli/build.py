@@ -77,6 +77,12 @@ async def async_build(
 ) -> None:
     """Build USI database."""
 
+    if os.name == "nt":
+        raise RuntimeError(
+            "Windows is not supported. This application requires the 'sed' command-line utility, "
+            "which is available by default on most Linux and macOS systems."
+        )
+
     logger.info("Building database.")
 
     os.environ["CACHE_DIR"] = str(cache_dir)
