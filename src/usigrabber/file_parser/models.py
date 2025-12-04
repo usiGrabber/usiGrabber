@@ -101,8 +101,9 @@ class ParsedMzidData(NamedTuple):
     """Container for all parsed data from an mzIdentML file."""
 
     mzid_file: MzidFile
-    peptides: list[dict]
-    peptide_modifications: list[dict]
+    modified_peptides: list[dict]
+    modifications: list[dict]
+    modified_peptide_modification_junctions: list[dict]
     peptide_evidence: list[dict]
     psms: list[dict]
     psm_peptide_evidence_junctions: list[dict]

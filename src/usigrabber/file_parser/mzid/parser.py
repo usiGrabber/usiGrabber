@@ -5,13 +5,15 @@ from pathlib import Path
 from pyteomics import mzid
 from pyteomics.auxiliary import PyteomicsError
 from sqlalchemy import insert
+from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.engine import Engine
 from sqlmodel import Session
 
 from usigrabber.db.schema import (
-    Peptide,
+    Modification,
+    ModifiedPeptide,
+    ModifiedPeptideModificationJunction,
     PeptideEvidence,
-    PeptideModification,
     PeptideSpectrumMatch,
     PSMPeptideEvidence,
 )
@@ -73,12 +75,13 @@ class MzidFileParser(BaseFileParser):
                 )
 
                 logger.debug("Phase 5: Linking peptide modifications...")
-                mod_batch = link_modifications(peptide_mods)
+                mod_batch, mod_junction_batch = link_modifications(peptide_mods)
 
                 parsed_data = ParsedMzidData(
                     mzid_file=mzid_file,
-                    peptides=peptides_batch,
-                    peptide_modifications=mod_batch,
+                    modified_peptides=peptides_batch,
+                    modifications=mod_batch,
+                    modified_peptide_modification_junctions=mod_junction_batch,
                     peptide_evidence=peptide_evidence_batch,
                     psms=psm_batch,
                     psm_peptide_evidence_junctions=junction_batch,
@@ -99,9 +102,24 @@ class MzidFileParser(BaseFileParser):
             with Session(engine) as session:
                 session.add(parsed.mzid_file)
                 session.commit()
-                if parsed.peptides:
-                    session.execute(insert(Peptide), parsed.peptides)
-                    stats.peptide_count = len(parsed.peptides)
+                if parsed.modified_peptides:
+                    # Use INSERT OR IGNORE for cross-file deduplication
+                    stmt = sqlite_insert(ModifiedPeptide).on_conflict_do_nothing()
+                    session.execute(stmt, parsed.modified_peptides)
+                    stats.peptide_count = len(parsed.modified_peptides)
+                if parsed.modifications:
+                    # Use INSERT OR IGNORE for cross-file deduplication
+                    stmt = sqlite_insert(Modification).on_conflict_do_nothing(
+                        index_elements=["unimod_id", "name", "position", "modified_residue"]
+                    )
+                    session.execute(stmt, parsed.modifications)
+                    stats.modification_count = len(parsed.modifications)
+                if parsed.modified_peptide_modification_junctions:
+                    # Use INSERT OR IGNORE for cross-file deduplication
+                    stmt = sqlite_insert(
+                        ModifiedPeptideModificationJunction
+                    ).on_conflict_do_nothing()
+                    session.execute(stmt, parsed.modified_peptide_modification_junctions)
                 if parsed.peptide_evidence:
                     session.execute(insert(PeptideEvidence), parsed.peptide_evidence)
                     stats.peptide_evidence_count = len(parsed.peptide_evidence)
@@ -112,9 +130,6 @@ class MzidFileParser(BaseFileParser):
                     session.execute(
                         insert(PSMPeptideEvidence), parsed.psm_peptide_evidence_junctions
                     )
-                if parsed.peptide_modifications:
-                    session.execute(insert(PeptideModification), parsed.peptide_modifications)
-                    stats.modification_count = len(parsed.peptide_modifications)
                 session.commit()
             logger.debug(f"Successfully imported mzID data for file '{stats.file_name}'")
         except Exception as e:

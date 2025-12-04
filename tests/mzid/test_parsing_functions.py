@@ -2,8 +2,6 @@
 Unit tests for individual mzID parsing functions.
 """
 
-import uuid
-
 from usigrabber.file_parser.mzid.parsing_functions import (
     link_modifications,
     parse_db_sequences,
@@ -62,11 +60,13 @@ def test_parse_peptides(full_mzid_reader):
     assert len(peptides) > 0
     assert len(peptide_id_map) > 0
     assert len(peptide_mods) > 0
-    sequences = {p["sequence"] for p in peptides}
+    sequences = {p["peptide_sequence"] for p in peptides}
     assert "ELLTK" in sequences
     assert "VFVNR" in sequences
 
-    assert len(peptide_id_map) == len(peptides)
+    # Due to deduplication, peptides may be fewer than peptide_id_map
+    # (same modified peptide can appear multiple times in mzID)
+    assert len(peptides) <= len(peptide_id_map)
 
 
 # ============================================================================
@@ -117,9 +117,9 @@ def test_parse_peptide_evidence_with_empty_db_map(full_mzid_reader):
 
 
 def test_link_modifications():
-    """Test linking modifications to peptides."""
-    peptide1 = uuid.uuid4()
-    peptide2 = uuid.uuid4()
+    """Test linking modifications to peptides via junction table."""
+    peptide1 = "peptide-1"
+    peptide2 = "peptide-2"
     mock_peptide_mods = {
         peptide1: [
             {"location": 3, "residues": "M", "unimod_id": 35, "name": "Oxidation"},
@@ -129,21 +129,39 @@ def test_link_modifications():
             {"location": 1, "residues": ["N"], "unimod_id": 21, "name": "Phospho"},
         ],
     }
-    mod_batch = link_modifications(mock_peptide_mods)
-    assert len(mod_batch) == 3
+    mod_batch, junction_batch = link_modifications(mock_peptide_mods)
+    assert len(mod_batch) == 3, "Should create 3 unique modification records"
+    assert len(junction_batch) == 3, "Should create 3 junction entries"
 
-    mods_uuid1 = [mod for mod in mod_batch if mod["peptide_id"] == peptide1]
-    assert len(mods_uuid1) == 2
-    assert any(
-        mod["position"] == 3 and mod["unimod_id"] == 35 and mod["name"] == "Oxidation"
-        for mod in mods_uuid1
-    )
+    # Check that modifications have correct structure
+    assert all("id" in mod for mod in mod_batch)
+    assert all("unimod_id" in mod for mod in mod_batch)
+    assert all("position" in mod for mod in mod_batch)
+    assert all("modified_residue" in mod for mod in mod_batch)
 
-    peptide2_mod = mod_batch[[mod["peptide_id"] for mod in mod_batch].index(peptide2)]
-    assert peptide2_mod["position"] == 1
-    assert peptide2_mod["unimod_id"] == 21
-    assert peptide2_mod["name"] == "Phospho"
-    assert peptide2_mod["modified_residue"] == "N"
+    # Find Oxidation modification
+    oxidation_mods = [
+        mod
+        for mod in mod_batch
+        if mod["position"] == 3 and mod["unimod_id"] == 35 and mod["name"] == "Oxidation"
+    ]
+    assert len(oxidation_mods) == 1, "Should find Oxidation modification"
+
+    # Find Phospho modification
+    phospho_mods = [
+        mod
+        for mod in mod_batch
+        if mod["position"] == 1 and mod["unimod_id"] == 21 and mod["name"] == "Phospho"
+    ]
+    assert len(phospho_mods) == 1, "Should find Phospho modification"
+    assert phospho_mods[0]["modified_residue"] == "N"
+
+    # Check junction table links peptides to modifications
+    peptide1_junctions = [j for j in junction_batch if j["modified_peptide_id"] == peptide1]
+    assert len(peptide1_junctions) == 2, "Peptide 1 should have 2 modifications"
+
+    peptide2_junctions = [j for j in junction_batch if j["modified_peptide_id"] == peptide2]
+    assert len(peptide2_junctions) == 1, "Peptide 2 should have 1 modification"
 
 
 # ============================================================================
