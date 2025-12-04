@@ -233,7 +233,7 @@ class ModifiedPeptide(SQLModel, table=True):
 
 
 class Modification(SQLModel, table=True):
-    """Modification with a position and modified residue."""
+    """Modification with a location and modified residue."""
 
     __tablename__ = "modifications"
 
@@ -252,7 +252,7 @@ class Modification(SQLModel, table=True):
     # constraint
     __table_args__ = (
         UniqueConstraint(
-            "unimod_id", "name", "position", "modified_residue", name="uix_mod_unique"
+            "unimod_id", "name", "location", "modified_residue", name="uix_mod_unique"
         ),
         CheckConstraint(
             "(unimod_id IS NULL) OR (name IS NULL)", name="chk_mod_name_or_unimodid_null"

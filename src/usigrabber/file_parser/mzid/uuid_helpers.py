@@ -9,7 +9,7 @@ PEPTIDE_NAMESPACE = uuid.UUID("b9e4d6f8-0c3a-5e2b-9d7f-4a8c6e1b3d5a")
 def generate_deterministic_modification_uuid(
     unimod_id: int | None,
     name: str | None,
-    position: int | None,
+    location: int | None,
     modified_residue: str | None,
 ) -> uuid.UUID:
     """
@@ -21,7 +21,7 @@ def generate_deterministic_modification_uuid(
     Args:
         unimod_id: UNIMOD identifier (e.g., 35 for Oxidation)
         name: Modification name (e.g., "Oxidation")
-        position: Position in the peptide sequence
+        location: Location in the peptide sequence
         modified_residue: Residue(s) being modified (e.g., "M")
 
     Returns:
@@ -32,7 +32,7 @@ def generate_deterministic_modification_uuid(
     parts = [
         f"unimod:{unimod_id if unimod_id is not None else 'null'}",
         f"name:{name if name is not None else 'null'}",
-        f"pos:{position if position is not None else 'null'}",
+        f"loc:{location if location is not None else 'null'}",
         f"residue:{modified_residue if modified_residue is not None else 'null'}",
     ]
     mod_string = "|".join(parts)
