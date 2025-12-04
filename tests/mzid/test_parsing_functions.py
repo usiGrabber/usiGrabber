@@ -2,12 +2,14 @@
 Unit tests for individual mzID parsing functions.
 """
 
+from usigrabber.db.schema import IndexType
 from usigrabber.file_parser.mzid.parsing_functions import (
     parse_db_sequences,
     parse_mzid_metadata,
     parse_peptide_evidence,
     parse_peptides_and_modifications,
     parse_software_info,
+    parse_spectra_data,
     parse_threshold_info,
 )
 
@@ -206,3 +208,18 @@ def test_parse_threshold_info_with_no_threshold(no_threshold_reader):
 
     assert threshold_type is None
     assert threshold_value is None
+
+
+# ============================================================================
+# Tests for Spectra Data
+# ============================================================================
+
+
+def test_parse_spectra_data(full_mzid_path) -> None:
+    spectra_data = parse_spectra_data(full_mzid_path)
+
+    assert len(spectra_data) == 1
+
+    ms_run_name, spectrum_id_format = spectra_data["SD_1"]
+    assert ms_run_name == "OTE0019_York_060813_JH16"
+    assert spectrum_id_format == IndexType.index

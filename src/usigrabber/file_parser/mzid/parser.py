@@ -27,6 +27,7 @@ from usigrabber.file_parser.mzid.parsing_functions import (
     parse_peptide_evidence,
     parse_peptides_and_modifications,
     parse_psms,
+    parse_spectra_data,
 )
 
 logger = logging.getLogger(__name__)
@@ -52,6 +53,10 @@ class MzidFileParser(BaseFileParser):
             raise MzidParseError(error_msg)
 
         try:
+            spectra_data_map = parse_spectra_data(path)
+            if len(spectra_data_map) == 0:
+                raise MzidParseError(f"No SpectraData found in mzID file {path.name}")
+
             with mzid.MzIdentML(str(path), retrieve_refs=False) as reader:
                 logger.debug("Phase 0: Parsing file metadata...")
                 mzid_file = parse_mzid_metadata(reader, path, project_accession)
@@ -74,6 +79,7 @@ class MzidFileParser(BaseFileParser):
                     mzid_file.id,
                     peptide_id_map,
                     pe_id_map,
+                    spectra_data_map,
                 )
 
                 parsed_data = ParsedMzidData(
