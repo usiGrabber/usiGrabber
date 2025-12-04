@@ -187,8 +187,7 @@ def parse_peptides_and_modifications(
     peptides_dict: dict[uuid.UUID, dict] = {}
 
     # Track modifications as we parse peptides
-    modifications_dict: dict[tuple, dict] = {}  # key: (unimod_id, name, position, residue)
-    mod_id_map: dict[tuple, uuid.UUID] = {}  # Track unique key -> UUID mapping
+    modifications_dict: dict[uuid.UUID, dict] = {}  # key: (unimod_id, name, position, residue)
     junction_set: set[tuple[uuid.UUID, uuid.UUID]] = set()  # (modified_peptide_id, mod_id)
 
     for peptide_elem in reader.iterfind("Peptide"):
@@ -209,7 +208,7 @@ def parse_peptides_and_modifications(
             mod_list = modifications
 
         # Step 1: Parse modifications from raw mzID format
-        parsed_mods = _parse_modification_list(mod_list)
+        parsed_mods = parse_modification_list(mod_list)
 
         # Step 2: Generate signature from parsed modifications
         mod_signature = generate_modification_signature(parsed_mods)
@@ -222,45 +221,17 @@ def parse_peptides_and_modifications(
             "id": modified_peptide_id,
             "peptide_sequence": sequence,
         }
-        # Deduplicate: if same modified_peptide_id already exists, this overwrites
-        peptides_dict[modified_peptide_id] = peptide_dict
+        # Deduplicate: if same modified_peptide_id already exists, skip adding again and skip mods
+        if modified_peptide_id not in peptides_dict:
+            peptides_dict[modified_peptide_id] = peptide_dict
+
+            for mod in parsed_mods:
+                mod_id = mod["id"]
+                modifications_dict[mod_id] = mod
+                # Add junction entry (set automatically deduplicates)
+                junction_set.add((modified_peptide_id, mod_id))
+
         peptide_id_map[mzid_peptide_id] = modified_peptide_id
-
-        # Process modifications immediately instead of storing for later
-        for mod in parsed_mods:
-            unimod_id = mod["unimod_id"]
-            name = mod["name"]
-            location = mod["location"]
-            residues = mod["residues"]
-
-            # Skip modifications without valid location
-            if location is None:
-                logger.warning(f"No location found for modification: {mod}")
-                continue
-
-            # Create unique key for deduplication
-            mod_key = (unimod_id, name, location, residues)
-
-            # Only create new modification if we haven't seen this exact one before
-            if mod_key not in modifications_dict:
-                # Generate deterministic UUID based on modification properties
-                mod_id = generate_deterministic_modification_uuid(
-                    unimod_id, name, location, residues
-                )
-                modifications_dict[mod_key] = {
-                    "id": mod_id,
-                    "unimod_id": unimod_id,
-                    "name": name,
-                    "position": location,
-                    "modified_residue": residues,
-                }
-                mod_id_map[mod_key] = mod_id
-            else:
-                # Reuse existing modification UUID
-                mod_id = mod_id_map[mod_key]
-
-            # Add junction entry (set automatically deduplicates)
-            junction_set.add((modified_peptide_id, mod_id))
 
     # Convert collections to lists for batch insertion
     peptides_batch = list(peptides_dict.values())
@@ -277,7 +248,7 @@ def parse_peptides_and_modifications(
     return peptide_id_map, peptides_batch, modifications_batch, junction_batch
 
 
-def _parse_modification_list(modifications: list[dict[str, Any]]) -> list[dict[str, Any]]:
+def parse_modification_list(modifications: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """
     Parse raw modification data from mzID into standardized format.
 
@@ -285,7 +256,7 @@ def _parse_modification_list(modifications: list[dict[str, Any]]) -> list[dict[s
         modifications: List of raw modification dictionaries from mzID
 
     Returns:
-        List of parsed modification dicts with keys: unimod_id, name, location, residues
+        List of parsed modification dicts with keys: id, unimod_id, name, location, modified_residue
     """
     if not modifications:
         return []
@@ -296,12 +267,14 @@ def _parse_modification_list(modifications: list[dict[str, Any]]) -> list[dict[s
         unimod_id, name = extract_unimod_id_and_name(mod)
         location, residues = parse_modification_location(mod)
 
+        mod_uuid = generate_deterministic_modification_uuid(unimod_id, name, location, residues)
         parsed_mods.append(
             {
+                "id": mod_uuid,
                 "unimod_id": unimod_id,
                 "name": name,
                 "location": location,
-                "residues": residues,
+                "modified_residue": residues,
             }
         )
 

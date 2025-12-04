@@ -107,13 +107,13 @@ def extract_score_values(sii: dict) -> dict[str, Any]:
 
 def parse_modification_location(mod: dict) -> tuple[int | None, str | None]:
     """
-    Extract modification location and residue information.
+    Extract modification position and residue information.
 
     Args:
             mod: Modification dictionary
 
     Returns:
-            Tuple of (location, residues_string)
+            Tuple of (position, residues_string)
     """
     location = mod.get("location")
     residues = mod.get("residues")
@@ -218,7 +218,8 @@ def generate_modification_signature(parsed_mods: list[dict[str, Any]]) -> str:
     Generate a deterministic signature string from parsed modifications for ID generation.
 
     Args:
-        parsed_mods: List of parsed modification dicts with unimod_id, name, location, residues
+        parsed_mods: List of parsed modification dicts with id, unimod_id, name, location,
+        modified_residue
 
     Returns:
         Sorted modification signature string (e.g., "unimod35@5_unimod4@10")
@@ -232,6 +233,7 @@ def generate_modification_signature(parsed_mods: list[dict[str, Any]]) -> str:
         unimod_id = mod["unimod_id"]
         name = mod["name"]
         location = mod["location"]
+        modified_residue = mod["modified_residue"]
 
         # Use unimod ID if available, otherwise use name
         mod_identifier = f"unimod{unimod_id}" if unimod_id else (name or "unknown")
@@ -239,7 +241,8 @@ def generate_modification_signature(parsed_mods: list[dict[str, Any]]) -> str:
         mod_identifier = mod_identifier.replace(":", "_").replace(" ", "_")
 
         loc_str = str(location) if location is not None else "unk"
-        mod_parts.append(f"{mod_identifier}@{loc_str}")
+        residue_str = modified_residue if modified_residue else "X"
+        mod_parts.append(f"{mod_identifier}@{loc_str}@{residue_str}")
 
     # Sort by location to ensure deterministic IDs
     mod_parts.sort()

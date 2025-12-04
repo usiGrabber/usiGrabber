@@ -242,7 +242,7 @@ class Modification(SQLModel, table=True):
     name: str | None = Field(
         description="Modification name. Used as fallback if UNIMOD id not available."
     )
-    position: int | None = Field(description="Position in the peptide sequence (1-indexed)")
+    location: int | None = Field(description="Location in the peptide sequence (1-indexed)")
     modified_residue: str | None = Field(description="The specific amino acid that was modified")
 
     modified_peptides: list["ModifiedPeptide"] = Relationship(

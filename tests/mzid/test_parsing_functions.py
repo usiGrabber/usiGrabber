@@ -75,7 +75,7 @@ def test_parse_peptides_and_modifications(full_mzid_reader):
         # Check modification structure
         assert all("id" in mod for mod in modifications)
         assert all("unimod_id" in mod for mod in modifications)
-        assert all("position" in mod for mod in modifications)
+        assert all("location" in mod for mod in modifications)
         assert all("modified_residue" in mod for mod in modifications)
 
     # Test junctions
