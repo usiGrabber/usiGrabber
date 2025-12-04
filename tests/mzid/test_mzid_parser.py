@@ -9,7 +9,7 @@ def test_mzid_parser_with_full_file(full_mzid_path):
     This test validates the complete parsing pipeline, ensuring that:
     - Metadata is correctly extracted from the file
     - Peptides and their sequences are parsed
-    - Modifications are linked to peptides with correct positions
+    - Modifications are linked to peptides with correct locations
     - Peptide evidence (protein mappings) are created
     - PSMs are created with proper scores and references
     - Junction tables link PSMs to peptide evidence correctly
@@ -37,15 +37,15 @@ def test_mzid_parser_with_full_file(full_mzid_path):
     # =========================================================================
 
     assert len(modifications) > 0, "Should parse peptide modifications from the file"
-    # Modifications are now deduplicated by (unimod_id, name, position, modified_residue)
-    # Find a specific modification: Deamidated N at position 4
+    # Modifications are now deduplicated by (unimod_id, name, location, modified_residue)
+    # Find a specific modification: Deamidated N at location 4
     deamidated_n_mods = [
-        mod for mod in modifications if mod["modified_residue"] == "N" and mod["position"] == 4
+        mod for mod in modifications if mod["modified_residue"] == "N" and mod["location"] == 4
     ]
-    # There should be a unique Deamidated N at position 4 modification
-    assert len(deamidated_n_mods) > 0, "Should find Deamidated N at position 4"
+    # There should be a unique Deamidated N at location 4 modification
+    assert len(deamidated_n_mods) > 0, "Should find Deamidated N at location 4"
     deamidated_mod = deamidated_n_mods[0]
-    assert deamidated_mod["position"] == 4, "Deamidated N should be at position 4"
+    assert deamidated_mod["location"] == 4, "Deamidated N should be at location 4"
 
     # =========================================================================
     # Test Peptide Evidence (Protein Mappings)
