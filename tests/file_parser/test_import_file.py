@@ -28,7 +28,9 @@ def test_import_mzid(engine: Engine, full_mzid_path: Path) -> None:
     """
     mock_project_accession = "PXD000010"
 
-    import_stats = import_file(engine, full_mzid_path, mock_project_accession)
+    import_stats = import_file(
+        engine, full_mzid_path, full_mzid_path.suffix, mock_project_accession
+    )
 
     with Session(engine) as session:
         mzid_files: Sequence[MzidFile] = session.exec(select(MzidFile)).all()

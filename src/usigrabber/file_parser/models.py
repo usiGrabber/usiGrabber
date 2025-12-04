@@ -83,6 +83,14 @@ class PSMPeptideEvidenceDict(TypedDict):
     peptide_evidence_id: UUID
 
 
+class SearchModificationDict(TypedDict):
+    """Dictionary representation of a SearchModification record for bulk insertion."""
+
+    id: UUID
+    psm_id: UUID
+    unimod_id: int
+
+
 # ============================================================================
 # NamedTuples for parsed data containers
 # ============================================================================
@@ -108,14 +116,15 @@ class ParsedMztabData(NamedTuple):
 
 
 class ParsedTxtZipData(NamedTuple):
-    """Container for all parsed data from an evidence.txt file."""
+    """Container for all parsed data from a txt.zip file (MaxQuant output)."""
 
-    peptides: list[dict]
-    peptide_modifications: list[dict]
-    peptide_evidence: list[dict]
-    psms: list[dict]
-    psm_peptide_evidence_junctions: list[dict]
-    search_modifications: list[dict]
+    modified_peptides: list[ModifiedPeptideDict]
+    modifications: list[ModificationDict]
+    modified_peptide_modification_junctions: list[ModifiedPeptideModificationJunctionDict]
+    peptide_evidence: list[PeptideEvidenceDict]
+    psms: list[PeptideSpectrumMatchDict]
+    psm_peptide_evidence_junctions: list[PSMPeptideEvidenceDict]
+    search_modifications: list[SearchModificationDict]
 
 
 @dataclass

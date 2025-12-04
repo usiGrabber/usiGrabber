@@ -8,11 +8,13 @@ from sqlalchemy.engine import Engine
 from sqlmodel import Session
 
 from usigrabber.db.schema import (
-    Peptide,
+    Modification,
+    ModifiedPeptide,
+    ModifiedPeptideModificationJunction,
     PeptideEvidence,
-    PeptideModification,
     PeptideSpectrumMatch,
     PSMPeptideEvidence,
+    SearchModification,
 )
 from usigrabber.file_parser.base import BaseFileParser, register_parser
 from usigrabber.file_parser.errors import (
@@ -21,7 +23,6 @@ from usigrabber.file_parser.errors import (
 )
 from usigrabber.file_parser.models import ImportStats, ParsedTxtZipData
 from usigrabber.file_parser.txt_zip.parsing_functions import (
-    link_modifications,
     parse_peptide_evidence,
     parse_peptides,
     parse_psms,
@@ -70,9 +71,17 @@ class TxtZipFileParser(BaseFileParser):
         logger.debug(f"Persisting txt data to database for file '{stats.file_name}'")
         try:
             with Session(engine) as session:
-                if parsed.peptides:
-                    session.execute(insert(Peptide), parsed.peptides)
-                    stats.peptide_count = len(parsed.peptides)
+                if parsed.modified_peptides:
+                    session.execute(insert(ModifiedPeptide), parsed.modified_peptides)
+                    stats.peptide_count = len(parsed.modified_peptides)
+                if parsed.modifications:
+                    session.execute(insert(Modification), parsed.modifications)
+                    stats.modification_count = len(parsed.modifications)
+                if parsed.modified_peptide_modification_junctions:
+                    session.execute(
+                        insert(ModifiedPeptideModificationJunction),
+                        parsed.modified_peptide_modification_junctions,
+                    )
                 if parsed.peptide_evidence:
                     session.execute(insert(PeptideEvidence), parsed.peptide_evidence)
                     stats.peptide_evidence_count = len(parsed.peptide_evidence)
@@ -83,9 +92,8 @@ class TxtZipFileParser(BaseFileParser):
                     session.execute(
                         insert(PSMPeptideEvidence), parsed.psm_peptide_evidence_junctions
                     )
-                if parsed.peptide_modifications:
-                    session.execute(insert(PeptideModification), parsed.peptide_modifications)
-                    stats.modification_count = len(parsed.peptide_modifications)
+                if parsed.search_modifications:
+                    session.execute(insert(SearchModification), parsed.search_modifications)
                 session.commit()
             logger.debug(
                 f"Successfully imported txt data for txt.zip from '{stats.project_accession}'"
@@ -158,8 +166,10 @@ def parse_txt_zip(
             default=pd.DataFrame(),
         )
 
-        logger.debug("Phase 1: Parsing peptides...")
-        peptide_id_map, peptide_mods, peptides_batch = parse_peptides(evidence, peptides)
+        logger.debug("Phase 1: Parsing peptides and modifications...")
+        peptide_id_map, modified_peptides_batch, modifications_batch, mod_junction_batch = (
+            parse_peptides(evidence, peptides)
+        )
 
         logger.debug("Phase 2: Parsing peptide evidence...")
         pe_id_map, peptide_evidence_batch = parse_peptide_evidence(peptides)
@@ -173,13 +183,11 @@ def parse_txt_zip(
             pe_id_map,
         )
 
-        logger.debug("Phase 4: Linking peptide modifications...")
-        mod_batch = link_modifications(peptide_mods)
-
         # Return all parsed data
         parsed_data = ParsedTxtZipData(
-            peptides=peptides_batch,
-            peptide_modifications=mod_batch,
+            modified_peptides=modified_peptides_batch,
+            modifications=modifications_batch,
+            modified_peptide_modification_junctions=mod_junction_batch,
             peptide_evidence=peptide_evidence_batch,
             psms=psm_batch,
             psm_peptide_evidence_junctions=junction_batch,

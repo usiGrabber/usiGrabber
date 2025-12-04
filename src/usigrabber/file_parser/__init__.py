@@ -6,11 +6,8 @@ Provides a unified interface for importing proteomics files.
 
 from usigrabber.file_parser.base import BaseFileParser, get_parser_for_extension, register_parser
 from usigrabber.file_parser.errors import FileParserError
-from usigrabber.file_parser.helpers import get_txt_triples, log_info
 from usigrabber.file_parser.models import ImportStats
-from usigrabber.file_parser.mzid.parser import MzidFileParser  # noqa: F401
-from usigrabber.file_parser.mztab.parser import MztabFileParser  # noqa: F401
-from usigrabber.file_parser.txt_zip.parser import TxtZipFileParser  # noqa: F401
+from usigrabber.file_parser.txt_zip.helpers import get_txt_triples, log_info
 
 __all__ = [
     # Base parser and registry
