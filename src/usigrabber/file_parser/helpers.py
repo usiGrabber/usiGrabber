@@ -7,7 +7,9 @@ These functions extract and transform data from mzIdentML elements.
 
 import logging
 import re
+import subprocess
 from functools import lru_cache
+from pathlib import Path
 from typing import Any, cast
 
 from usigrabber.db.schema import IndexType
@@ -210,3 +212,49 @@ def extract_index_type_and_number(sir: dict) -> tuple[IndexType | None, int | No
             pass
 
     return index_type, index_number
+
+
+SPECTRUM_ID_FORMAT_MAPPING = {
+    "MS:1000774": IndexType.index,
+    "MS:1000776": IndexType.scan,
+    "MS:1000768": IndexType.scan,
+    "MS:1001530": IndexType.nativeId,
+}
+
+# Set to track already logged exceptions
+# WARNING: not thread-safe, but acceptable for this use case
+exceptions = set()
+
+
+def get_spectrum_id_format(cv_param: str) -> IndexType | None:
+    """
+    Map SpectrumIDFormat accession to human-readable format.
+
+    Args:
+        cv_param: SpectrumIDFormat cvParam accession
+
+    Returns:
+        Human-readable format string or None if not found
+    """
+    id_format = SPECTRUM_ID_FORMAT_MAPPING.get(cv_param)
+    if not id_format:
+        if cv_param not in exceptions:
+            # only print each exception once
+            logger.warning("Unknown SpectrumIDFormat accession: %s", cv_param)
+            exceptions.add(cv_param)
+        return None
+    return id_format
+
+
+def extract_xml_subtree(xml_path: Path, tag: str) -> str:
+    """
+    Use sed to extract XML subtree from a file and return as string.
+    """
+    cmd = ["sed", "-n", rf"/<{tag}>/,/<\/{tag}>/p", str(xml_path)]
+    proc = subprocess.run(
+        cmd,
+        text=True,
+        capture_output=True,
+        check=True,
+    )
+    return proc.stdout.strip()
