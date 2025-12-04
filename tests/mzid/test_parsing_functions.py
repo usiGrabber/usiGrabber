@@ -120,13 +120,14 @@ def test_link_modifications():
     """Test linking modifications to peptides via junction table."""
     peptide1 = "peptide-1"
     peptide2 = "peptide-2"
+    # Mock data in pre-parsed format (as returned by _generate_modification_signature)
     mock_peptide_mods = {
         peptide1: [
             {"location": 3, "residues": "M", "unimod_id": 35, "name": "Oxidation"},
             {"location": 7, "residues": "K", "unimod_id": 1, "name": "Acetylation"},
         ],
         peptide2: [
-            {"location": 1, "residues": ["N"], "unimod_id": 21, "name": "Phospho"},
+            {"location": 1, "residues": "N", "unimod_id": 21, "name": "Phospho"},
         ],
     }
     mod_batch, junction_batch = link_modifications(mock_peptide_mods)

@@ -197,8 +197,11 @@ def parse_peptides(
                 modifications = [modifications]
             mod_list = modifications
 
-        # Generate modified peptide ID: sequence + sorted modification signature
-        mod_signature = _generate_modification_signature(mod_list)
+        # Step 1: Parse modifications from raw mzID format
+        parsed_mods = _parse_modification_list(mod_list)
+
+        # Step 2: Generate signature from parsed modifications
+        mod_signature = _generate_modification_signature(parsed_mods)
         modified_peptide_id = f"{sequence}__{mod_signature}" if mod_signature else sequence
 
         peptide_dict = {
@@ -209,8 +212,9 @@ def parse_peptides(
         peptides_dict[modified_peptide_id] = peptide_dict
         peptide_id_map[mzid_peptide_id] = modified_peptide_id
 
-        if mod_list:
-            peptide_mods[modified_peptide_id] = mod_list
+        # Store parsed modification data for later use in link_modifications()
+        if parsed_mods:
+            peptide_mods[modified_peptide_id] = parsed_mods
 
     # Convert dict to list for batch insertion
     peptides_batch = list(peptides_dict.values())
@@ -218,24 +222,56 @@ def parse_peptides(
     return peptide_id_map, peptide_mods, peptides_batch
 
 
-def _generate_modification_signature(modifications: list[dict[str, Any]]) -> str:
+def _parse_modification_list(modifications: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """
-    Generate a deterministic signature string from modifications for ID generation.
+    Parse raw modification data from mzID into standardized format.
 
     Args:
-        modifications: List of modification dictionaries from mzID
+        modifications: List of raw modification dictionaries from mzID
+
+    Returns:
+        List of parsed modification dicts with keys: unimod_id, name, location, residues
+    """
+    if not modifications:
+        return []
+
+    parsed_mods = []
+    for mod in modifications:
+        # Extract UNIMOD ID, name, location, and residues
+        unimod_id, name = extract_unimod_id_and_name(mod)
+        location, residues = parse_modification_location(mod)
+
+        parsed_mods.append(
+            {
+                "unimod_id": unimod_id,
+                "name": name,
+                "location": location,
+                "residues": residues,
+            }
+        )
+
+    return parsed_mods
+
+
+def _generate_modification_signature(parsed_mods: list[dict[str, Any]]) -> str:
+    """
+    Generate a deterministic signature string from parsed modifications for ID generation.
+
+    Args:
+        parsed_mods: List of parsed modification dicts with unimod_id, name, location, residues
 
     Returns:
         Sorted modification signature string (e.g., "unimod35@5_unimod4@10")
     """
-    if not modifications:
+    if not parsed_mods:
         return ""
 
     mod_parts = []
-    for mod in modifications:
-        # Extract UNIMOD ID and location
-        unimod_id, name = extract_unimod_id_and_name(mod)
-        location, residues = parse_modification_location(mod)
+    for mod in parsed_mods:
+        # Use pre-parsed data
+        unimod_id = mod["unimod_id"]
+        name = mod["name"]
+        location = mod["location"]
 
         # Use unimod ID if available, otherwise use name
         mod_identifier = f"unimod{unimod_id}" if unimod_id else (name or "unknown")
@@ -414,10 +450,10 @@ def link_modifications(
 
     for modified_peptide_id, mods in peptide_mods.items():
         for mod in mods:
-            # Extract UNIMOD ID and name
-            unimod_id, name = extract_unimod_id_and_name(mod)
-
-            location, residues = parse_modification_location(mod)
+            unimod_id = mod["unimod_id"]
+            name = mod["name"]
+            location = mod["location"]
+            residues = mod["residues"]
 
             # Skip modifications without valid location
             if location is None:
