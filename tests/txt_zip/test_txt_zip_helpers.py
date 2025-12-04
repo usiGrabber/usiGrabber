@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from usigrabber.file_parser.helpers import (
+from usigrabber.file_parser.txt_zip.helpers import (
     clean_mod_list_of_numbers,
     clear_mod_name,
     extract_mods,
