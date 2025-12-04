@@ -193,6 +193,8 @@ def parse_peptides_and_modifications(
     for peptide_elem in reader.iterfind("Peptide"):
         mzid_peptide_id: str = peptide_elem.get("id", "")
         sequence: str = peptide_elem.get("PeptideSequence", "")
+        if not sequence:
+            sequence = peptide_elem.get("Seq", "")
         if not mzid_peptide_id or not sequence:
             logger.warning(f"Skipping invalid Peptide element: {peptide_elem}")
             continue

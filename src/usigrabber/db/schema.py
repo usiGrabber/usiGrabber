@@ -221,7 +221,7 @@ class ModifiedPeptide(SQLModel, table=True):
     id: uuid.UUID = Field(
         primary_key=True, description="Deterministic UUID based on sequence and modifications"
     )
-    peptide_sequence: str = Field(index=True, description="Peptide sequence without modifications")
+    peptide_sequence: str = Field(description="Peptide sequence without modifications")
 
     # Relationships
     peptide_spectrum_matches: list["PeptideSpectrumMatch"] = Relationship(
