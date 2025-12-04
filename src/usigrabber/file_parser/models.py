@@ -28,8 +28,8 @@ class ModificationDict(TypedDict):
 
     id: UUID
     unimod_id: int | None
-    name: str
-    location: int
+    name: str | None
+    location: int | None
     modified_residue: str | None
 
 
