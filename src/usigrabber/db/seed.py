@@ -3,7 +3,7 @@
 from datetime import date, datetime
 
 from sqlalchemy.engine.base import Engine
-from sqlmodel import Session
+from sqlmodel import Session, select
 
 from usigrabber.db.schema import (
     IndexType,
@@ -32,6 +32,13 @@ def seed_minimal_data(engine: Engine) -> None:
     """
 
     with Session(engine) as session:
+        # Check if data already exists
+
+        existing = session.exec(select(Project).where(Project.accession == "PXD000001")).first()
+        if existing:
+            print("⚠️  Seed data already exists. Skipping...")
+            return
+
         # 1. Create Projects
         project1 = Project(
             accession="PXD000001",

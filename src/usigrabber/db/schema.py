@@ -204,6 +204,15 @@ class MzidFile(SQLModel, table=True):
     )
 
 
+class ModifiedPeptideModificationJunction(SQLModel, table=True):
+    __tablename__ = "modified_peptide_modification_junction"
+
+    modified_peptide_id: str = Field(
+        foreign_key="modified_peptides.id", primary_key=True, index=True
+    )
+    modification_id: uuid.UUID = Field(foreign_key="modifications.id", primary_key=True, index=True)
+
+
 class ModifiedPeptide(SQLModel, table=True):
     """Modified peptide sequence. Links to 0 to many Modifications."""
 
@@ -214,10 +223,10 @@ class ModifiedPeptide(SQLModel, table=True):
 
     # Relationships
     peptide_spectrum_matches: list["PeptideSpectrumMatch"] = Relationship(
-        back_populates="modified_peptides"
+        back_populates="modified_peptide"
     )
     modifications: list["Modification"] = Relationship(
-        back_populates="modified_peptides", link_model="ModifiedPeptideModificationJunction"
+        back_populates="modified_peptides", link_model=ModifiedPeptideModificationJunction
     )
 
 
@@ -235,7 +244,7 @@ class Modification(SQLModel, table=True):
     modified_residue: str | None = Field(description="The specific amino acid that was modified")
 
     modified_peptides: list["ModifiedPeptide"] = Relationship(
-        back_populates="modifications", link_model="ModifiedPeptideModificationJunction"
+        back_populates="modifications", link_model=ModifiedPeptideModificationJunction
     )
 
     # constraint
@@ -247,15 +256,6 @@ class Modification(SQLModel, table=True):
             "(unimod_id IS NULL) OR (name IS NULL)", name="chk_mod_name_or_unimodid_null"
         ),
     )
-
-
-class ModifiedPeptideModificationJunction(SQLModel, table=True):
-    __tablename__ = "modified_peptide_modification_junction"
-
-    modified_peptide_id: str = Field(
-        foreign_key="modified_peptides.id", primary_key=True, index=True
-    )
-    modification_id: uuid.UUID = Field(foreign_key="modifications.id", primary_key=True, index=True)
 
 
 class PeptideSpectrumMatch(SQLModel, table=True):
@@ -309,9 +309,7 @@ class PeptideSpectrumMatch(SQLModel, table=True):
     modified_peptide: ModifiedPeptide | None = Relationship(
         back_populates="peptide_spectrum_matches"
     )
-    psm_peptide_evidences: list["PSMPeptideEvidence"] = Relationship(
-        back_populates="peptide_spectrum_matches"
-    )
+    psm_peptide_evidences: list["PSMPeptideEvidence"] = Relationship(back_populates="psm")
 
 
 class PeptideEvidence(SQLModel, table=True):
