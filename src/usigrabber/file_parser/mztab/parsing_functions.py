@@ -26,7 +26,7 @@ def extract_mztab_data(
         seq = row.sequence  # pyright: ignore[reportAttributeAccessIssue]
 
         # Deduplicated based on sequence only for mzTab. TODO: consider modifications
-        peptide_id = generate_deterministic_peptide_uuid(seq, "")
+        peptide_id = generate_deterministic_peptide_uuid(seq, [])
         unique_modified_peptides[seq] = {"id": peptide_id, "peptide_sequence": seq}
 
         psm_rows.append(

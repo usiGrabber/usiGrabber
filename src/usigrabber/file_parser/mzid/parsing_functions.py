@@ -14,7 +14,6 @@ from usigrabber.file_parser.mzid.helpers import (
     extract_score_values,
     extract_unimod_id_or_name,
     extract_xml_subtree,
-    generate_modification_signature,
     get_spectrum_id_format,
     parse_modification_location,
 )
@@ -275,12 +274,9 @@ def parse_peptides_and_modifications(
         # Step 1: Parse modifications from raw mzID format
         parsed_mods = parse_modification_list(mod_list)
 
-        # Step 2: Generate signature from parsed modifications
-        mod_signature = generate_modification_signature(parsed_mods)
-
-        # Step 3: Generate deterministic UUID from sequence and modifications
+        # Step 2: Generate deterministic UUID from sequence and modifications
         # This ensures identical modified peptides get the same UUID across all files
-        modified_peptide_id = generate_deterministic_peptide_uuid(sequence, mod_signature)
+        modified_peptide_id = generate_deterministic_peptide_uuid(sequence, parsed_mods)
 
         peptide_dict = {
             "id": modified_peptide_id,

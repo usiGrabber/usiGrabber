@@ -1,4 +1,5 @@
 import uuid
+from typing import Any
 
 # Namespace UUIDs for generating deterministic UUIDs
 # These ensure the same properties always generate the same UUID
@@ -43,7 +44,7 @@ def generate_deterministic_modification_uuid(
 
 def generate_deterministic_peptide_uuid(
     sequence: str,
-    modification_signature: str,
+    parsed_mods: list[dict[str, Any]],
 ) -> uuid.UUID:
     """
     Generate a deterministic UUID for a modified peptide based on its properties.
@@ -53,11 +54,32 @@ def generate_deterministic_peptide_uuid(
 
     Args:
         sequence: Peptide amino acid sequence (e.g., "PEPTIDESEQ")
-        modification_signature: Sorted modification signature (e.g., "unimod35@5_unimod4@10")
+        parsed_mods: List of parsed modification dicts with id, unimod_id, name, location,
 
     Returns:
         Deterministic UUID v5 based on the peptide sequence and modifications
     """
+
+    mod_parts = []
+    for mod in parsed_mods:
+        unimod_id = mod["unimod_id"]
+        name = mod["name"]
+        location = mod["location"]
+        modified_residue = mod["modified_residue"]
+
+        # Use unimod ID if available, otherwise use name
+        mod_identifier = f"unimod{unimod_id}" if unimod_id else (name or "unknown")
+        # Clean identifier to remove special characters
+        mod_identifier = mod_identifier.replace(":", "_").replace(" ", "_")
+
+        loc_str = str(location) if location is not None else "unk"
+        residue_str = modified_residue if modified_residue else "X"
+        mod_parts.append(f"{mod_identifier}@{loc_str}@{residue_str}")
+
+    # Sort by location to ensure deterministic IDs
+    mod_parts.sort()
+    modification_signature: str = "_".join(mod_parts)
+
     # Create a deterministic string representation of the modified peptide
     # Format: "seq:{sequence}|mods:{signature}"
     peptide_string = f"seq:{sequence}|mods:{modification_signature or 'none'}"

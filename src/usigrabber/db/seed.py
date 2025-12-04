@@ -134,15 +134,15 @@ def seed_minimal_data(engine: Engine) -> None:
 
         # 2. Create peptides
         seq1 = "PEPTIDER"
-        id1 = generate_deterministic_peptide_uuid(seq1, "")
+        id1 = generate_deterministic_peptide_uuid(seq1, [])
         peptide1 = ModifiedPeptide(id=id1, peptide_sequence=seq1)
 
         seq2 = "EXAMPLE"
-        id2 = generate_deterministic_peptide_uuid(seq2, "")
+        id2 = generate_deterministic_peptide_uuid(seq2, [])
         peptide2 = ModifiedPeptide(id=id2, peptide_sequence=seq2)
 
         seq3 = "SAMPLEPEP"
-        id3 = generate_deterministic_peptide_uuid(seq3, "")
+        id3 = generate_deterministic_peptide_uuid(seq3, [])
         peptide3 = ModifiedPeptide(id=id3, peptide_sequence=seq3)
         session.add_all([peptide1, peptide2, peptide3])
 
