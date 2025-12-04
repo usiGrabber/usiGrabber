@@ -1,6 +1,5 @@
 """Seed database with minimal sample data for development."""
 
-import uuid
 from datetime import date, datetime
 
 from sqlalchemy.engine.base import Engine
@@ -19,6 +18,7 @@ from usigrabber.db.schema import (
     PSMPeptideEvidence,
     Reference,
 )
+from usigrabber.file_parser.uuid_helpers import generate_deterministic_peptide_uuid
 
 
 def seed_minimal_data(engine: Engine) -> None:
@@ -133,21 +133,17 @@ def seed_minimal_data(engine: Engine) -> None:
         session.add(mzid_file)
 
         # 2. Create peptides
-        id1 = uuid.uuid5(
-            uuid.NAMESPACE_DNS,
-            "PEPTIDER|Mod:15@3",
-        )
-        id2 = uuid.uuid5(
-            uuid.NAMESPACE_DNS,
-            "EXAMPLE|Mod:42@5",
-        )
-        id3 = uuid.uuid5(
-            uuid.NAMESPACE_DNS,
-            "SAMPLEPEP|Mod:7@2",
-        )
-        peptide1 = ModifiedPeptide(id=id1, peptide_sequence="PEPTIDER")
-        peptide2 = ModifiedPeptide(id=id2, peptide_sequence="EXAMPLE")
-        peptide3 = ModifiedPeptide(id=id3, peptide_sequence="SAMPLEPEP")
+        seq1 = "PEPTIDER"
+        id1 = generate_deterministic_peptide_uuid(seq1, "")
+        peptide1 = ModifiedPeptide(id=id1, peptide_sequence=seq1)
+
+        seq2 = "EXAMPLE"
+        id2 = generate_deterministic_peptide_uuid(seq2, "")
+        peptide2 = ModifiedPeptide(id=id2, peptide_sequence=seq2)
+
+        seq3 = "SAMPLEPEP"
+        id3 = generate_deterministic_peptide_uuid(seq3, "")
+        peptide3 = ModifiedPeptide(id=id3, peptide_sequence=seq3)
         session.add_all([peptide1, peptide2, peptide3])
 
         # 3. Create PSMs
