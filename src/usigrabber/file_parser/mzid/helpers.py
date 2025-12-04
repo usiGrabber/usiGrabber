@@ -125,21 +125,6 @@ def parse_modification_location(mod: dict) -> tuple[int | None, str | None]:
     return location, residues
 
 
-def normalize_residues(residues: Any) -> str:
-    """
-    Normalize residue representation to string.
-
-    Args:
-            residues: Residues in various formats (string, list, etc.)
-
-    Returns:
-            Normalized residue string
-    """
-    if isinstance(residues, list):
-        return "".join(residues)
-    return str(residues) if residues else ""
-
-
 def extract_usi_fields(sir: dict) -> tuple[IndexType | None, int | None, str | None]:
     """
     Extract USI-related fields from SpectrumIdentificationResult.
@@ -226,3 +211,36 @@ def extract_usi_fields(sir: dict) -> tuple[IndexType | None, int | None, str | N
             pass
 
     return index_type, index_number, ms_run
+
+
+def generate_modification_signature(parsed_mods: list[dict[str, Any]]) -> str:
+    """
+    Generate a deterministic signature string from parsed modifications for ID generation.
+
+    Args:
+        parsed_mods: List of parsed modification dicts with unimod_id, name, location, residues
+
+    Returns:
+        Sorted modification signature string (e.g., "unimod35@5_unimod4@10")
+    """
+    if not parsed_mods:
+        return ""
+
+    mod_parts = []
+    for mod in parsed_mods:
+        # Use pre-parsed data
+        unimod_id = mod["unimod_id"]
+        name = mod["name"]
+        location = mod["location"]
+
+        # Use unimod ID if available, otherwise use name
+        mod_identifier = f"unimod{unimod_id}" if unimod_id else (name or "unknown")
+        # Clean identifier to remove special characters
+        mod_identifier = mod_identifier.replace(":", "_").replace(" ", "_")
+
+        loc_str = str(location) if location is not None else "unk"
+        mod_parts.append(f"{mod_identifier}@{loc_str}")
+
+    # Sort by location to ensure deterministic IDs
+    mod_parts.sort()
+    return "_".join(mod_parts)
