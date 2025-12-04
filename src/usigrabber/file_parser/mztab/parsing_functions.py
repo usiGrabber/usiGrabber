@@ -4,6 +4,8 @@ import uuid
 import pandas as pd
 from pyteomics import mztab
 
+from usigrabber.file_parser.uuid_helpers import generate_deterministic_peptide_uuid
+
 logger = logging.getLogger(__name__)
 
 
@@ -15,34 +17,24 @@ def extract_mztab_data(
     """
     Fast parser producing plain dict rows for bulk insert.
     """
-    peptide_rows: list[dict] = []
+    unique_modified_peptides: dict[str, dict] = {}
     psm_rows: list[dict] = []
-
-    pep_cache: dict[str, uuid.UUID] = {}  # sequence → peptide_uuid
 
     table = pd.DataFrame(file.spectrum_match_table)
 
     for row in table.itertuples(index=False):
         seq = row.sequence  # pyright: ignore[reportAttributeAccessIssue]
 
-        # Deduplicate peptide sequences
-        if seq not in pep_cache:
-            pep_id = uuid.uuid4()
-            pep_cache[seq] = pep_id
-            peptide_rows.append(
-                {
-                    "id": pep_id,
-                    "sequence": seq,
-                    "length": len(seq),
-                }
-            )
+        # Deduplicated based on sequence only for mzTab. TODO: consider modifications
+        peptide_id = generate_deterministic_peptide_uuid(seq, [])
+        unique_modified_peptides[seq] = {"id": peptide_id, "peptide_sequence": seq}
 
         psm_rows.append(
             {
                 "id": uuid.uuid4(),
                 "project_accession": project_accession,
                 "mzid_file_id": None,
-                "peptide_id": pep_cache[seq],
+                "modified_peptide_id": unique_modified_peptides[seq]["id"],
                 "spectrum_id": None,
                 "charge_state": row.charge,  # pyright: ignore[reportAttributeAccessIssue]
                 "experimental_mz": row.exp_mass_to_charge,  # pyright: ignore[reportAttributeAccessIssue]
@@ -53,4 +45,6 @@ def extract_mztab_data(
             }
         )
 
-    return psm_rows, peptide_rows
+    modified_peptide_rows = list(unique_modified_peptides.values())
+
+    return psm_rows, modified_peptide_rows

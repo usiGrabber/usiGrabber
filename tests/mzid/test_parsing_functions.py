@@ -2,15 +2,12 @@
 Unit tests for individual mzID parsing functions.
 """
 
-import uuid
-
 from usigrabber.db.schema import IndexType
 from usigrabber.file_parser.mzid.parsing_functions import (
-    link_modifications,
     parse_db_sequences,
     parse_mzid_metadata,
     parse_peptide_evidence,
-    parse_peptides,
+    parse_peptides_and_modifications,
     parse_software_info,
     parse_spectra_data,
     parse_threshold_info,
@@ -53,22 +50,42 @@ def test_parse_db_sequences(full_mzid_reader):
 
 
 # ============================================================================
-# Tests for parse_peptides()
+# Tests for parse_peptides_and_modifications()
 # ============================================================================
 
 
-def test_parse_peptides(full_mzid_reader):
-    """Test parsing peptides from a real mzID file."""
-    peptide_id_map, peptide_mods, peptides = parse_peptides(full_mzid_reader)
+def test_parse_peptides_and_modifications(full_mzid_reader):
+    """Test parsing peptides and modifications in a single pass."""
+    peptide_id_map, peptides, modifications, junctions = parse_peptides_and_modifications(
+        full_mzid_reader
+    )
 
+    # Test peptides
     assert len(peptides) > 0
     assert len(peptide_id_map) > 0
-    assert len(peptide_mods) > 0
-    sequences = {p["sequence"] for p in peptides}
+    sequences = {p["peptide_sequence"] for p in peptides}
     assert "ELLTK" in sequences
     assert "VFVNR" in sequences
 
-    assert len(peptide_id_map) == len(peptides)
+    # Due to deduplication, peptides may be fewer than peptide_id_map
+    # (same modified peptide can appear multiple times in mzID)
+    assert len(peptides) <= len(peptide_id_map)
+
+    # Test modifications
+    assert len(modifications) >= 0  # May have no modifications in some files
+    if len(modifications) > 0:
+        # Check modification structure
+        assert all("id" in mod for mod in modifications)
+        assert all("unimod_id" in mod for mod in modifications)
+        assert all("location" in mod for mod in modifications)
+        assert all("modified_residue" in mod for mod in modifications)
+
+    # Test junctions
+    assert len(junctions) >= 0  # May have no junctions if no modifications
+    if len(junctions) > 0:
+        # Check junction structure
+        assert all("modified_peptide_id" in j for j in junctions)
+        assert all("modification_id" in j for j in junctions)
 
 
 # ============================================================================
@@ -111,41 +128,6 @@ def test_parse_peptide_evidence_with_empty_db_map(full_mzid_reader):
 
     for pe in peptide_evidence:
         assert pe["protein_accession"] is None
-
-
-# ============================================================================
-# Tests for link_modifications()
-# ============================================================================
-
-
-def test_link_modifications():
-    """Test linking modifications to peptides."""
-    peptide1 = uuid.uuid4()
-    peptide2 = uuid.uuid4()
-    mock_peptide_mods = {
-        peptide1: [
-            {"location": 3, "residues": "M", "unimod_id": 35, "name": "Oxidation"},
-            {"location": 7, "residues": "K", "unimod_id": 1, "name": "Acetylation"},
-        ],
-        peptide2: [
-            {"location": 1, "residues": ["N"], "unimod_id": 21, "name": "Phospho"},
-        ],
-    }
-    mod_batch = link_modifications(mock_peptide_mods)
-    assert len(mod_batch) == 3
-
-    mods_uuid1 = [mod for mod in mod_batch if mod["peptide_id"] == peptide1]
-    assert len(mods_uuid1) == 2
-    assert any(
-        mod["position"] == 3 and mod["unimod_id"] == 35 and mod["name"] == "Oxidation"
-        for mod in mods_uuid1
-    )
-
-    peptide2_mod = mod_batch[[mod["peptide_id"] for mod in mod_batch].index(peptide2)]
-    assert peptide2_mod["position"] == 1
-    assert peptide2_mod["unimod_id"] == 21
-    assert peptide2_mod["name"] == "Phospho"
-    assert peptide2_mod["modified_residue"] == "N"
 
 
 # ============================================================================

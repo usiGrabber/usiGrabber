@@ -245,7 +245,6 @@ async def async_build(
                                             f"Imported {stats.psm_count:,} PSMs from '{file.name}'"
                                             f" ({duration_str})"
                                         )
-                                        exit()
                                     except FileParserError as e:
                                         logger.error(
                                             f"Failed to import file '{file.name}': {e}",
