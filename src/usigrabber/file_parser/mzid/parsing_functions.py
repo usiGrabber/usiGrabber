@@ -18,14 +18,6 @@ from usigrabber.file_parser.helpers import (
 )
 from usigrabber.utils.file import parse_basename
 
-# try:
-
-#     print("running with lxml.etree")
-# except ImportError:
-#     import xml.etree.ElementTree as ET  # ruff: ignore
-
-#     print("running with Python's xml.etree.ElementTree")
-
 logger = logging.getLogger(__name__)
 
 SPECTRUM_ID_FORMAT_MAPPING = {
