@@ -1,5 +1,6 @@
 """Seed database with minimal sample data for development."""
 
+import uuid
 from datetime import date, datetime
 
 from sqlalchemy.engine.base import Engine
@@ -132,9 +133,21 @@ def seed_minimal_data(engine: Engine) -> None:
         session.add(mzid_file)
 
         # 2. Create peptides
-        peptide1 = ModifiedPeptide(id="PEPTIDER", peptide_sequence="PEPTIDER")
-        peptide2 = ModifiedPeptide(id="EXAMPLE", peptide_sequence="EXAMPLE")
-        peptide3 = ModifiedPeptide(id="SAMPLEPEP", peptide_sequence="SAMPLEPEP")
+        id1 = uuid.uuid5(
+            uuid.NAMESPACE_DNS,
+            "PEPTIDER|Mod:15@3",
+        )
+        id2 = uuid.uuid5(
+            uuid.NAMESPACE_DNS,
+            "EXAMPLE|Mod:42@5",
+        )
+        id3 = uuid.uuid5(
+            uuid.NAMESPACE_DNS,
+            "SAMPLEPEP|Mod:7@2",
+        )
+        peptide1 = ModifiedPeptide(id=id1, peptide_sequence="PEPTIDER")
+        peptide2 = ModifiedPeptide(id=id2, peptide_sequence="EXAMPLE")
+        peptide3 = ModifiedPeptide(id=id3, peptide_sequence="SAMPLEPEP")
         session.add_all([peptide1, peptide2, peptide3])
 
         # 3. Create PSMs

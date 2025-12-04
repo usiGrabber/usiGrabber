@@ -207,7 +207,7 @@ class MzidFile(SQLModel, table=True):
 class ModifiedPeptideModificationJunction(SQLModel, table=True):
     __tablename__ = "modified_peptide_modification_junction"
 
-    modified_peptide_id: str = Field(
+    modified_peptide_id: uuid.UUID = Field(
         foreign_key="modified_peptides.id", primary_key=True, index=True
     )
     modification_id: uuid.UUID = Field(foreign_key="modifications.id", primary_key=True, index=True)
@@ -218,7 +218,9 @@ class ModifiedPeptide(SQLModel, table=True):
 
     __tablename__ = "modified_peptides"
 
-    id: str = Field(primary_key=True, description="Unique identifier composed of sequence and mods")
+    id: uuid.UUID = Field(
+        primary_key=True, description="Deterministic UUID based on sequence and modifications"
+    )
     peptide_sequence: str = Field(index=True, description="Peptide sequence without modifications")
 
     # Relationships
@@ -271,7 +273,7 @@ class PeptideSpectrumMatch(SQLModel, table=True):
         index=True,
         description="Optional: can be NULL for non-mzID sources",
     )
-    modified_peptide_id: str = Field(foreign_key="modified_peptides.id", index=True)
+    modified_peptide_id: uuid.UUID = Field(foreign_key="modified_peptides.id", index=True)
     spectrum_id: str | None = Field(index=True, description="Spectrum identifier/index")
     charge_state: int | None
     experimental_mz: float | None = Field(description="Experimental m/z value")

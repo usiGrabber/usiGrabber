@@ -5,6 +5,7 @@ from pathlib import Path
 from pyteomics import mzid
 from pyteomics.auxiliary import PyteomicsError
 from sqlalchemy import insert
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.engine import Engine
 from sqlmodel import Session
@@ -98,27 +99,34 @@ class MzidFileParser(BaseFileParser):
     def persist(self, engine: Engine, parsed: ParsedMzidData, stats: ImportStats):
         """Persist parsed mzID data to the database with debug logging."""
         logger.debug(f"Persisting mzID data to database for file '{stats.file_name}'")
+
+        # Detect database type to use appropriate insert dialect
+        db_dialect = engine.dialect.name
+        is_postgresql = db_dialect == "postgresql"
+
+        # Select appropriate insert function based on database type
+        insert_func = pg_insert if is_postgresql else sqlite_insert
+
         try:
             with Session(engine) as session:
                 session.add(parsed.mzid_file)
                 session.commit()
                 if parsed.modified_peptides:
-                    # Use INSERT OR IGNORE for cross-file deduplication
-                    stmt = sqlite_insert(ModifiedPeptide).on_conflict_do_nothing()
+                    # Use INSERT OR IGNORE (SQLite) or INSERT ON CONFLICT DO NOTHING (PostgreSQL)
+                    # for cross-file deduplication based on primary key
+                    stmt = insert_func(ModifiedPeptide).on_conflict_do_nothing()
                     session.execute(stmt, parsed.modified_peptides)
                     stats.peptide_count = len(parsed.modified_peptides)
                 if parsed.modifications:
-                    # Use INSERT OR IGNORE for cross-file deduplication
-                    stmt = sqlite_insert(Modification).on_conflict_do_nothing(
-                        index_elements=["unimod_id", "name", "position", "modified_residue"]
-                    )
+                    # Use INSERT OR IGNORE (SQLite) or INSERT ON CONFLICT DO NOTHING (PostgreSQL)
+                    # for cross-file deduplication based on unique constraint
+                    stmt = insert_func(Modification).on_conflict_do_nothing()
                     session.execute(stmt, parsed.modifications)
                     stats.modification_count = len(parsed.modifications)
                 if parsed.modified_peptide_modification_junctions:
-                    # Use INSERT OR IGNORE for cross-file deduplication
-                    stmt = sqlite_insert(
-                        ModifiedPeptideModificationJunction
-                    ).on_conflict_do_nothing()
+                    # Use INSERT OR IGNORE (SQLite) or INSERT ON CONFLICT DO NOTHING (PostgreSQL)
+                    # for cross-file deduplication based on composite primary key
+                    stmt = insert_func(ModifiedPeptideModificationJunction).on_conflict_do_nothing()
                     session.execute(stmt, parsed.modified_peptide_modification_junctions)
                 if parsed.peptide_evidence:
                     session.execute(insert(PeptideEvidence), parsed.peptide_evidence)

@@ -18,6 +18,71 @@ from usigrabber.file_parser.helpers import (
 
 logger = logging.getLogger(__name__)
 
+# Namespace UUIDs for generating deterministic UUIDs
+# These ensure the same properties always generate the same UUID
+MODIFICATION_NAMESPACE = uuid.UUID("a8f3c5e7-9b2d-4f1a-8c6e-3d7b5a9f2e4c")
+PEPTIDE_NAMESPACE = uuid.UUID("b9e4d6f8-0c3a-5e2b-9d7f-4a8c6e1b3d5a")
+
+
+def generate_deterministic_modification_uuid(
+    unimod_id: int | None,
+    name: str | None,
+    position: int,
+    modified_residue: str | None,
+) -> uuid.UUID:
+    """
+    Generate a deterministic UUID for a modification based on its properties.
+
+    Uses UUID v5 (SHA-1 hash-based) to ensure identical modifications always
+    receive identical UUIDs across all files and parsing runs.
+
+    Args:
+        unimod_id: UNIMOD identifier (e.g., 35 for Oxidation)
+        name: Modification name (e.g., "Oxidation")
+        position: Position in the peptide sequence
+        modified_residue: Residue(s) being modified (e.g., "M")
+
+    Returns:
+        Deterministic UUID v5 based on the modification properties
+    """
+    # Create a deterministic string representation of the modification
+    # Format: "unimod:{id}|name:{name}|pos:{position}|residue:{residue}"
+    parts = [
+        f"unimod:{unimod_id if unimod_id is not None else 'null'}",
+        f"name:{name if name is not None else 'null'}",
+        f"pos:{position}",
+        f"residue:{modified_residue if modified_residue is not None else 'null'}",
+    ]
+    mod_string = "|".join(parts)
+
+    # Generate UUID v5 using the namespace and modification string
+    return uuid.uuid5(MODIFICATION_NAMESPACE, mod_string)
+
+
+def generate_deterministic_peptide_uuid(
+    sequence: str,
+    modification_signature: str,
+) -> uuid.UUID:
+    """
+    Generate a deterministic UUID for a modified peptide based on its properties.
+
+    Uses UUID v5 (SHA-1 hash-based) to ensure identical modified peptides always
+    receive identical UUIDs across all files and parsing runs.
+
+    Args:
+        sequence: Peptide amino acid sequence (e.g., "PEPTIDESEQ")
+        modification_signature: Sorted modification signature (e.g., "unimod35@5_unimod4@10")
+
+    Returns:
+        Deterministic UUID v5 based on the peptide sequence and modifications
+    """
+    # Create a deterministic string representation of the modified peptide
+    # Format: "seq:{sequence}|mods:{signature}"
+    peptide_string = f"seq:{sequence}|mods:{modification_signature or 'none'}"
+
+    # Generate UUID v5 using the namespace and peptide string
+    return uuid.uuid5(PEPTIDE_NAMESPACE, peptide_string)
+
 
 def parse_software_info(reader: mzid.MzIdentML) -> tuple[str | None, str | None]:
     """
@@ -160,25 +225,25 @@ def parse_db_sequences(reader: mzid.MzIdentML) -> dict[str, str]:
 
 def parse_peptides(
     reader: mzid.MzIdentML,
-) -> tuple[dict[str, str], dict[str, list[dict[str, Any]]], list[dict]]:
+) -> tuple[dict[str, uuid.UUID], dict[uuid.UUID, list[dict[str, Any]]], list[dict]]:
     """
     Parse Peptide elements.
-    Creates ModifiedPeptide records with IDs composed of sequence + modifications.
+    Creates ModifiedPeptide records with deterministic UUID IDs.
 
     Args:
                     reader: MzIdentML reader instance
 
     Returns:
                     Tuple of:
-                    - peptide_id_map: Maps mzID peptide IDs to ModifiedPeptide.id (string)
-                    - peptide_mods: Maps ModifiedPeptide.id to list of modification data
+                    - peptide_id_map: Maps mzID peptide IDs to ModifiedPeptide.id (UUID)
+                    - peptide_mods: Maps ModifiedPeptide.id (UUID) to list of modification data
                     - List of ModifiedPeptide records created
     """
 
-    peptide_id_map: dict[str, str] = {}
-    peptide_mods: dict[str, list[dict[str, Any]]] = {}
-    # Use dict for deduplication - same modified peptide ID = same record
-    peptides_dict: dict[str, dict] = {}
+    peptide_id_map: dict[str, uuid.UUID] = {}
+    peptide_mods: dict[uuid.UUID, list[dict[str, Any]]] = {}
+    # Use dict for deduplication - same modified peptide UUID = same record
+    peptides_dict: dict[uuid.UUID, dict] = {}
 
     for peptide_elem in reader.iterfind("Peptide"):
         mzid_peptide_id: str = peptide_elem.get("id", "")
@@ -202,7 +267,10 @@ def parse_peptides(
 
         # Step 2: Generate signature from parsed modifications
         mod_signature = _generate_modification_signature(parsed_mods)
-        modified_peptide_id = f"{sequence}__{mod_signature}" if mod_signature else sequence
+
+        # Step 3: Generate deterministic UUID from sequence and modifications
+        # This ensures identical modified peptides get the same UUID across all files
+        modified_peptide_id = generate_deterministic_peptide_uuid(sequence, mod_signature)
 
         peptide_dict = {
             "id": modified_peptide_id,
@@ -339,7 +407,7 @@ def parse_psms(
     reader: mzid.MzIdentML,
     project_accession: str,
     mzid_file_id: uuid.UUID,
-    peptide_id_map: dict[str, str],
+    peptide_id_map: dict[str, uuid.UUID],
     pe_id_map: dict[str, uuid.UUID],
 ) -> tuple[list[dict], list[dict]]:
     """
@@ -349,7 +417,7 @@ def parse_psms(
                     reader: MzIdentML reader instance
                     project_accession: PRIDE project accession
                     mzid_file_id: Database ID of the MzidFile record
-                    peptide_id_map: Mapping from mzID peptide refs to ModifiedPeptide.id (string)
+                    peptide_id_map: Mapping from mzID peptide refs to ModifiedPeptide.id (UUID)
                     pe_id_map: Mapping from mzID peptide evidence IDs to database PeptideEvidence.id
 
     Returns:
@@ -375,7 +443,7 @@ def parse_psms(
         for sii in sii_list:
             # Look up modified peptide ID using mzID peptide reference
             peptide_ref: str = sii.get("peptide_ref", "")
-            modified_peptide_id: str | None = peptide_id_map.get(peptide_ref)
+            modified_peptide_id: uuid.UUID | None = peptide_id_map.get(peptide_ref)
 
             if not modified_peptide_id:
                 logger.warning(f"Peptide_ref '{peptide_ref}' not found in map")
@@ -427,13 +495,13 @@ def parse_psms(
 
 # TODO: Create separate modifications per residue if multiple residues modified?
 def link_modifications(
-    peptide_mods: dict[str, list[dict[str, Any]]],
+    peptide_mods: dict[uuid.UUID, list[dict[str, Any]]],
 ) -> tuple[list[dict], list[dict]]:
     """
     Create Modification records and junction table entries linking to ModifiedPeptides.
 
     Args:
-        peptide_mods: Mapping from ModifiedPeptide.id to list of modification data
+        peptide_mods: Mapping from ModifiedPeptide.id (UUID) to list of modification data
 
     Returns:
         Tuple of:
@@ -445,8 +513,8 @@ def link_modifications(
     modifications_dict: dict[tuple, dict] = {}
     # Track unique key -> UUID mapping for junction table
     mod_id_map: dict[tuple, uuid.UUID] = {}
-    # Use set to deduplicate junction entries
-    junction_set: set[tuple[str, uuid.UUID]] = set()
+    # Use set to deduplicate junction entries (modified_peptide_id is now UUID)
+    junction_set: set[tuple[uuid.UUID, uuid.UUID]] = set()
 
     for modified_peptide_id, mods in peptide_mods.items():
         for mod in mods:
@@ -465,7 +533,11 @@ def link_modifications(
 
             # Only create new modification if we haven't seen this exact one before
             if mod_key not in modifications_dict:
-                mod_id = uuid.uuid4()
+                # Generate deterministic UUID based on modification properties
+                # This ensures identical modifications across files get the same UUID
+                mod_id = generate_deterministic_modification_uuid(
+                    unimod_id, name, location, residues
+                )
                 modifications_dict[mod_key] = {
                     "id": mod_id,
                     "unimod_id": unimod_id,
