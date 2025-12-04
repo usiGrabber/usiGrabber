@@ -1,5 +1,6 @@
 import uuid
-from typing import Any
+
+from usigrabber.file_parser.models import ModificationDict
 
 # Namespace UUIDs for generating deterministic UUIDs
 # These ensure the same properties always generate the same UUID
@@ -44,7 +45,7 @@ def generate_deterministic_modification_uuid(
 
 def generate_deterministic_peptide_uuid(
     sequence: str,
-    parsed_mods: list[dict[str, Any]],
+    parsed_mods: list[ModificationDict],
 ) -> uuid.UUID:
     """
     Generate a deterministic UUID for a modified peptide based on its properties.
