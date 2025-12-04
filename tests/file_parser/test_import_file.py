@@ -15,6 +15,17 @@ logger = logging.getLogger(__name__)
 @pytest.mark.integration
 @pytest.mark.slow
 def test_import_mzid(engine: Engine, full_mzid_path: Path) -> None:
+    """
+    Integration test for importing an mzIdentML file.
+
+    This test validates that:
+    - The mzIdentML file is correctly imported into the database using
+        the provided engine and project accession.
+    - The MzidFile table contains exactly one entry with the expected
+        file name and project accession.
+    - The number of PeptideSpectrumMatch (PSM) records matches the
+        count reported by the import statistics.
+    """
     mock_project_accession = "PXD000010"
 
     import_stats = import_file(engine, full_mzid_path, mock_project_accession)
