@@ -1,10 +1,12 @@
 import logging
 import os
+import subprocess
 import uuid
 from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+from lxml import etree as ET  # pyright: ignore
 from pyteomics import mzid
 
 from usigrabber.db.schema import IndexType, MzidFile
@@ -16,14 +18,13 @@ from usigrabber.file_parser.helpers import (
 )
 from usigrabber.utils.file import parse_basename
 
-try:
-    from lxml import etree as ET  # pyright: ignore
+# try:
 
-    print("running with lxml.etree")
-except ImportError:
-    import xml.etree.ElementTree as ET  # ruff: ignore
+#     print("running with lxml.etree")
+# except ImportError:
+#     import xml.etree.ElementTree as ET  # ruff: ignore
 
-    print("running with Python's xml.etree.ElementTree")
+#     print("running with Python's xml.etree.ElementTree")
 
 logger = logging.getLogger(__name__)
 
@@ -59,88 +60,78 @@ def get_spectrum_id_format(cv_param: str) -> IndexType | None:
     return id_format
 
 
+def extract_xml_subtree(xml_path: Path, tag: str) -> str:
+    """
+    Use sed to extract XML subtree from a file and return as string.
+    """
+    cmd = ["sed", "-n", rf"/<{tag}>/,/<\/{tag}>/p", str(xml_path)]
+    proc = subprocess.run(
+        cmd,
+        text=True,
+        capture_output=True,
+        check=True,
+    )
+    return proc.stdout.strip()
+
+
 def parse_spectra_data(mzid_path: Path) -> dict[str, tuple[str, IndexType | None]]:
     """
     Parse SpectraData information to extract MS run name and SpectrumIDFormat.
-
-    Uses lxml.etree.iterparse to stream the mzIdentML file instead of
-    building a full DOM tree.
+    This approach parses the `<Inputs>` subtree from the mzID file directly,
+    to avoid having to go through the entire file.
 
     Args:
         mzid_path: Path to the mzIdentML file
-
     Returns:
         Dictionary mapping spectra_id to tuple of (ms_run_name, IndexType enum value or None)
     """
-    spectra_data_dict: dict[str, tuple[str, IndexType | None]] = {}
+    spectra_data_map: dict[str, tuple[str, IndexType | None]] = {}
 
-    # mzIdentML 1.1 namespace
-    ns = {"mzid": "http://psidev.info/psi/pi/mzIdentML/1.1"}
-    spectra_data_tag = f"{{{ns['mzid']}}}SpectraData"
+    xml_snippet = extract_xml_subtree(mzid_path, tag="Inputs")
+    root = ET.fromstring(xml_snippet)
 
-    try:
-        # iterparse yields (event, element) pairs as it goes through the file
-        # we only care about 'end' events so the element subtree is complete
-        for _, elem in ET.iterparse(str(mzid_path), events=("end",)):
-            if elem.tag != spectra_data_tag:
-                # Not a <SpectraData> element; skip
-                continue
+    for child in root:
+        if child.tag != "SpectraData":
+            continue
 
-            spectra_data = elem
-
-            # Extract the 'id' attribute as key
-            spectra_id = spectra_data.get("id")
-            if not spectra_id:
-                spectra_data.clear()
-                continue
-
-            # Extract the 'name' attribute (used as MS run identifier)
-            # If 'name' doesn't exist, use 'location' as fallback
-            ms_run_name = spectra_data.get("name") or spectra_data.get("location")
-            if not ms_run_name:
-                logger.warning(
-                    "SpectraData element with id '%s' has no 'name' "
-                    + "or 'location' attribute. File: %s",
-                    spectra_id,
-                    mzid_path.name,
-                )
-                spectra_data.clear()
-                continue
-
-            basename = parse_basename(ms_run_name)
-            ms_run_name, ext = os.path.splitext(basename)
-
-            # keep stripping extensions until none left
-            while ext != "":
-                ms_run_name, ext = os.path.splitext(ms_run_name)
-
-            # Extract SpectrumIDFormat accession from nested cvParam
-            spectrum_id_format: str | None = None
-            spectrum_id_format_cv = spectra_data.find(".//mzid:SpectrumIDFormat/mzid:cvParam", ns)
-            if spectrum_id_format_cv is not None:
-                spectrum_id_format = spectrum_id_format_cv.get("accession")
-
-            if spectrum_id_format is None:
-                logger.warning(
-                    "SpectraData element with id '%s' has no SpectrumIDFormat cvParam. File: %s",
-                    spectra_id,
-                    mzid_path.name,
-                )
-                spectra_data.clear()
-                continue
-
-            spectra_data_dict[spectra_id] = (
-                ms_run_name,
-                get_spectrum_id_format(cv_param=spectrum_id_format),
+        spectra_id = child.get("id")
+        if not spectra_id:
+            continue
+        ms_run_name = child.get("name") or child.get("location")
+        if not ms_run_name:
+            logger.warning(
+                "SpectraData element with id '%s' has no 'name' or 'location' attribute. File: %s",
+                spectra_id,
+                mzid_path.name,
             )
+            continue
+        basename = parse_basename(ms_run_name)
+        ms_run_name, ext = os.path.splitext(basename)
 
-            # Free memory for this subtree now that we're done with it
-            spectra_data.clear()
+        # keep stripping extensions until none left
+        while ext != "":
+            ms_run_name, ext = os.path.splitext(ms_run_name)
 
-    except ET.ParseError as e:
-        logger.error("Failed to parse SpectraData from XML '%s': %s", mzid_path, e)
+        # Extract SpectrumIDFormat accession from nested cvParam
+        spectrum_id_format: str | None = None
+        spectrum_id_format_cv = child.find(".//SpectrumIDFormat/cvParam")
+        if spectrum_id_format_cv is not None:
+            spectrum_id_format = spectrum_id_format_cv.get("accession")
 
-    return spectra_data_dict
+        if spectrum_id_format is None:
+            logger.warning(
+                "SpectraData element with id '%s' has no SpectrumIDFormat cvParam. File: %s",
+                spectra_id,
+                mzid_path.name,
+            )
+            continue
+
+        spectra_data_map[spectra_id] = (
+            ms_run_name,
+            get_spectrum_id_format(cv_param=spectrum_id_format),
+        )
+
+    return spectra_data_map
 
 
 def parse_software_info(reader: mzid.MzIdentML) -> tuple[str | None, str | None]:
