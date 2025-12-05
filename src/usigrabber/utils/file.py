@@ -16,6 +16,7 @@ import aioftp
 import typer
 
 from usigrabber.backends.base import FileMetadata
+from usigrabber.utils import get_cache_dir
 
 logger = logging.getLogger(__name__)
 
@@ -295,8 +296,10 @@ def get_files_for_download(
 
 
 @contextmanager
-def temporary_path(*, suffix="", prefix="tmp", dir=None) -> Generator[Path, Any, None]:
-    with tempfile.TemporaryDirectory(suffix=suffix, prefix=prefix, dir=dir) as tmpdir:
+def temporary_path(*, suffix="", prefix="tmp/", dir=None) -> Generator[Path, Any, None]:
+    cache_dir = get_cache_dir()
+    temporary_root = cache_dir / prefix
+    with tempfile.TemporaryDirectory(suffix=suffix, prefix=str(temporary_root), dir=None) as tmpdir:
         yield Path(tmpdir)
 
 
