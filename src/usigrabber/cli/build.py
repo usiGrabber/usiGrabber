@@ -15,7 +15,6 @@ from usigrabber.cli import app
 from usigrabber.db import Project, create_db_and_tables, load_db_engine
 from usigrabber.db.cli import reset as db_reset
 from usigrabber.file_parser import import_files
-from usigrabber.file_parser.errors import FileParserError
 from usigrabber.utils import get_cache_dir
 from usigrabber.utils.file import (
     get_interesting_files,
@@ -139,36 +138,26 @@ async def async_build(
 
                     # process files
                     for category in FILE_CATEGORIES:
-                        if not files[category] or fully_processed:
+                        if not files[category] or fully_processed or main_source_type is not None:
                             continue
 
-                        interesting_files = await get_interesting_files(
-                            files[category], project["accession"], tmp_dir
+                        interesting_ftp_paths = await get_interesting_files(
+                            files[category], project["accession"]
                         )
 
-                        for ext, flist in interesting_files.items():
-                            if not flist:
-                                continue
+                        if not interesting_ftp_paths:
+                            continue
 
-                            main_source_type = ext
-                            try:
-                                fully_processed = import_files(
-                                    db_engine,
-                                    flist,
-                                    project["accession"],
-                                    logger,
-                                )
-                            except FileParserError as e:
-                                logger.error(
-                                    f"Failed to import '{ext}' files: {e}",
-                                    exc_info=True,
-                                    stack_info=True,
-                                    extra={
-                                        "ext": str(ext),
-                                        "project_accession": project["accession"],
-                                    },
-                                )
-                                continue
+                        file_ext = Path(interesting_ftp_paths[0]).suffix
+                        main_source_type = file_ext
+                        fully_processed = await import_files(
+                            db_engine,
+                            interesting_ftp_paths,
+                            file_ext,
+                            project["accession"],
+                            tmp_dir,
+                            logger,
+                        )
 
                     if fully_processed:
                         imported += 1

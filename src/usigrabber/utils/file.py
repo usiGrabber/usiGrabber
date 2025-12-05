@@ -20,10 +20,11 @@ from usigrabber.backends.base import FileMetadata
 logger = logging.getLogger(__name__)
 
 # empty string for folders (no extension)
-FILETYPE_ALLOWLIST = {".mzid", ".mzTab", ".txt"}
+FILETYPE_ALLOWLIST = {".mzid", ".mzTab", ".txt", ""}
 ARCHIVE_TYPES = {".zip", ".gz", ".tar", ".rar", ".7z"}
 PARALLEL_DOWNLOADS = int(os.getenv("PARALLEL_DOWNLOADS", "10"))
 INTERESTING_TXT_FILES = {"evidence", "summary", "peptides"}
+MAX_FILESIZE_BYTES = 5 * 1024**3  # 5 GiB
 
 
 async def download_ftp(
@@ -184,12 +185,8 @@ def extract_archive(
     return extracted_members
 
 
-async def get_interesting_files(
-    files: list[FileMetadata], accession: str, tmp_dir: Path
-) -> dict[str, list[Path]]:
+async def get_interesting_files(files: list[FileMetadata], accession: str) -> list[str]:
     all_files: dict[str, list[FileMetadata]] = {ext: [] for ext in FILETYPE_ALLOWLIST}
-    interesting_files: dict[str, list[Path]] = {ext: [] for ext in FILETYPE_ALLOWLIST}
-    files_to_be_downloaded: list[FileMetadata] = []
     for file in files:
         file_url = file["filepath"]
         filename = os.path.basename(file_url)
@@ -201,7 +198,7 @@ async def get_interesting_files(
 
         if (file_ext not in FILETYPE_ALLOWLIST) and ("txt.zip" not in str(filename)):
             # txt.zip can be zipped itself, why we check for it specifically here
-            logger.debug(f"Skipping file {filename} with unsupported extension {file_ext}.")
+            logger.debug(f"Skipping file {filename} with unsupported extension '{file_ext}'.")
             continue
         if file_ext == ".txt" and file_base not in INTERESTING_TXT_FILES:
             logger.debug(f"Skipping file {filename} as it is not interesting.")
@@ -209,52 +206,31 @@ async def get_interesting_files(
 
         all_files[file_ext].append(file)
 
-    files_to_be_downloaded = get_files_for_download(all_files)
+    interesting_files = get_prioritized_files(all_files)
 
-    if len(files_to_be_downloaded) == 0:
+    for file in interesting_files:
+        if file["file_size"] > MAX_FILESIZE_BYTES:
+            logger.warning(
+                "Skipping file '%s' in project %s due to size (%.2f GiB > %.2f GiB).",
+                Path(file["filepath"]).name,
+                accession,
+                file["file_size"] / (1024**3),
+                MAX_FILESIZE_BYTES / (1024**3),
+            )
+            interesting_files.remove(file)
+
+    if len(interesting_files) == 0:
         logger.warning(
             f"Found {files[0]['category']} files for project {accession}, "
             f"but none match the supported file types.",
         )
-        return interesting_files
 
-    sem = asyncio.Semaphore(PARALLEL_DOWNLOADS)
-    paths = await asyncio.gather(
-        *[
-            download_ftp_with_semaphore(
-                semaphore=sem,
-                url=file["filepath"],
-                out_dir=tmp_dir,
-            )
-            for _, file in enumerate(files_to_be_downloaded)
-        ],
-        return_exceptions=True,
-    )
+    interesting_paths = [file["filepath"] for file in interesting_files]
 
-    for idx, path in enumerate(paths):
-        filename = os.path.basename(files_to_be_downloaded[idx]["filepath"])
-        if isinstance(path, BaseException):
-            logger.error(
-                f"Failed to download file {filename} for project {accession}.",
-                exc_info=True,
-            )
-            continue
-
-        filesize_in_mb = files_to_be_downloaded[idx]["file_size"] / (1024 * 1024)
-        logger.debug(f"Processing result file '{filename}' ({filesize_in_mb:,.2f} MB)")
-
-        # contains all files extracted from archive
-        extract_dir = os.path.splitext(filename)[0] + "_extracted"
-        extracted_files = extract_archive(archive_path=path, extract_to=path.parent / extract_dir)
-
-        for f in extracted_files:
-            ext = os.path.splitext(str(f))[1]
-            if ext in FILETYPE_ALLOWLIST:
-                interesting_files[ext].append(f)
-    return interesting_files
+    return interesting_paths
 
 
-def get_files_for_download(
+def get_prioritized_files(
     all_files: dict[str, list[FileMetadata]],
 ) -> list[FileMetadata]:
     """
@@ -278,7 +254,6 @@ def get_files_for_download(
     # 2. Next prefer .mzTab files
     elif all_files.get(".mzTab", []):
         return all_files[".mzTab"]
-
     # 3. Next prefer txt.zip/.txt files
     else:
         txt_zip_files = [
