@@ -115,34 +115,33 @@ class MzidFileParser(BaseFileParser):
             with Session(engine) as session:
                 session.add(parsed.mzid_file)
                 session.commit()
+
+            with engine.begin() as conn:
                 if parsed.modified_peptides:
                     # Use INSERT OR IGNORE (SQLite) or INSERT ON CONFLICT DO NOTHING (PostgreSQL)
                     # for cross-file deduplication based on primary key
                     stmt = insert_func(ModifiedPeptide).on_conflict_do_nothing()
-                    session.execute(stmt, parsed.modified_peptides)
+                    conn.execute(stmt, parsed.modified_peptides)
                     stats.peptide_count = len(parsed.modified_peptides)
                 if parsed.modifications:
                     # Use INSERT OR IGNORE (SQLite) or INSERT ON CONFLICT DO NOTHING (PostgreSQL)
                     # for cross-file deduplication based on unique constraint
                     stmt = insert_func(Modification).on_conflict_do_nothing()
-                    session.execute(stmt, parsed.modifications)
+                    conn.execute(stmt, parsed.modifications)
                     stats.modification_count = len(parsed.modifications)
                 if parsed.modified_peptide_modification_junctions:
                     # Use INSERT OR IGNORE (SQLite) or INSERT ON CONFLICT DO NOTHING (PostgreSQL)
                     # for cross-file deduplication based on composite primary key
                     stmt = insert_func(ModifiedPeptideModificationJunction).on_conflict_do_nothing()
-                    session.execute(stmt, parsed.modified_peptide_modification_junctions)
+                    conn.execute(stmt, parsed.modified_peptide_modification_junctions)
                 if parsed.peptide_evidence:
-                    session.execute(insert(PeptideEvidence), parsed.peptide_evidence)
+                    conn.execute(insert(PeptideEvidence), parsed.peptide_evidence)
                     stats.peptide_evidence_count = len(parsed.peptide_evidence)
                 if parsed.psms:
-                    session.execute(insert(PeptideSpectrumMatch), parsed.psms)
+                    conn.execute(insert(PeptideSpectrumMatch), parsed.psms)
                     stats.psm_count = len(parsed.psms)
                 if parsed.psm_peptide_evidence_junctions:
-                    session.execute(
-                        insert(PSMPeptideEvidence), parsed.psm_peptide_evidence_junctions
-                    )
-                session.commit()
+                    conn.execute(insert(PSMPeptideEvidence), parsed.psm_peptide_evidence_junctions)
             logger.debug(f"Successfully imported mzID data for file '{stats.file_name}'")
         except Exception as e:
             error_msg = f"Database import failed for file '{stats.file_name}': {e}"
