@@ -50,8 +50,11 @@ async def import_files(
                 )
                 for path in ftp_paths
             ],
-            return_exceptions=False,
+            return_exceptions=True,
         )
+        for path in paths:
+            if isinstance(path, Exception):
+                paths.remove(path)
         paths = extract_relevant_paths(paths, file_ext)
         txt_triplets = get_txt_triples(paths)
         for triplet in txt_triplets:

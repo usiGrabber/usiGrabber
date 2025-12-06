@@ -185,7 +185,7 @@ def extract_archive(
     return extracted_members
 
 
-async def get_interesting_files(files: list[FileMetadata], accession: str) -> list[str]:
+async def get_interesting_files(files: list[FileMetadata], accession: str) -> tuple[list[str], str]:
     all_files: dict[str, list[FileMetadata]] = {ext: [] for ext in FILETYPE_ALLOWLIST}
     for file in files:
         file_url = file["filepath"]
@@ -206,7 +206,7 @@ async def get_interesting_files(files: list[FileMetadata], accession: str) -> li
 
         all_files[file_ext].append(file)
 
-    interesting_files = get_prioritized_files(all_files)
+    interesting_files, file_ext = get_prioritized_files(all_files)
 
     for file in interesting_files:
         if file["file_size"] > MAX_FILESIZE_BYTES:
@@ -227,12 +227,12 @@ async def get_interesting_files(files: list[FileMetadata], accession: str) -> li
 
     interesting_paths = [file["filepath"] for file in interesting_files]
 
-    return interesting_paths
+    return interesting_paths, file_ext
 
 
 def get_prioritized_files(
     all_files: dict[str, list[FileMetadata]],
-) -> list[FileMetadata]:
+) -> tuple[list[FileMetadata], str]:
     """
     From the available files, select the best candidates for download.
 
@@ -249,11 +249,11 @@ def get_prioritized_files(
     """
     # 1. Prefer .mzid files
     if all_files.get(".mzid", []):
-        return all_files[".mzid"]
+        return all_files[".mzid"], ".mzid"
 
     # 2. Next prefer .mzTab files
     elif all_files.get(".mzTab", []):
-        return all_files[".mzTab"]
+        return all_files[".mzTab"], ".mzTab"
     # 3. Next prefer txt.zip/.txt files
     else:
         txt_zip_files = [
@@ -261,9 +261,9 @@ def get_prioritized_files(
         ]
         txt_files = all_files.get(".txt", [])
         if txt_zip_files or txt_files:
-            return txt_zip_files + txt_files
+            return txt_zip_files + txt_files, ".txt"
 
-    return []
+    return [], ""
 
 
 @contextmanager

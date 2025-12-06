@@ -141,14 +141,13 @@ async def async_build(
                         if not files[category] or fully_processed or main_source_type is not None:
                             continue
 
-                        interesting_ftp_paths = await get_interesting_files(
+                        interesting_ftp_paths, file_ext = await get_interesting_files(
                             files[category], project["accession"]
                         )
 
                         if not interesting_ftp_paths:
                             continue
 
-                        file_ext = Path(interesting_ftp_paths[0]).suffix
                         main_source_type = file_ext
                         fully_processed = await import_files(
                             db_engine,
@@ -178,7 +177,8 @@ async def async_build(
                         elif not fully_processed:
                             logger.warning(
                                 f"'{main_source_type}' files could not be completely parsed for "
-                                f"project '{project['accession']}' from backend {backend_enum.name}.",
+                                f"project '{project['accession']}' from backend"
+                                f" {backend_enum.name}.",
                             )
 
         if imported > 0 or errors > 0:
