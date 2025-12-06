@@ -41,22 +41,23 @@ async def import_files(
     sem = asyncio.Semaphore(PARALLEL_DOWNLOADS)
 
     if file_ext == ".txt":
-        paths = await asyncio.gather(
-            *[
-                download_ftp_with_semaphore(
-                    semaphore=sem,
-                    url=path,
-                    out_dir=tmp_dir,
-                )
-                for path in ftp_paths
-            ],
-            return_exceptions=True,
-        )
-        for path in paths:
-            if isinstance(path, Exception):
-                paths.remove(path)
-        paths = extract_relevant_paths(paths, file_ext)
-        txt_triplets = get_txt_triples(paths)
+        paths = [
+            path
+            for path in await asyncio.gather(
+                *[
+                    download_ftp_with_semaphore(
+                        semaphore=sem,
+                        url=path,
+                        out_dir=tmp_dir,
+                    )
+                    for path in ftp_paths
+                ],
+                return_exceptions=True,
+            )
+            if isinstance(path, Path)
+        ]
+        relevant_paths = extract_relevant_paths(paths, file_ext)
+        txt_triplets = get_txt_triples(relevant_paths)
         for triplet in txt_triplets:
             try:
                 file_stats = import_file(engine, triplet, file_ext, project_accession)

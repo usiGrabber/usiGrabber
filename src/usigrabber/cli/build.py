@@ -177,8 +177,8 @@ async def async_build(
                         elif not fully_processed:
                             logger.warning(
                                 f"'{main_source_type}' files could not be completely parsed for "
-                                f"project '{project['accession']}' from backend"
-                                f" {backend_enum.name}.",
+                                f"project '{project['accession']}' from backend "
+                                f"{backend_enum.name}.",
                             )
 
         if imported > 0 or errors > 0:
