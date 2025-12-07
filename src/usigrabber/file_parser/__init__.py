@@ -40,6 +40,7 @@ async def import_files(
 
     sem = asyncio.Semaphore(PARALLEL_DOWNLOADS)
 
+    # files to handle in bulk
     if file_ext == ".txt":
         paths = [
             path
@@ -75,6 +76,7 @@ async def import_files(
                 )
                 exception_occurred = True
                 continue
+    # files to handle individually
     else:
         path_coros = [
             download_ftp_with_semaphore(

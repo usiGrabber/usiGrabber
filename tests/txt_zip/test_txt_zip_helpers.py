@@ -65,6 +65,12 @@ def test_get_residues_for_mods_with_positions():
     Test for get_residues_for_mods_with_positions function to ensure
     it correctly maps modification types to their positions and corresponding residues.
     """
+    mods = ["MOD1", "MOD2"]
+    seq = "ABC(MOD1)DEF(MOD2)GHI(MOD1)"
+    positions, clean_seq = get_mods_with_positions(seq, mods)
+    assert positions == {"MOD1": [3, 9], "MOD2": [6]}
+    assert clean_seq == "ABCDEFGHI"
+
     seq = (
         "(Acetyl (Protein N-term))ANAASGM(Oxidation (M))"
         + "AVHDDC(Oxidation (M))KLK(Phospho (Protein C-term))"

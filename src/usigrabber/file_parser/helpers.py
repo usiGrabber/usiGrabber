@@ -275,7 +275,7 @@ def get_mods_with_positions(seq: str, mods: list[str]) -> tuple[dict[str, list[i
         >>> mods = ["MOD1", "MOD2"]
         >>> positions, clean_seq = get_mods_with_positions(seq, mods)
         >>> positions
-        {'MOD1': [3, 10], 'MOD2': [7]}
+        {'MOD1': [3, 9], 'MOD2': [6]}
         >>> clean_seq
         'ABCDEFGHI'
     """
