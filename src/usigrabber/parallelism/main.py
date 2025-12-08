@@ -38,6 +38,7 @@ def init_ontology_worker():
     global db_engine, ontology_helper
     from ontology_resolver.ontology_helper import OntologyHelper
 
+    logger.info(f"Ontology worker {os.getpid()} is starting")
     system_setup(is_main_process=False)
     # Dispose of any existing engine from parent process
     if db_engine is not None:

@@ -1,5 +1,6 @@
 import json
 import logging
+import os
 from pathlib import Path
 
 from async_http_client import AsyncHttpClient
@@ -22,7 +23,9 @@ class OntologyLoader:
         logger.info(f"Using ontology cache dir: {self._cache_dir}")
 
     async def download_ontology(self, onto: str) -> Path:
-        async with AsyncHttpClient(retry_attempts=0) as session:
+        async with AsyncHttpClient(
+            retry_attempts=0, verbose=os.environ.get("DEBUG") is not None
+        ) as session:
             params = {"lang": "en", "outputOpts": json.dumps({})}
             ontology_info = await session.get(
                 self.BASE_URL + f"/api/v2/ontologies/{onto}", params=params

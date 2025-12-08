@@ -148,7 +148,7 @@ class AsyncHttpClient:
 
             with (
                 open(download_file_name, "wb") as f,
-                tqdm.wrapattr(f, "write", total=total_size) as fobj,
+                tqdm.wrapattr(f, "write", total=total_size, disable=not self._verbose) as fobj,
             ):
                 while True:
                     chunk = await response.content.read(chunk_size)
