@@ -22,8 +22,8 @@ logger = logging.getLogger(__name__)
 
 
 @retry(
-    stop=stop_after_attempt(3),
-    wait=wait_random_exponential(multiplier=1, max=30),
+    stop=stop_after_attempt(7),
+    wait=wait_random_exponential(multiplier=1, max=60),
     reraise=True,
     before_sleep=before_sleep_log(logger, logging.DEBUG),
 )
