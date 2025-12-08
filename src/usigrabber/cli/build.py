@@ -210,7 +210,7 @@ async def async_build(
                             path = await fut
                         except Exception as e:
                             logger.error(
-                                "Error in while downloading file for project %s: %s",
+                                "Error while downloading file for project %s: %s",
                                 project["accession"],
                                 e,
                                 exc_info=True,
