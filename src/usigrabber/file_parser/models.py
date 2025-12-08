@@ -4,8 +4,8 @@ File Parser Models
 Data models for tracking import statistics and results.
 """
 
+import datetime
 from dataclasses import dataclass, field
-from datetime import datetime
 from typing import Any, NamedTuple, TypedDict
 from uuid import UUID
 
@@ -107,6 +107,11 @@ class ParsedMztabData(NamedTuple):
     psms: list[PeptideSpectrumMatchDict]
 
 
+def now() -> datetime.datetime:
+    """Get the current UTC time."""
+    return datetime.datetime.now(datetime.UTC)
+
+
 @dataclass
 class ImportStats:
     """Statistics from importing a file into the database."""
@@ -117,24 +122,24 @@ class ImportStats:
     modification_count: int = 0
     peptide_evidence_count: int = 0
     psm_count: int = 0
-    start_time: datetime = field(default_factory=datetime.utcnow)
-    parsing_complete_time: datetime | None = None
-    end_time: datetime | None = None
+    start_time: datetime.datetime = field(default_factory=now)
+    parsing_complete_time: datetime.datetime | None = None
+    end_time: datetime.datetime | None = None
     success: bool = False
     error_message: str | None = None
 
     def mark_parsing_complete(self) -> None:
         """Mark parsing as successfully completed."""
-        self.parsing_complete_time = datetime.utcnow()
+        self.parsing_complete_time = now()
 
     def mark_complete(self) -> None:
         """Mark import as successfully completed."""
-        self.end_time = datetime.utcnow()
+        self.end_time = now()
         self.success = True
 
     def mark_failed(self, error_message: str) -> None:
         """Mark import as failed with error message."""
-        self.end_time = datetime.utcnow()
+        self.end_time = now()
         self.success = False
         self.error_message = error_message
 
@@ -146,11 +151,32 @@ class ImportStats:
         return None
 
     @property
+    def parsing_duration(self) -> float | None:
+        """Calculate parsing duration in seconds."""
+        if self.parsing_complete_time:
+            return (self.parsing_complete_time - self.start_time).total_seconds()
+        return None
+
+    @property
+    def persisting_duration(self) -> float | None:
+        """Calculate persisting duration in seconds."""
+        if self.end_time and self.parsing_complete_time:
+            return (self.end_time - self.parsing_complete_time).total_seconds()
+        return None
+
+    @property
     def parsing_duration_seconds(self) -> float | None:
         """Calculate parsing duration in seconds."""
         if self.parsing_complete_time:
             return (self.parsing_complete_time - self.start_time).total_seconds()
         return None
+
+    @staticmethod
+    def format_duration(seconds: float | None) -> str:
+        """Format duration in seconds to human-readable string."""
+        if seconds is None:
+            return "N/A"
+        return f"{seconds:.1f}s"
 
     def summary(self) -> str:
         """Generate human-readable summary."""

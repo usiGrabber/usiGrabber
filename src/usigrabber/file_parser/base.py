@@ -1,14 +1,17 @@
 # usigrabber/file_parser/base.py
 
+import logging
 from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Any
 
 from sqlalchemy.engine import Engine
 
-from usigrabber.file_parser.models import ImportStats  # Import models
+from usigrabber.file_parser.models import ImportStats
 
 PARSER_REGISTRY: dict[str, "BaseFileParser"] = {}
+
+logger = logging.getLogger(__name__)
 
 
 def register_parser[T: BaseFileParser](cls: type[T]) -> type[T]:

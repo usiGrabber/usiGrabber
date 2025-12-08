@@ -1,4 +1,5 @@
 import asyncio
+import datetime
 import logging
 import multiprocessing
 import os
@@ -107,6 +108,10 @@ def build(
         max_workers=max_workers or multiprocessing.cpu_count(),
     )
 
+    # WORKFLOW
+    build_start_time = asyncio.get_event_loop().time()
+
+    # set up database connection
     db_engine = load_db_engine()
     inspector = inspect(db_engine)
     if len(inspector.get_table_names()) == 0:
@@ -126,7 +131,6 @@ async def build_all_projects(backends: list[BackendEnum], config: BuildConfigura
         await build_all_projects_in_single_process(backends, config)
     else:
         await build_all_projects_in_process_pool(backends, config)
-
 
 async def build_project(
     backend_enum: BackendEnum,
@@ -210,7 +214,8 @@ async def build_project(
 
             for fut in asyncio.as_completed(path_coros):
                 try:
-                    path = await fut
+                    await backend.dump_project_to_db(session, project)
+                    session.commit()
                 except Exception as e:
                     logger.error(
                         "Error in while downloading file for project %s: %s",
@@ -238,6 +243,8 @@ async def build_project(
                                 engine,
                                 file,
                                 project["accession"],
+                                file["file_size"] / (1024**3),
+                                MAX_FILESIZE_BYTES / (1024**3),
                             )
                             duration_str = (
                                 f"{stats.duration_seconds:.1f}s"
