@@ -1,4 +1,5 @@
 import asyncio
+import datetime
 import logging
 import os
 import warnings
@@ -104,6 +105,7 @@ async def async_build(
         db_reset(force=True)
 
     # WORKFLOW
+    build_start_time = asyncio.get_event_loop().time()
 
     # set up database connection
     db_engine = load_db_engine()
@@ -271,7 +273,10 @@ async def async_build(
             # TODO: set "complete" flag for project
 
         if imported > 0 or errors > 0:
-            logger.info("Finished importing from backend %s.", backend_enum.name)
+            logger.info(
+                "Finished importing from backend %s.",
+                backend_enum.name,
+            )
             logger.info(
                 "Successfully imported %s projects, encountered %s errors (%.1f%%).",
                 imported,
@@ -284,3 +289,8 @@ async def async_build(
                     logger.warning("  • %s: %s", accession, error[:80])
                 if len(error_projects) > 10:
                     logger.warning("  ... and %d more", len(error_projects) - 10)
+
+    build_duration = asyncio.get_event_loop().time() - build_start_time
+    logger.info(
+        "Database build process completed in %s.", str(datetime.timedelta(seconds=build_duration))
+    )
