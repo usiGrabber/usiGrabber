@@ -238,14 +238,27 @@ async def async_build(
                                         file,
                                         project["accession"],
                                     )
-                                    duration_str = (
-                                        f"{stats.duration_seconds:.1f}s"
-                                        if stats.duration_seconds is not None
-                                        else "N/A"
+
+                                    parsing_duration = stats.format_duration(stats.parsing_duration)
+                                    persist_duration = stats.format_duration(
+                                        stats.persisting_duration
                                     )
+                                    total_duration = stats.format_duration(stats.duration_seconds)
+
                                     logger.info(
                                         f"Imported {stats.psm_count:,} PSMs from '{file.name}'"
-                                        f" ({duration_str})"
+                                        f"(parsing: {parsing_duration} | "
+                                        f"persisting: {persist_duration} | "
+                                        f"total: {total_duration}).",
+                                        extra={
+                                            "project_accession": project["accession"],
+                                            "file_name": file.name,
+                                            "duration": {
+                                                "parsing": stats.parsing_duration,
+                                                "persist": stats.persisting_duration,
+                                                "total": stats.duration_seconds,
+                                            },
+                                        },
                                     )
                                 except FileParserError as e:
                                     logger.error(

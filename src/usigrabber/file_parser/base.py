@@ -7,7 +7,7 @@ from typing import Any
 
 from sqlalchemy.engine import Engine
 
-from usigrabber.file_parser.models import ImportStats, now
+from usigrabber.file_parser.models import ImportStats
 
 PARSER_REGISTRY: dict[str, "BaseFileParser"] = {}
 
@@ -64,13 +64,6 @@ class BaseFileParser(ABC):
             stats.mark_parsing_complete()
             self.persist(engine, parsed, stats)
             stats.mark_complete()
-
-            persist_duration = (stats.end_time or now()) - (stats.parsing_complete_time or now())
-            logger.debug(
-                "Persisted data from file '%s' for project in %s",
-                path.name,
-                str(persist_duration).split(".")[0],
-            )
             return stats
         except Exception as e:
             stats.mark_failed(str(e))

@@ -151,11 +151,32 @@ class ImportStats:
         return None
 
     @property
+    def parsing_duration(self) -> float | None:
+        """Calculate parsing duration in seconds."""
+        if self.parsing_complete_time:
+            return (self.parsing_complete_time - self.start_time).total_seconds()
+        return None
+
+    @property
+    def persisting_duration(self) -> float | None:
+        """Calculate persisting duration in seconds."""
+        if self.end_time and self.parsing_complete_time:
+            return (self.end_time - self.parsing_complete_time).total_seconds()
+        return None
+
+    @property
     def parsing_duration_seconds(self) -> float | None:
         """Calculate parsing duration in seconds."""
         if self.parsing_complete_time:
             return (self.parsing_complete_time - self.start_time).total_seconds()
         return None
+
+    @staticmethod
+    def format_duration(seconds: float | None) -> str:
+        """Format duration in seconds to human-readable string."""
+        if seconds is None:
+            return "N/A"
+        return f"{seconds:.1f}s"
 
     def summary(self) -> str:
         """Generate human-readable summary."""
