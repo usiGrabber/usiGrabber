@@ -1,49 +1,40 @@
 from usigrabber.file_parser.txt_zip.parsing_functions import (
-    link_modifications,
     parse_peptide_evidence,
-    parse_peptides,
+    parse_peptides_and_modifications,
     parse_psms,
 )
 
 
-def test_parse_peptides_basic(project2_evidence_df, project2_peptides_df):
+def test_parse_peptides_basic(project2_evidence_df):
     """
     Basic test for parse_peptides function to ensure it correctly parses
     peptide sequences and modifications from provided DataFrames.
     """
-    peptide_id_map, peptide_mods, peptides = parse_peptides(
-        project2_evidence_df, project2_peptides_df
+    peptide_id_map, peptides_batch, mod_batch, mod_junction_batch = (
+        parse_peptides_and_modifications(project2_evidence_df)
     )
 
-    assert len(peptides) == 4
+    assert len(peptides_batch) == 6
     assert len(peptide_id_map) == 4
-    assert len(peptide_mods) == 4
-    mod_count = 0
-    for mods in peptide_mods.values():
-        mod_count += len(mods)
-    assert mod_count == 6
-    sequences = {p["sequence"] for p in peptides}
+    assert len(mod_batch) == 3
+    sequences = {p["peptide_sequence"] for p in peptides_batch}
     assert "AAAAAAAAAAAAGDSDSWDADTFSMEDPVR" in sequences
     assert "AAAAAAAAAAGDSDSWDADTFSMEDPVR" in sequences
 
 
-def test_parse_peptides(project1_evidence_df, project1_peptides_df):
+def test_parse_peptides(project1_evidence_df):
     """
     Comprehensive test for parse_peptides function to validate parsing logic
     and data integrity.
     """
-    peptide_id_map, peptide_mods, peptides = parse_peptides(
-        project1_evidence_df, project1_peptides_df
+    peptide_id_map, peptides_batch, mod_batch, mod_junction_batch = (
+        parse_peptides_and_modifications(project1_evidence_df)
     )
 
-    assert len(peptides) == 1174
+    assert len(peptides_batch) == 1223
     assert len(peptide_id_map) == 1174
-    assert len(peptide_mods) == 140
-    mod_count = 0
-    for mods in peptide_mods.values():
-        mod_count += len(mods)
-    assert mod_count == 148
-    sequences = {p["sequence"] for p in peptides}
+    assert len(mod_batch) == 22
+    sequences = {p["peptide_sequence"] for p in peptides_batch}
     assert "AAAALKGSDHR" in sequences
     assert "ALEYKDFDKFDR" in sequences
     assert "CKHFEIGGDKK" in sequences
@@ -108,7 +99,7 @@ def test_parse_psms_basic(
     Basic test for parse_psms function to ensure it correctly parses
     PSMs and related data from provided DataFrames.
     """
-    peptide_id_map, _, _ = parse_peptides(project2_evidence_df, project2_peptides_df)
+    peptide_id_map, _, _, _ = parse_peptides_and_modifications(project2_evidence_df)
     pe_id_map, _ = parse_peptide_evidence(project2_peptides_df)
 
     psm_batch, junction_batch, search_mod_batch = parse_psms(
@@ -140,7 +131,7 @@ def test_parse_psms(
     Comprehensive test for parse_psms function to validate parsing logic
     and data integrity.
     """
-    peptide_id_map, _, _ = parse_peptides(project1_evidence_df, project1_peptides_df)
+    peptide_id_map, _, _, _ = parse_peptides_and_modifications(project1_evidence_df)
     pe_id_map, _ = parse_peptide_evidence(project1_peptides_df)
 
     psm_batch, junction_batch, search_mod_batch = parse_psms(
@@ -161,39 +152,3 @@ def test_parse_psms(
             )
             == 4
         )
-
-
-def test_link_modifications_basic(project2_evidence_df, project2_peptides_df):
-    """
-    Basic test for link_modifications function to ensure it correctly
-    links peptide modifications to their respective peptides.
-    """
-    _, peptide_mods, _ = parse_peptides(
-        project2_evidence_df,
-        project2_peptides_df,
-    )
-
-    mod_batch = link_modifications(peptide_mods)
-
-    assert len(mod_batch) > 0
-    for mod in mod_batch:
-        assert mod["unimod_id"] is not None
-        assert mod["position"] is not None
-
-
-def test_link_modifications(project1_evidence_df, project1_peptides_df):
-    """
-    Comprehensive test for link_modifications function to validate linking logic
-    and data integrity.
-    """
-    _, peptide_mods, _ = parse_peptides(
-        project1_evidence_df,
-        project1_peptides_df,
-    )
-
-    mod_batch = link_modifications(peptide_mods)
-
-    assert len(mod_batch) > 0
-    for mod in mod_batch:
-        assert mod["unimod_id"] is not None
-        assert mod["position"] is not None

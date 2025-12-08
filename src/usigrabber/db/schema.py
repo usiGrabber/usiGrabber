@@ -164,7 +164,7 @@ class ProjectOtherOmicsLink(SQLModel, table=True):
 
 
 # ============================================================================
-# mzID Data Tables
+# File specific Data Tables
 # ============================================================================
 
 
@@ -202,6 +202,11 @@ class MzidFile(SQLModel, table=True):
     peptide_spectrum_matches: list["PeptideSpectrumMatch"] = Relationship(
         back_populates="mzid_file"
     )
+
+
+# ============================================================================
+# General Data Tables
+# ============================================================================
 
 
 class ModifiedPeptideModificationJunction(SQLModel, table=True):

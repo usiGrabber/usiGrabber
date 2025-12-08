@@ -4,15 +4,19 @@ from pathlib import Path
 import pandas as pd
 from pandas.core.frame import DataFrame
 from sqlalchemy import insert
+from sqlalchemy.dialects.postgresql import insert as pg_insert
+from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.engine import Engine
 from sqlmodel import Session
 
 from usigrabber.db.schema import (
-    Peptide,
+    Modification,
+    ModifiedPeptide,
+    ModifiedPeptideModificationJunction,
     PeptideEvidence,
-    PeptideModification,
     PeptideSpectrumMatch,
     PSMPeptideEvidence,
+    SearchModification,
 )
 from usigrabber.file_parser.base import BaseFileParser, register_parser
 from usigrabber.file_parser.errors import (
@@ -21,9 +25,8 @@ from usigrabber.file_parser.errors import (
 )
 from usigrabber.file_parser.models import ImportStats, ParsedTxtZipData
 from usigrabber.file_parser.txt_zip.parsing_functions import (
-    link_modifications,
     parse_peptide_evidence,
-    parse_peptides,
+    parse_peptides_and_modifications,
     parse_psms,
 )
 
@@ -68,11 +71,32 @@ class TxtZipFileParser(BaseFileParser):
     def persist(self, engine: Engine, parsed: ParsedTxtZipData, stats: ImportStats):
         """Persist parsed txt data to the database with debug logging."""
         logger.debug(f"Persisting txt data to database for file '{stats.file_name}'")
+        # Detect database type to use appropriate insert dialect
+        db_dialect = engine.dialect.name
+        is_postgresql = db_dialect == "postgresql"
+
+        # Select appropriate insert function based on database type
+        insert_func = pg_insert if is_postgresql else sqlite_insert
+
         try:
             with Session(engine) as session:
-                if parsed.peptides:
-                    session.execute(insert(Peptide), parsed.peptides)
-                    stats.peptide_count = len(parsed.peptides)
+                if parsed.modified_peptides:
+                    # Use INSERT OR IGNORE (SQLite) or INSERT ON CONFLICT DO NOTHING (PostgreSQL)
+                    # for cross-file deduplication based on primary key
+                    stmt = insert_func(ModifiedPeptide).on_conflict_do_nothing()
+                    session.execute(stmt, parsed.modified_peptides)
+                    stats.peptide_count = len(parsed.modified_peptides)
+                if parsed.modifications:
+                    # Use INSERT OR IGNORE (SQLite) or INSERT ON CONFLICT DO NOTHING (PostgreSQL)
+                    # for cross-file deduplication based on unique constraint
+                    stmt = insert_func(Modification).on_conflict_do_nothing()
+                    session.execute(stmt, parsed.modifications)
+                    stats.modification_count = len(parsed.modifications)
+                if parsed.modified_peptide_modification_junctions:
+                    # Use INSERT OR IGNORE (SQLite) or INSERT ON CONFLICT DO NOTHING (PostgreSQL)
+                    # for cross-file deduplication based on composite primary key
+                    stmt = insert_func(ModifiedPeptideModificationJunction).on_conflict_do_nothing()
+                    session.execute(stmt, parsed.modified_peptide_modification_junctions)
                 if parsed.peptide_evidence:
                     session.execute(insert(PeptideEvidence), parsed.peptide_evidence)
                     stats.peptide_evidence_count = len(parsed.peptide_evidence)
@@ -83,13 +107,14 @@ class TxtZipFileParser(BaseFileParser):
                     session.execute(
                         insert(PSMPeptideEvidence), parsed.psm_peptide_evidence_junctions
                     )
-                if parsed.peptide_modifications:
-                    session.execute(insert(PeptideModification), parsed.peptide_modifications)
-                    stats.modification_count = len(parsed.peptide_modifications)
+                if parsed.search_modifications:
+                    stmt = insert_func(SearchModification).on_conflict_do_nothing()
+                    session.execute(
+                        stmt,
+                        parsed.search_modifications,
+                    )
                 session.commit()
-            logger.debug(
-                f"Successfully imported txt data for txt.zip from '{stats.project_accession}'"
-            )
+            logger.debug(f"Successfully imported mzID data for file '{stats.file_name}'")
         except Exception as e:
             error_msg = f"Database import failed for file '{stats.file_name}': {e}"
             logger.error(error_msg, exc_info=True)
@@ -118,7 +143,7 @@ def parse_txt_zip(
             TxtZipParseError: If files cannot be read or parsed
     """
 
-    logger.info(
+    logger.debug(
         f"Parsing txt files: {evidence_path.name}, {summary_path.name}, {peptides_path.name}"
     )
 
@@ -158,8 +183,10 @@ def parse_txt_zip(
             default=pd.DataFrame(),
         )
 
-        logger.debug("Phase 1: Parsing peptides...")
-        peptide_id_map, peptide_mods, peptides_batch = parse_peptides(evidence, peptides)
+        logger.debug("Phase 1: Parsing peptides and modifications...")
+        peptide_id_map, peptides_batch, mod_batch, mod_junction_batch = (
+            parse_peptides_and_modifications(evidence)
+        )
 
         logger.debug("Phase 2: Parsing peptide evidence...")
         pe_id_map, peptide_evidence_batch = parse_peptide_evidence(peptides)
@@ -173,13 +200,11 @@ def parse_txt_zip(
             pe_id_map,
         )
 
-        logger.debug("Phase 4: Linking peptide modifications...")
-        mod_batch = link_modifications(peptide_mods)
-
         # Return all parsed data
         parsed_data = ParsedTxtZipData(
-            peptides=peptides_batch,
-            peptide_modifications=mod_batch,
+            modified_peptides=peptides_batch,
+            modifications=mod_batch,
+            modified_peptide_modification_junctions=mod_junction_batch,
             peptide_evidence=peptide_evidence_batch,
             psms=psm_batch,
             psm_peptide_evidence_junctions=junction_batch,

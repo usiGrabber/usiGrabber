@@ -9,6 +9,14 @@ from lxml import etree as ET  # pyright: ignore
 from pyteomics import mzid
 
 from usigrabber.db.schema import IndexType, MzidFile
+from usigrabber.file_parser.helpers import (
+    extract_index_type_and_number,
+    extract_score_values,
+    extract_unimod_id_or_name,
+    extract_xml_subtree,
+    get_spectrum_id_format,
+    parse_modification_location,
+)
 from usigrabber.file_parser.models import (
     ModificationDict,
     ModifiedPeptideDict,
@@ -16,14 +24,6 @@ from usigrabber.file_parser.models import (
     PeptideEvidenceDict,
     PeptideSpectrumMatchDict,
     PSMPeptideEvidenceDict,
-)
-from usigrabber.file_parser.mzid.helpers import (
-    extract_index_type_and_number,
-    extract_score_values,
-    extract_unimod_id_or_name,
-    extract_xml_subtree,
-    get_spectrum_id_format,
-    parse_modification_location,
 )
 from usigrabber.file_parser.uuid_helpers import (
     generate_deterministic_modification_uuid,

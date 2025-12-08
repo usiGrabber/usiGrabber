@@ -59,7 +59,9 @@ def extract_unimod_id_or_name(mod_data: dict) -> tuple[int | None, str | None]:
 
     if uid is None:
         logger.debug("No UNIMOD ID found for modification: %s", mod_data)
-    return uid, mod_name
+        return None, mod_name
+    else:
+        return uid, None
 
 
 def extract_score_values(sii: dict) -> dict[str, Any]:
