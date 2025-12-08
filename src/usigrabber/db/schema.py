@@ -2,6 +2,7 @@ import uuid
 from datetime import date, datetime
 from enum import Enum
 
+from sqlalchemy import CheckConstraint, UniqueConstraint
 from sqlmodel import JSON, Column, Field, Relationship, SQLModel
 
 
@@ -203,36 +204,60 @@ class MzidFile(SQLModel, table=True):
     )
 
 
-class Peptide(SQLModel, table=True):
-    """Peptide sequences."""
+class ModifiedPeptideModificationJunction(SQLModel, table=True):
+    __tablename__ = "modified_peptide_modification_junction"
 
-    __tablename__ = "peptides"
+    modified_peptide_id: uuid.UUID = Field(
+        foreign_key="modified_peptides.id", primary_key=True, index=True
+    )
+    modification_id: uuid.UUID = Field(foreign_key="modifications.id", primary_key=True, index=True)
 
-    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
-    sequence: str = Field(index=True, description="Peptide sequence")
-    length: int = Field(description="Computed sequence length")
+
+class ModifiedPeptide(SQLModel, table=True):
+    """Modified peptide sequence. Links to 0 to many Modifications."""
+
+    __tablename__ = "modified_peptides"
+
+    id: uuid.UUID = Field(
+        primary_key=True, description="Deterministic UUID based on sequence and modifications"
+    )
+    peptide_sequence: str = Field(description="Peptide sequence without modifications")
 
     # Relationships
-    peptide_spectrum_matches: list["PeptideSpectrumMatch"] = Relationship(back_populates="peptide")
-    peptide_modifications: list["PeptideModification"] = Relationship(back_populates="peptide")
+    peptide_spectrum_matches: list["PeptideSpectrumMatch"] = Relationship(
+        back_populates="modified_peptide"
+    )
+    modifications: list["Modification"] = Relationship(
+        back_populates="modified_peptides", link_model=ModifiedPeptideModificationJunction
+    )
 
 
-class PeptideModification(SQLModel, table=True):
-    """Junction table: which modifications occur at which positions in each peptide."""
+class Modification(SQLModel, table=True):
+    """Modification with a location and modified residue."""
 
-    __tablename__ = "peptide_modifications"
+    __tablename__ = "modifications"
 
-    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
-    peptide_id: uuid.UUID = Field(foreign_key="peptides.id", index=True)
+    id: uuid.UUID = Field(primary_key=True)
     unimod_id: int | None = Field(description="Unimod id, e.g., '35' for 'UNIMOD:35' accession")
     name: str | None = Field(
         description="Modification name. Used as fallback if UNIMOD id not available."
     )
-    position: int | None = Field(description="Position in the peptide sequence (1-indexed)")
+    location: int | None = Field(description="Location in the peptide sequence (1-indexed)")
     modified_residue: str | None = Field(description="The specific amino acid that was modified")
 
-    # Relationships
-    peptide: Peptide | None = Relationship(back_populates="peptide_modifications")
+    modified_peptides: list["ModifiedPeptide"] = Relationship(
+        back_populates="modifications", link_model=ModifiedPeptideModificationJunction
+    )
+
+    # constraint
+    __table_args__ = (
+        UniqueConstraint(
+            "unimod_id", "name", "location", "modified_residue", name="uix_mod_unique"
+        ),
+        CheckConstraint(
+            "(unimod_id IS NULL) OR (name IS NULL)", name="chk_mod_name_or_unimodid_null"
+        ),
+    )
 
 
 class PeptideSpectrumMatch(SQLModel, table=True):
@@ -248,7 +273,7 @@ class PeptideSpectrumMatch(SQLModel, table=True):
         index=True,
         description="Optional: can be NULL for non-mzID sources",
     )
-    peptide_id: uuid.UUID = Field(foreign_key="peptides.id", index=True)
+    modified_peptide_id: uuid.UUID = Field(foreign_key="modified_peptides.id", index=True)
     spectrum_id: str | None = Field(index=True, description="Spectrum identifier/index")
     charge_state: int | None
     experimental_mz: float | None = Field(description="Experimental m/z value")
@@ -283,7 +308,9 @@ class PeptideSpectrumMatch(SQLModel, table=True):
     # Relationships
     project: Project | None = Relationship(back_populates="peptide_spectrum_matches")
     mzid_file: MzidFile | None = Relationship(back_populates="peptide_spectrum_matches")
-    peptide: Peptide | None = Relationship(back_populates="peptide_spectrum_matches")
+    modified_peptide: ModifiedPeptide | None = Relationship(
+        back_populates="peptide_spectrum_matches"
+    )
     psm_peptide_evidences: list["PSMPeptideEvidence"] = Relationship(back_populates="psm")
     search_modifications: list["SearchModification"] | None = Relationship(
         back_populates="peptide_spectrum_match"

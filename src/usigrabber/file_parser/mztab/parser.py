@@ -6,7 +6,7 @@ from pyteomics.auxiliary import PyteomicsError
 from sqlalchemy import insert
 from sqlalchemy.engine.base import Engine
 
-from usigrabber.db.schema import Peptide, PeptideSpectrumMatch
+from usigrabber.db.schema import ModifiedPeptide, PeptideSpectrumMatch
 from usigrabber.file_parser.base import BaseFileParser, register_parser
 from usigrabber.file_parser.errors import MztabImportError, MztabParseError
 from usigrabber.file_parser.models import ImportStats, ParsedMztabData
@@ -34,19 +34,19 @@ class MztabFileParser(BaseFileParser):
         try:
             mz_file = mztab.MzTab(str(path))
             psm_rows, peptide_rows = extract_mztab_data(mz_file, project_accession)
-            return ParsedMztabData(psms=psm_rows, peptides=peptide_rows)
+            return ParsedMztabData(psms=psm_rows, modified_peptides=peptide_rows)
         except PyteomicsError as e:
             raise MztabParseError(f"Failed to parse mzTab file '{path}': {e}") from e
 
     def persist(self, engine: Engine, parsed: ParsedMztabData, stats: ImportStats):
         try:
             with engine.begin() as conn:
-                if parsed.peptides:
-                    conn.execute(insert(Peptide), parsed.peptides)
+                if parsed.modified_peptides:
+                    conn.execute(insert(ModifiedPeptide), parsed.modified_peptides)
                 if parsed.psms:
                     conn.execute(insert(PeptideSpectrumMatch), parsed.psms)
 
-            stats.peptide_count = len(parsed.peptides)
+            stats.peptide_count = len(parsed.modified_peptides)
             stats.psm_count = len(parsed.psms)
         except Exception as e:
             raise MztabImportError(f"Failed to persist mzTab data: {e}") from e

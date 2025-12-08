@@ -61,3 +61,4 @@ testpaths = [
 ]
 pythonpath = ["."]
 addopts = ["--log-cli-level=INFO"]
+markers = ["integration: mark test as integration.", "slow: mark test as slow."]

@@ -1,14 +1,16 @@
 import asyncio
 import gzip
 import logging
+import ntpath
 import os
+import posixpath
 import shutil
 import tarfile
 import tempfile
 import zipfile
 from collections.abc import Generator
 from contextlib import contextmanager
-from pathlib import Path
+from pathlib import Path, PurePosixPath, PureWindowsPath
 from typing import Any
 from urllib.parse import urlparse
 
@@ -56,8 +58,8 @@ async def download_ftp(
                 await client.download(parsed.path, str(out_path), write_into=True)
             return out_path
         except ConnectionResetError:
-            if attempt > 1:
-                # first attempt often fails, so only log after 2nd attempt
+            if attempt > 2:
+                # first few attempts often fail, so only log after 2nd attempt
                 logger.warning(
                     f"FTP connection reset on attempt {attempt + 1}/{retries} for {url}",
                 )
@@ -66,10 +68,11 @@ async def download_ftp(
             else:
                 raise
         except Exception:
-            logger.warning(
-                f"FTP download attempt {attempt + 1}/{retries} failed for {url}",
-                exc_info=True,
-            )
+            if attempt > 2:
+                logger.warning(
+                    f"FTP download attempt {attempt + 1}/{retries} failed for {url}",
+                    exc_info=True,
+                )
             if attempt < retries - 1:
                 await asyncio.sleep(delay)
             else:
@@ -120,6 +123,7 @@ def extract_archive(
         return [archive_path]
 
     archive_path = archive_path.resolve()
+    extract_to = extract_to.resolve()
 
     extract_to.mkdir(parents=True, exist_ok=False)
 
@@ -270,6 +274,24 @@ def get_prioritized_files(
 def temporary_path(*, suffix="", prefix="tmp", dir=None) -> Generator[Path, Any, None]:
     with tempfile.TemporaryDirectory(suffix=suffix, prefix=prefix, dir=dir) as tmpdir:
         yield Path(tmpdir)
+
+
+def is_windows_path(raw) -> bool:
+    """
+    Detect if a given path is a Windows path.
+    Credit: https://stackoverflow.com/a/79816962/7432003
+    """
+    return len(PureWindowsPath(raw).parts) > len(PurePosixPath(raw).parts)
+
+
+def parse_basename(raw_path: str) -> str:
+    """
+    Standard `os.path.basename` only supports the current OS running the program.
+    This function uses the underlying Windows/POSIX function to parse the basename correctly.
+    """
+    if is_windows_path(raw_path):
+        return ntpath.basename(raw_path)
+    return posixpath.basename(raw_path)
 
 
 def main(

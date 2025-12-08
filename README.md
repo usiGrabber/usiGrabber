@@ -65,6 +65,10 @@ uv run usigrabber db info
 # Reset database (drop + recreate + seed)
 uv run usigrabber db reset --force
 
+# Or use docker if you have schema changes
+docker compose down -v
+docker compose up -d
+
 # Drop all tables (WARNING: deletes all data)
 uv run usigrabber db drop --force
 
