@@ -11,13 +11,6 @@ from dotenv import load_dotenv
 from usigrabber.utils import get_cache_dir
 
 
-class ConsoleFilter(logging.Filter):
-    """Only allow records with 'to_console=True' to go to the console"""
-
-    def filter(self, record):
-        return getattr(record, "to_console", False)
-
-
 def system_setup(is_main_process: bool, logger_name: str | None = None):
     """
     - Setups logger
@@ -57,7 +50,6 @@ def system_setup(is_main_process: bool, logger_name: str | None = None):
     logger.setLevel(
         level=LOGLEVEL
     )  # overwrite root logger, should only be called in application code
-    logger = logging.getLogger(logger_name)
 
     if logger.hasHandlers():
         logger.handlers.clear()
@@ -69,9 +61,6 @@ def system_setup(is_main_process: bool, logger_name: str | None = None):
     terminal_handler = logging.StreamHandler(sys.stdout)
     terminal_handler.setLevel(os.getenv("LOGLEVEL", "INFO").upper())
     terminal_handler.setFormatter(CustomColorFormatter(use_colors=True))
-    if not is_main_process:
-        terminal_handler.addFilter(ConsoleFilter())
-    # terminal_handler.addFilter(ExponentialBackoffFilter())
 
     # Handler for plain text file output (without colors)
     process_suffix = "main" if is_main_process else os.getpid()
@@ -91,8 +80,8 @@ def system_setup(is_main_process: bool, logger_name: str | None = None):
 
     # force new log files per run
     # this will create one empty log in the beginning but that's acceptable
-
-    logger.addHandler(terminal_handler)
+    if is_main_process:
+        logger.addHandler(terminal_handler)
     logger.addHandler(file_handler)
     logger.addHandler(json_handler)
 

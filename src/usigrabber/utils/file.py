@@ -18,8 +18,6 @@ import aioftp
 import typer
 from async_http_client import AsyncHttpClient
 
-from usigrabber.utils import get_cache_dir
-
 logger = logging.getLogger(__name__)
 
 
@@ -199,10 +197,8 @@ def extract_archive(
 
 
 @contextmanager
-def temporary_path(*, suffix="", prefix="tmp/", dir=None) -> Generator[Path, Any, None]:
-    cache_dir = get_cache_dir()
-    temporary_root = cache_dir / prefix
-    with tempfile.TemporaryDirectory(suffix=suffix, prefix=str(temporary_root), dir=None) as tmpdir:
+def temporary_path(*, suffix="", prefix="tmp", dir=None) -> Generator[Path, Any, None]:
+    with tempfile.TemporaryDirectory(suffix=suffix, prefix=prefix, dir=dir) as tmpdir:
         yield Path(tmpdir)
 
 

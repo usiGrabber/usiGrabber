@@ -21,8 +21,10 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+mp_context = multiprocessing.get_context("spawn")
 
-def init_worker():
+
+def init_worker() -> None:
     global db_engine
     system_setup(is_main_process=False)
     # Dispose of any existing engine from parent process
@@ -33,7 +35,7 @@ def init_worker():
     logger.info(f"Worker {os.getpid()} initialized with engine: {db_engine}")
 
 
-def init_ontology_worker():
+def init_ontology_worker() -> None:
     """Initialize worker with both DB engine and ontology helper."""
     global db_engine, ontology_helper
     from ontology_resolver.ontology_helper import OntologyHelper
@@ -104,9 +106,6 @@ async def build_all_projects_in_process_pool(
 ) -> None:
     from usigrabber.cli.build import build_project_sync
 
-    # Don't make this global! This would break and python processes
-    multiprocessing.set_start_method("spawn")
-
     # Set environment variable to skip ontologies in main build phase
     os.environ["SKIP_ONTOLOGY_IN_MAIN_BUILD"] = "1"
 
@@ -136,9 +135,13 @@ async def build_all_projects_in_process_pool(
         onto_pbar = tqdm(desc="Resolving ontologies", unit=" projects", position=1)
 
         with (
-            ProcessPoolExecutor(max_workers=max_workers, initializer=init_worker) as main_executor,
             ProcessPoolExecutor(
-                max_workers=ontology_workers, initializer=init_ontology_worker
+                max_workers=max_workers, initializer=init_worker, mp_context=mp_context
+            ) as main_executor,
+            ProcessPoolExecutor(
+                max_workers=ontology_workers,
+                initializer=init_ontology_worker,
+                mp_context=mp_context,
             ) as onto_executor,
         ):
             async for project, current_backend in iterate_projects(backends):
