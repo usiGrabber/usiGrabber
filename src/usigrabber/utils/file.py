@@ -16,19 +16,23 @@ from urllib.parse import urlparse
 
 import aioftp
 import typer
+from tenacity import before_sleep_log, retry, stop_after_attempt, wait_random_exponential
 
 logger = logging.getLogger(__name__)
 
 
+@retry(
+    stop=stop_after_attempt(3),
+    wait=wait_random_exponential(multiplier=1, max=30),
+    reraise=True,
+    before_sleep=before_sleep_log(logger, logging.DEBUG),
+)
 async def download_ftp(
     url: str,
     out_dir: Path,
     file_name: str | None = None,
-    retries: int = 3,
-    delay: int = 5,
 ) -> Path:
     """Download a file from an FTP URL asynchronously."""
-
     logger.debug("Downloading FTP file from '%s'", url)
 
     parsed = urlparse(url)
@@ -39,37 +43,13 @@ async def download_ftp(
     out_path = out_dir / filename
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    for attempt in range(retries):
-        try:
-            async with aioftp.Client.context(
-                parsed.hostname,
-                user=parsed.username or "anonymous",
-                password=parsed.password or "anonymous@",
-            ) as client:
-                await client.download(parsed.path, str(out_path), write_into=True)
-            return out_path
-        except ConnectionResetError:
-            if attempt > 2:
-                # first few attempts often fail, so only log after 2nd attempt
-                logger.warning(
-                    f"FTP connection reset on attempt {attempt + 1}/{retries} for {url}",
-                )
-            if attempt < retries - 1:
-                await asyncio.sleep(delay)
-            else:
-                raise
-        except Exception:
-            if attempt > 2:
-                logger.warning(
-                    f"FTP download attempt {attempt + 1}/{retries} failed for {url}",
-                    exc_info=True,
-                )
-            if attempt < retries - 1:
-                await asyncio.sleep(delay)
-            else:
-                raise
-
-    raise RuntimeError("Unreachable: retry loop ended without returning or raising")
+    async with aioftp.Client.context(
+        parsed.hostname,
+        user=parsed.username or "anonymous",
+        password=parsed.password or "anonymous@",
+    ) as client:
+        await client.download(parsed.path, str(out_path), write_into=True)
+    return out_path
 
 
 async def download_ftp_with_semamphore(
