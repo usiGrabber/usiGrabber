@@ -68,6 +68,17 @@ def parse_cv_tuple(cv_data: dict) -> CVTuple | None:
 class PrideBackend(BaseBackend):
     BASE_URL: str = "https://www.ebi.ac.uk/pride/ws/archive/v3"
 
+    @staticmethod
+    def _convert_ftp_to_http(ftp_url: str) -> str:
+        """Convert FTP URL to HTTP URL for PRIDE archive.
+
+        Converts from: ftp://ftp.pride.ebi.ac.uk/pride/data/archive/<year>/<month>/<accession>/<filename>
+        To: https://ftp.pride.ebi.ac.uk/pride/data/archive/<year>/<month>/<accession>/<filename>
+        """
+        if ftp_url.startswith("ftp://ftp.pride.ebi.ac.uk"):
+            return ftp_url.replace("ftp://", "https://", 1)
+        return ftp_url
+
     @classmethod
     def check_availability(cls, accession: str) -> bool:
         url = f"{cls.BASE_URL}/status/{accession}"
@@ -149,9 +160,12 @@ class PrideBackend(BaseBackend):
                         )
                         continue
 
+                    # Convert FTP URL to HTTP URL
+                    http_link = cls._convert_ftp_to_http(ftp_link)
+
                     file = FileMetadata(
                         {
-                            "filepath": ftp_link,
+                            "filepath": http_link,
                             "category": category,
                             "file_size": file_info.get("fileSizeBytes"),
                         }

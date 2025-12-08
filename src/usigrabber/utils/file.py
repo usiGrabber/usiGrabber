@@ -16,6 +16,7 @@ from urllib.parse import urlparse
 
 import aioftp
 import typer
+from async_http_client import AsyncHttpClient
 
 from usigrabber.utils import get_cache_dir
 
@@ -29,49 +30,64 @@ async def download_ftp(
     retries: int = 3,
     delay: int = 5,
 ) -> Path:
-    """Download a file from an FTP URL asynchronously."""
+    """Download a file from an FTP or HTTP URL asynchronously.
 
-    logger.debug("Downloading FTP file from '%s'", url)
+    For PRIDE HTTP URLs (https://ftp.pride.ebi.ac.uk/...), uses AsyncHttpClient.
+    For other FTP URLs, falls back to aioftp client.
+    """
+
+    logger.debug("Downloading file from '%s'", url)
 
     parsed = urlparse(url)
-    if parsed.scheme != "ftp":
-        raise ValueError(f"URL scheme for {url} is not FTP, found {parsed.scheme}")
-    assert parsed.hostname is not None, "FTP URL must have a hostname"
     filename = file_name or os.path.basename(parsed.path)
     out_path = out_dir / filename
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    for attempt in range(retries):
-        try:
-            async with aioftp.Client.context(
-                parsed.hostname,
-                user=parsed.username or "anonymous",
-                password=parsed.password or "anonymous@",
-            ) as client:
-                await client.download(parsed.path, str(out_path), write_into=True)
-            return out_path
-        except ConnectionResetError:
-            if attempt > 2:
-                # first few attempts often fail, so only log after 2nd attempt
-                logger.warning(
-                    f"FTP connection reset on attempt {attempt + 1}/{retries} for {url}",
-                )
-            if attempt < retries - 1:
-                await asyncio.sleep(delay)
-            else:
-                raise
-        except Exception:
-            if attempt > 2:
-                logger.warning(
-                    f"FTP download attempt {attempt + 1}/{retries} failed for {url}",
-                    exc_info=True,
-                )
-            if attempt < retries - 1:
-                await asyncio.sleep(delay)
-            else:
-                raise
+    # Use HTTP client for PRIDE HTTP URLs
+    if parsed.scheme in ("http", "https") and "ftp.pride.ebi.ac.uk" in url:
+        logger.debug("Using HTTP client for PRIDE URL: %s", url)
+        async with AsyncHttpClient(retry_attempts=retries, verbose=False) as client:
+            downloaded_path = await client.stream_file(url, download_file_name=out_path)
+            return downloaded_path
 
-    raise RuntimeError("Unreachable: retry loop ended without returning or raising")
+    # Fall back to FTP client for other FTP URLs
+    if parsed.scheme == "ftp":
+        logger.debug("Using FTP client for URL: %s", url)
+        assert parsed.hostname is not None, "FTP URL must have a hostname"
+
+        for attempt in range(retries):
+            try:
+                async with aioftp.Client.context(
+                    parsed.hostname,
+                    user=parsed.username or "anonymous",
+                    password=parsed.password or "anonymous@",
+                ) as client:
+                    await client.download(parsed.path, str(out_path), write_into=True)
+                return out_path
+            except ConnectionResetError:
+                if attempt > 2:
+                    # first few attempts often fail, so only log after 2nd attempt
+                    logger.warning(
+                        f"FTP connection reset on attempt {attempt + 1}/{retries} for {url}",
+                    )
+                if attempt < retries - 1:
+                    await asyncio.sleep(delay)
+                else:
+                    raise
+            except Exception:
+                if attempt > 2:
+                    logger.warning(
+                        f"FTP download attempt {attempt + 1}/{retries} failed for {url}",
+                        exc_info=True,
+                    )
+                if attempt < retries - 1:
+                    await asyncio.sleep(delay)
+                else:
+                    raise
+
+        raise RuntimeError("Unreachable: retry loop ended without returning or raising")
+
+    raise ValueError(f"Unsupported URL scheme for {url}: {parsed.scheme}")
 
 
 async def download_ftp_with_semamphore(
