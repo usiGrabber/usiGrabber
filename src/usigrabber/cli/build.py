@@ -131,9 +131,8 @@ async def async_build(
                         error_projects.append((project.get("accession"), str(e)))
                         session.rollback()
                         continue
-
                     session.commit()
-                    # download files
+
                     files = backend.get_files_for_project(project["accession"])
 
                     # process files
