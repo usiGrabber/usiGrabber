@@ -43,6 +43,7 @@ class ObservabilityConfiguration(BaseModel):
 
 class OntologyConfiguration(BaseModel):
     skip_ontos: bool
+    ontology_workers: int
 
 
 class BuildConfiguration(BaseModel):
@@ -70,6 +71,14 @@ def build(
             envvar="NO_ONTOLOGY",
         ),
     ] = False,
+    ontology_workers: Annotated[
+        int,
+        typer.Option(
+            help="Number of workers for ontology processing in multiprocessing mode.",
+            envvar="ONTOLOGY_WORKERS",
+            min=1,
+        ),
+    ] = 1,
     cache_dir: Annotated[
         Path,
         typer.Option(
@@ -103,7 +112,10 @@ def build(
     config = BuildConfiguration(
         observability=ObservabilityConfiguration(debug=debug),
         cache_dir=cache_dir,
-        ontologies=OntologyConfiguration(skip_ontos=no_ontology),
+        ontologies=OntologyConfiguration(
+            skip_ontos=no_ontology,
+            ontology_workers=ontology_workers,
+        ),
         max_workers=max_workers or multiprocessing.cpu_count(),
     )
 

@@ -63,7 +63,9 @@ class OntologyLoader:
         else:
             if not file.is_file():
                 await self.download_ontology(onto)
+                logger.info(f"Downloaded {onto} to {file}")
             if onto in ONTOLOGIES_TO_SHRINK:
                 shrink_owl_file(file, file_shrunk)
+                logger.info(f"Shrunk {onto} to {file_shrunk}")
                 return Ontology(file_shrunk)
             return Ontology(file)

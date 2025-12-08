@@ -123,6 +123,7 @@ async def build_all_projects_in_process_pool(
     main_futures: set[Future] = set()
     onto_futures: set[Future] = set()
     max_workers = config.max_workers or multiprocessing.cpu_count()
+    ontology_workers = config.ontologies.ontology_workers
 
     total_successful = 0
     total_errors = 0
@@ -136,7 +137,9 @@ async def build_all_projects_in_process_pool(
 
         with (
             ProcessPoolExecutor(max_workers=max_workers, initializer=init_worker) as main_executor,
-            ProcessPoolExecutor(max_workers=1, initializer=init_ontology_worker) as onto_executor,
+            ProcessPoolExecutor(
+                max_workers=ontology_workers, initializer=init_ontology_worker
+            ) as onto_executor,
         ):
             async for project, current_backend in iterate_projects(backends):
                 accession = current_backend.value.get_project_accession(project)
@@ -173,7 +176,7 @@ async def build_all_projects_in_process_pool(
 
                 # Process ontology queue if we have capacity
                 if not config.ontologies.skip_ontos:
-                    while len(completed_queue) > 0 and len(onto_futures) < 2:
+                    while len(completed_queue) > 0 and len(onto_futures) < ontology_workers:
                         acc, backend = completed_queue.popleft()
                         # Retrieve project details again
                         try:
@@ -230,8 +233,8 @@ async def build_all_projects_in_process_pool(
                     f"Main loop complete. Processing remaining {len(completed_queue)} projects for ontology resolution"
                 )
                 while len(completed_queue) > 0:
-                    # Submit up to 2 at a time
-                    while len(completed_queue) > 0 and len(onto_futures) < 2:
+                    # Submit up to ontology_workers at a time
+                    while len(completed_queue) > 0 and len(onto_futures) < ontology_workers:
                         acc, backend = completed_queue.popleft()
                         try:
                             project_data = await backend.value.get_project(acc)
