@@ -17,7 +17,7 @@ from usigrabber.db import Project, create_db_and_tables, load_db_engine
 from usigrabber.db.cli import reset as db_reset
 from usigrabber.file_parser import import_files
 from usigrabber.utils import get_cache_dir
-from usigrabber.utils.file import get_interesting_files, temporary_path
+from usigrabber.utils.file import download_ftp, get_interesting_files, temporary_path
 
 CACHE_DIR = get_cache_dir()
 STANDARD_BACKENDS = [enum for enum in BackendEnum]
@@ -206,4 +206,9 @@ async def async_build(
     build_duration = asyncio.get_event_loop().time() - build_start_time
     logger.info(
         "Database build process completed in %s.", str(datetime.timedelta(seconds=build_duration))
+    )
+    logger.info(
+        "FTP download statistics: %s",
+        download_ftp.statistics,  # type: ignore
+        extra=download_ftp.statistics,  # type: ignore
     )
