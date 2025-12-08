@@ -76,6 +76,26 @@ class PrideBackend(BaseBackend):
             return response.text == "PUBLIC"
 
     @classmethod
+    def get_project_accession(cls, project: dict[str, Any]) -> str:
+        return project["accession"]
+
+    @classmethod
+    async def get_project(cls, project_accession: str) -> dict[str, Any]:
+        projects = cls.get_new_projects(existing_accessions=set())
+        total_searched_projects = 0
+        async for project in projects:
+            total_searched_projects += 1
+            if project["accession"] == project_accession:
+                return project
+        raise ValueError(
+            f"No project found for accession: {project_accession} in {total_searched_projects} projects"
+        )
+
+    @classmethod
+    def is_project_complete(cls, project: dict[str, Any]) -> bool:
+        return project.get("submissionType") == "COMPLETE"
+
+    @classmethod
     async def get_new_projects(
         cls,
         existing_accessions: set[str],
@@ -258,5 +278,7 @@ class PrideBackend(BaseBackend):
                 session.add(ProjectOtherOmicsLink(project_accession=project.accession, link=link))
 
         # 8. CV Params
-        if not os.getenv("NO_ONTOLOGY"):
+        # Skip ontologies if NO_ONTOLOGY is set or if we're in main build phase of multiprocessing
+        # (ontologies will be resolved in separate pass)
+        if not os.getenv("NO_ONTOLOGY") and not os.getenv("SKIP_ONTOLOGY_IN_MAIN_BUILD"):
             await cls._parse_and_add_cv_params(project.accession, session, project_data)
