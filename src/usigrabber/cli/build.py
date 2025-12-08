@@ -10,13 +10,14 @@ import typer
 from pydantic import BaseModel
 from sqlalchemy import exc as sa_exc
 from sqlalchemy import inspect
-from sqlmodel import Session
+from sqlmodel import Session, select
 
 from usigrabber.backends import BackendEnum
 from usigrabber.backends.base import FileMetadata
 from usigrabber.cli import app
 from usigrabber.db import create_db_and_tables, load_db_engine
 from usigrabber.db.cli import reset as db_reset
+from usigrabber.db.schema import Project
 from usigrabber.file_parser import import_file
 from usigrabber.file_parser.errors import FileParserError
 from usigrabber.utils import get_cache_dir
@@ -93,6 +94,11 @@ def build(
     ] = CACHE_DIR,
     max_workers: int | None = 1,
 ):
+    if os.name == "nt":
+        raise RuntimeError(
+            "Windows is not supported. This application requires the 'sed' command-line utility, "
+            "which is available by default on most Linux and macOS systems."
+        )
     if reset:
         logger.info("Resetting database before build.")
         db_reset(force=True)
@@ -128,19 +134,25 @@ def build(
         logger.info("No preexisting database found. Database will be initialized.")
         create_db_and_tables(db_engine)
 
-    asyncio.run(build_all_projects(backends, config))
+    with Session(db_engine) as session:
+        statement = select(Project.accession)
+        existing_accessions: set[str] = set(session.exec(statement).all())
+
+    asyncio.run(build_all_projects(backends, config, existing_accessions))
 
 
-async def build_all_projects(backends: list[BackendEnum], config: BuildConfiguration):
+async def build_all_projects(
+    backends: list[BackendEnum], config: BuildConfiguration, existing_accessions: set[str]
+):
     from usigrabber.parallelism.main import (
         build_all_projects_in_process_pool,
         build_all_projects_in_single_process,
     )
 
     if config.max_workers == 1:
-        await build_all_projects_in_single_process(backends, config)
+        await build_all_projects_in_single_process(backends, config, existing_accessions)
     else:
-        await build_all_projects_in_process_pool(backends, config)
+        await build_all_projects_in_process_pool(backends, config, existing_accessions)
 
 async def build_project(
     backend_enum: BackendEnum,

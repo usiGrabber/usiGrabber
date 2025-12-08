@@ -294,5 +294,5 @@ class PrideBackend(BaseBackend):
         # 8. CV Params
         # Skip ontologies if NO_ONTOLOGY is set or if we're in main build phase of multiprocessing
         # (ontologies will be resolved in separate pass)
-        if not os.getenv("NO_ONTOLOGY") and not os.getenv("SKIP_ONTOLOGY_IN_MAIN_BUILD"):
+        if not os.getenv("NO_ONTOLOGY") and not os.getenv("IS_IN_MULTIPROCESSING_MODE"):
             await cls._parse_and_add_cv_params(project.accession, session, project_data)

@@ -53,21 +53,23 @@ def init_ontology_worker() -> None:
 
 
 async def iterate_projects(
-    backends: list[BackendEnum],
+    backends: list[BackendEnum], existing_accessions: set[str]
 ) -> AsyncGenerator[tuple[dict[str, Any], BackendEnum], None]:
     backend_queue = deque(backends)
     while len(backend_queue) > 0:
         current_backend = backend_queue.popleft()
-        async for project in current_backend.value.get_new_projects(existing_accessions=set()):
+        async for project in current_backend.value.get_new_projects(
+            existing_accessions=existing_accessions
+        ):
             yield project, current_backend
 
 
 async def build_all_projects_in_single_process(
-    backends: list[BackendEnum], config: "BuildConfiguration"
+    backends: list[BackendEnum], config: "BuildConfiguration", existing_accessions: set[str]
 ) -> None:
     from usigrabber.cli.build import build_project
 
-    async for project, backend in iterate_projects(backends):
+    async for project, backend in iterate_projects(backends, existing_accessions):
         await build_project(backend, project)
     logger.info("Done")
 
@@ -102,12 +104,12 @@ def resolve_ontologies_for_project_sync(backend_enum: BackendEnum, project: dict
 
 
 async def build_all_projects_in_process_pool(
-    backends: list[BackendEnum], config: "BuildConfiguration"
+    backends: list[BackendEnum], config: "BuildConfiguration", existing_accessions: set[str]
 ) -> None:
     from usigrabber.cli.build import build_project_sync
 
     # Set environment variable to skip ontologies in main build phase
-    os.environ["SKIP_ONTOLOGY_IN_MAIN_BUILD"] = "1"
+    os.environ["IS_IN_MULTIPROCESSING_MODE"] = "1"
 
     # Track project states for ontology processing
     completed_queue: deque[tuple[str, BackendEnum]] = (
@@ -144,7 +146,7 @@ async def build_all_projects_in_process_pool(
                 mp_context=mp_context,
             ) as onto_executor,
         ):
-            async for project, current_backend in iterate_projects(backends):
+            async for project, current_backend in iterate_projects(backends, existing_accessions):
                 accession = current_backend.value.get_project_accession(project)
 
                 # Submit to main build queue
