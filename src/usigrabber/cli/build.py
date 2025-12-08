@@ -137,6 +137,7 @@ def build(
     with Session(db_engine) as session:
         statement = select(Project.accession)
         existing_accessions: set[str] = set(session.exec(statement).all())
+        logger.info(f"Found {len(existing_accessions)} existing projects.")
 
     asyncio.run(build_all_projects(backends, config, existing_accessions))
 
