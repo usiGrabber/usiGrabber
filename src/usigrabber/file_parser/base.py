@@ -1,5 +1,6 @@
 # usigrabber/file_parser/base.py
 
+import logging
 from abc import ABC, abstractmethod
 from pathlib import Path
 
@@ -13,6 +14,8 @@ from usigrabber.file_parser.models import (  # Import models
 )
 
 PARSER_REGISTRY: dict[str, "BaseFileParser"] = {}
+
+logger = logging.getLogger(__name__)
 
 
 def register_parser[T: BaseFileParser](cls: type[T]) -> type[T]:

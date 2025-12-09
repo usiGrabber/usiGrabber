@@ -1,4 +1,5 @@
 import asyncio
+import datetime
 import logging
 import os
 import warnings
@@ -16,10 +17,7 @@ from usigrabber.db import Project, create_db_and_tables, load_db_engine
 from usigrabber.db.cli import reset as db_reset
 from usigrabber.file_parser import import_files
 from usigrabber.utils import get_cache_dir
-from usigrabber.utils.file import (
-    get_interesting_files,
-    temporary_path,
-)
+from usigrabber.utils.file import download_ftp, get_interesting_files, temporary_path
 
 CACHE_DIR = get_cache_dir()
 STANDARD_BACKENDS = [enum for enum in BackendEnum]
@@ -100,6 +98,7 @@ async def async_build(
         db_reset(force=True)
 
     # WORKFLOW
+    build_start_time = asyncio.get_event_loop().time()
 
     # set up database connection
     db_engine = load_db_engine()
@@ -124,12 +123,12 @@ async def async_build(
 
         imported = errors = 0
         error_projects = []
-        with Session(db_engine) as session:
-            async for project in backend.get_new_projects(existing_accessions):
-                with temporary_path() as tmp_dir:
-                    fully_processed: bool = False
-                    main_source_type = None
+        async for project in backend.get_new_projects(existing_accessions):
+            with temporary_path() as tmp_dir:
+                fully_processed: bool = False
+                main_source_type = None
 
+                with Session(db_engine) as session:
                     try:
                         await backend.dump_project_to_db(session, project)
                     except Exception as e:
@@ -139,55 +138,58 @@ async def async_build(
                         continue
                     session.commit()
 
-                    files = backend.get_files_for_project(project["accession"])
+                files = backend.get_files_for_project(project["accession"])
 
-                    # process files
-                    for category in FILE_CATEGORIES:
-                        if not files[category] or fully_processed or main_source_type is not None:
-                            continue
+                # process files
+                for category in FILE_CATEGORIES:
+                    if not files[category] or fully_processed or main_source_type is not None:
+                        continue
 
-                        interesting_ftp_paths, file_ext = await get_interesting_files(
-                            files[category], project["accession"]
+                    interesting_ftp_paths, file_ext = await get_interesting_files(
+                        files[category], project["accession"]
+                    )
+
+                    if not interesting_ftp_paths:
+                        continue
+
+                    main_source_type = file_ext
+                    fully_processed = await import_files(
+                        db_engine,
+                        interesting_ftp_paths,
+                        file_ext,
+                        project["accession"],
+                        tmp_dir,
+                        logger,
+                    )
+
+                if fully_processed:
+                    imported += 1
+                    # TODO: set "complete=fully_processed" flag for project
+                else:
+                    errors += 1
+                    error_projects.append((project.get("accession"), "Incomplete processing"))
+                    if not (files["result"] or files["search"] or files["other"]):
+                        logger.warning(
+                            f"No files found for project '{project['accession']}'"
+                            f"from backend {backend_enum.name}.",
                         )
-
-                        if not interesting_ftp_paths:
-                            continue
-
-                        main_source_type = file_ext
-                        fully_processed = await import_files(
-                            db_engine,
-                            interesting_ftp_paths,
-                            file_ext,
-                            project["accession"],
-                            tmp_dir,
-                            logger,
+                    elif not main_source_type:
+                        logger.warning(
+                            f"No file could be parsed for project '{project['accession']}'"
+                            f"from backend {backend_enum.name}.",
                         )
-
-                    if fully_processed:
-                        imported += 1
-                        # TODO: set "complete=fully_processed" flag for project
-                    else:
-                        errors += 1
-                        error_projects.append((project.get("accession"), "Incomplete processing"))
-                        if not (files["result"] or files["search"] or files["other"]):
-                            logger.warning(
-                                f"No files found for project '{project['accession']}'"
-                                f"from backend {backend_enum.name}.",
-                            )
-                        elif not main_source_type:
-                            logger.warning(
-                                f"No file could be parsed for project '{project['accession']}'"
-                                f"from backend {backend_enum.name}.",
-                            )
-                        elif not fully_processed:
-                            logger.warning(
-                                f"'{main_source_type}' files could not be completely parsed for "
-                                f"project '{project['accession']}' from backend "
-                                f"{backend_enum.name}.",
-                            )
+                    elif not fully_processed:
+                        logger.warning(
+                            f"'{main_source_type}' files could not be completely parsed for "
+                            f"project '{project['accession']}' from backend "
+                            f"{backend_enum.name}.",
+                        )
 
         if imported > 0 or errors > 0:
-            logger.info("Finished importing from backend %s.", backend_enum.name)
+            logger.info(
+                "Finished importing from backend %s.",
+                backend_enum.name,
+            )
             logger.info(
                 "Successfully imported %s projects, encountered %s errors (%.1f%%).",
                 imported,
@@ -200,3 +202,13 @@ async def async_build(
                     logger.warning("  • %s: %s", accession, error[:80])
                 if len(error_projects) > 10:
                     logger.warning("  ... and %d more", len(error_projects) - 10)
+
+    build_duration = asyncio.get_event_loop().time() - build_start_time
+    logger.info(
+        "Database build process completed in %s.", str(datetime.timedelta(seconds=build_duration))
+    )
+    logger.info(
+        "FTP download statistics: %s",
+        download_ftp.statistics,  # type: ignore
+        extra=download_ftp.statistics,  # type: ignore
+    )
