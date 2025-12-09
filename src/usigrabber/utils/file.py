@@ -23,7 +23,8 @@ from usigrabber.backends.base import FileMetadata
 logger = logging.getLogger(__name__)
 
 # to be able to parse txt.zip files plese include {".txt", ""}
-FILETYPE_ALLOWLIST = {".mzid", ".mzTab"}
+# to be able to parse mzTab files please include {".mzTab"}
+FILETYPE_ALLOWLIST = {".mzid"}
 
 ARCHIVE_TYPES = {".zip", ".gz", ".tar", ".rar", ".7z"}
 PARALLEL_DOWNLOADS = int(os.getenv("PARALLEL_DOWNLOADS", "10"))

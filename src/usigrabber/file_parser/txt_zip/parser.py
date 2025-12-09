@@ -4,8 +4,6 @@ from pathlib import Path
 import pandas as pd
 from pandas.core.frame import DataFrame
 from sqlalchemy import insert
-from sqlalchemy.dialects.postgresql import insert as pg_insert
-from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.engine import Engine
 from sqlmodel import Session
 
@@ -23,6 +21,7 @@ from usigrabber.file_parser.errors import (
     TxtZipImportError,
     TxtZipParseError,
 )
+from usigrabber.file_parser.helpers import get_db_insert_function
 from usigrabber.file_parser.models import ImportStats, ParsedTxtZipData
 from usigrabber.file_parser.txt_zip.parsing_functions import (
     parse_peptide_evidence,
@@ -71,14 +70,9 @@ class TxtZipFileParser(BaseFileParser):
     def persist(self, engine: Engine, parsed: ParsedTxtZipData, stats: ImportStats):
         """Persist parsed txt data to the database with debug logging."""
         logger.debug(f"Persisting txt data to database for file '{stats.file_name}'")
-        # Detect database type to use appropriate insert dialect
-        db_dialect = engine.dialect.name
-        is_postgresql = db_dialect == "postgresql"
-
-        # Select appropriate insert function based on database type
-        insert_func = pg_insert if is_postgresql else sqlite_insert
 
         try:
+            insert_func = get_db_insert_function(engine)
             with Session(engine) as session:
                 if parsed.modified_peptides:
                     # Use INSERT OR IGNORE (SQLite) or INSERT ON CONFLICT DO NOTHING (PostgreSQL)

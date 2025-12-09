@@ -17,6 +17,12 @@ class FileImportError(Exception):
     pass
 
 
+class UnsupportedDatabaseError(Exception):
+    """Exception for unsupported database dialects."""
+
+    pass
+
+
 # mzID-specific errors
 class MzidParseError(FileParserError):
     """Failed to parse mzIdentML file."""
