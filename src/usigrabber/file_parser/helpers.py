@@ -13,8 +13,6 @@ from pathlib import Path
 from string import digits
 from typing import Any
 
-import sqlalchemy.dialects.postgresql.dml
-import sqlalchemy.dialects.sqlite.dml
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.engine import Engine
@@ -488,10 +486,7 @@ def get_txt_triples(files: list[Path]):
 
 def get_db_insert_function(
     engine: Engine,
-) -> (
-    Callable[..., sqlalchemy.dialects.postgresql.dml.Insert]
-    | Callable[..., sqlalchemy.dialects.sqlite.dml.Insert]
-):
+) -> Callable[..., Any]:
     # Detect database type to use appropriate insert dialect
     db_dialect = engine.dialect.name
     if db_dialect not in {"postgresql", "sqlite"}:
