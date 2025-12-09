@@ -6,7 +6,7 @@ Tests edge cases, error handling, and data transformations.
 """
 
 from usigrabber.db.schema import IndexType
-from usigrabber.file_parser.mzid.helpers import (
+from usigrabber.file_parser.helpers import (
     extract_index_type_and_number,
     extract_score_values,
     extract_unimod_id_or_name,

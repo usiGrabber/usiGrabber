@@ -16,16 +16,17 @@ logger = logging.getLogger(__name__)
 
 
 @register_parser
-class MztabParser(BaseFileParser):
+class MztabFileParser(BaseFileParser):
     @property
     def file_extensions(self) -> set[str]:
-        return {".mztab"}
+        return {".mzTab"}
 
     @property
     def format_name(self) -> str:
         return "mzTab"
 
-    def parse_file(self, path: Path, project_accession: str) -> ParsedMztabData:
+    def parse_file(self, path, project_accession: str) -> ParsedMztabData:
+        path = path if isinstance(path, Path) else path[0]
         if not path.exists():
             raise MztabParseError(f"File not found: {path}")
 

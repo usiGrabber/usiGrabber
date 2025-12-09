@@ -2,8 +2,9 @@ import logging
 import os
 from collections.abc import Generator
 from datetime import date, datetime
+from functools import lru_cache
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import ijson
 
@@ -25,6 +26,27 @@ def iter_json(json_path: Path) -> Generator[dict[Any, Any], None, None]:
 
 
 unimod_db = None
+
+
+@lru_cache(maxsize=420)
+def lookup_unimod_id_by_name(mod_name: str) -> int | None:
+    """
+    Lookup UNIMOD ID by modification name with caching.
+
+    Args:
+            mod_name: Name of the modification
+
+    Returns:
+            UNIMOD ID as integer, or None if not found
+    """
+    try:
+        mod = get_unimod_db().get(mod_name, False)
+        if mod is not None:
+            return int(cast(int, mod.id))
+    except KeyError:
+        pass
+
+    return None
 
 
 def get_unimod_db():
