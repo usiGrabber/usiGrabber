@@ -169,7 +169,7 @@ async def build_all_projects_in_process_pool(
                             total_successful += 1
                         except Exception as e:
                             failed_projects.add(acc)
-                            logger.error(f"Error occurred in {acc}: {e}")
+                            logger.error(f"Error occurred in {acc}: {e}", exc_info=True)
                             total_errors += 1
                         finally:
                             pbar.update(1)
