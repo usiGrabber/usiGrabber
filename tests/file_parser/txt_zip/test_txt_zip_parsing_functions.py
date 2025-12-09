@@ -1,13 +1,14 @@
 from usigrabber.file_parser.txt_zip.parsing_functions import (
+    parse_modification_list,
     parse_peptide_evidence,
     parse_peptides_and_modifications,
     parse_psms,
 )
 
 
-def test_parse_peptides_basic(project2_evidence_df):
+def test_parse_peptides_and_modifications_basic(project2_evidence_df):
     """
-    Basic test for parse_peptides function to ensure it correctly parses
+    Basic test for parse_peptides_and_modifications function to ensure it correctly parses
     peptide sequences and modifications from provided DataFrames.
     """
     peptide_id_map, peptides_batch, mod_batch, mod_junction_batch = (
@@ -22,9 +23,9 @@ def test_parse_peptides_basic(project2_evidence_df):
     assert "AAAAAAAAAAGDSDSWDADTFSMEDPVR" in sequences
 
 
-def test_parse_peptides(project1_evidence_df):
+def test_parse_peptides_and_modifications(project1_evidence_df):
     """
-    Comprehensive test for parse_peptides function to validate parsing logic
+    Comprehensive test for parse_peptides_and_modifications function to validate parsing logic
     and data integrity.
     """
     peptide_id_map, peptides_batch, mod_batch, mod_junction_batch = (
@@ -38,6 +39,25 @@ def test_parse_peptides(project1_evidence_df):
     assert "AAAALKGSDHR" in sequences
     assert "ALEYKDFDKFDR" in sequences
     assert "CKHFEIGGDKK" in sequences
+
+
+def test_parse_modification_list():
+    """
+    Test to specifically validate the parsing of modifications from provided DataFrame.
+    """
+    modifications: str = "Acetyl (Protein N-term),Oxidation (M)"
+    modified_sequence: str = (
+        "_(Acetyl (Protein N-term))AAAAAAAAAAAAGDSDSWDADTFSM(Oxidation (M))EDPVRK_"
+    )
+    parsed_mods = parse_modification_list(modifications, modified_sequence)
+
+    assert len(parsed_mods) == 2
+    for mod in parsed_mods:
+        if mod["unimod_id"]:
+            assert mod["unimod_id"] in (1, 35)
+            assert mod["name"] is None
+        else:
+            assert mod["name"] is not None
 
 
 def test_parse_peptide_evidence_basic(project2_peptides_df):

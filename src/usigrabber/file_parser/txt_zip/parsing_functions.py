@@ -35,27 +35,24 @@ def parse_peptides_and_modifications(
     list[ModifiedPeptideModificationJunctionDict],
 ]:
     """
-    Parse peptide data from evidence and peptides DataFrames and extract modification information.
-    This function processes two DataFrames (evidence and peptides) to create a comprehensive
-    peptide dataset with associated modifications. It maps peptide sequences to unique identifiers,
-    extracts modification details, and creates Peptide objects.
+    Parse peptides and their modifications from evidence DataFrame.
+
+    Processes evidence data to create modified peptide records with associated modifications.
+    Deduplicates identical modified peptides and extracts modification details for each unique
+    peptide-modification combination.
+
     Args:
-        evidence (pd.DataFrame): DataFrame containing peptide evidence data with columns:
-            - "Sequence": Amino acid sequence of the peptide
-            - "Modifications": Comma-separated list of modifications applied to the peptide
+        evidence (pd.DataFrame): DataFrame containing peptide data with columns:
+            - "Sequence": Amino acid sequence
+            - "Modifications": Comma-separated list of modifications
             - "Modified sequence": Sequence representation with modifications encoded
-        peptides (pd.DataFrame): DataFrame containing base peptide data with column:
-            - "Sequence": Amino acid sequence of the peptide
+
     Returns:
-        tuple[
-            dict[str, uuid.UUID],
-            dict[uuid.UUID, dict[str, list[tuple[int, str]]]],
-            list[dict]
-        ]:
-            - peptide_id_map: Dictionary mapping peptide sequences to their unique UUID identifiers
-            - peptide_mods: Dictionary mapping peptide UUIDs to dict of modifications mapping to a
-              list of tuples (position, residue)
-            - peptides_batch: List of Peptide objects created from the peptides DataFrame
+        tuple containing:
+            - peptide_id_map: Maps peptide sequences to modified peptide UUIDs
+            - peptides_batch: List of unique modified peptide records
+            - modifications_batch: List of unique modification records
+            - junction_batch: List of peptide-modification relationships
     """
     peptide_id_map: dict[str, uuid.UUID] = {}
     # Use dict for deduplication - same modified peptide UUID = same record
@@ -119,9 +116,8 @@ def parse_modification_list(modifications, modified_sequence) -> list[Modificati
         modifications (str): Comma-separated list of modifications applied to the peptide
         modified_sequence (str): Sequence representation with modifications encoded
     Returns:
-        list[ModificationDict]: A dictionary mapping modification names to lists of
-                                tuples containing position and residue information.
-                                Structure: {mod_name: [(position, residue), ...]}
+        list containing: A list of ModificationDict objects containing details about each
+            modification, including: id, unimod_id OR name, location, and modified_residue.
     """
     parsed_mods: list[ModificationDict] = []
     if modifications == "Unmodified":
@@ -165,10 +161,7 @@ def parse_peptide_evidence(
             - "Start position": Start position of the peptide in the leading razor protein
             - "End position": End position of the peptide in the leading razor protein
     Returns:
-        tuple[
-            dict[str, list[uuid.UUID]],
-            list[PeptideEvidenceDict]
-        ]:
+        tuple containing:
             - pe_id_map: Dictionary mapping peptide sequences to lists of peptide evidence UUIDs
             - peptide_evidence_batch: List of PeptideEvidence objects created from the peptides
                 DataFrame
@@ -261,11 +254,7 @@ def parse_psms(
         pe_id_map (dict[str, list[uuid.UUID]]): Mapping of peptide sequences to lists of peptide
             evidence UUIDs
     Returns:
-        tuple[
-            list[PeptideSpectrumMatchDict],
-            list[PSMPeptideEvidenceDict],
-            list[SearchModificationDict]
-        ]:
+        tuple containing:
             - psm_batch: List of PeptideSpectrumMatch records
             - junction_batch: List of PSMPeptideEvidence junction records
             - search_mod_batch: List of SearchModification records
