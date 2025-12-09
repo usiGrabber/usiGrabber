@@ -104,9 +104,8 @@ class MzidFileParser(BaseFileParser):
         """Persist parsed mzID data to the database with debug logging."""
         logger.debug(f"Persisting mzID data to database for file '{stats.file_name}'")
 
-        insert_func = get_db_insert_function(engine)
-
         try:
+            insert_func = get_db_insert_function(engine)
             with Session(engine) as session:
                 session.add(parsed.mzid_file)
                 session.commit()

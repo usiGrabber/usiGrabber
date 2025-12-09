@@ -8,15 +8,19 @@ These functions extract and transform data from mzIdentML elements.
 import re
 import subprocess
 from collections import defaultdict
+from collections.abc import Callable
 from pathlib import Path
 from string import digits
 from typing import Any
 
+import sqlalchemy.dialects.postgresql.dml
+import sqlalchemy.dialects.sqlite.dml
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.engine import Engine
 
 from usigrabber.db.schema import IndexType
+from usigrabber.file_parser.errors import UnsupportedDatabaseError
 from usigrabber.utils import logger, lookup_unimod_id_by_name
 
 
@@ -482,10 +486,16 @@ def get_txt_triples(files: list[Path]):
     return triplets
 
 
-def get_db_insert_function(engine: Engine):
+def get_db_insert_function(
+    engine: Engine,
+) -> (
+    Callable[..., sqlalchemy.dialects.postgresql.dml.Insert]
+    | Callable[..., sqlalchemy.dialects.sqlite.dml.Insert]
+):
     # Detect database type to use appropriate insert dialect
     db_dialect = engine.dialect.name
-    is_postgresql = db_dialect == "postgresql"
+    if db_dialect not in {"postgresql", "sqlite"}:
+        raise UnsupportedDatabaseError(f"Unsupported database dialect: {db_dialect}")
 
     # Select appropriate insert function based on database type
-    return pg_insert if is_postgresql else sqlite_insert
+    return pg_insert if db_dialect == "postgresql" else sqlite_insert

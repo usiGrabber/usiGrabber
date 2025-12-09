@@ -71,9 +71,8 @@ class TxtZipFileParser(BaseFileParser):
         """Persist parsed txt data to the database with debug logging."""
         logger.debug(f"Persisting txt data to database for file '{stats.file_name}'")
 
-        insert_func = get_db_insert_function(engine)
-
         try:
+            insert_func = get_db_insert_function(engine)
             with Session(engine) as session:
                 if parsed.modified_peptides:
                     # Use INSERT OR IGNORE (SQLite) or INSERT ON CONFLICT DO NOTHING (PostgreSQL)

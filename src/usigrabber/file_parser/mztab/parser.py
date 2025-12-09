@@ -8,7 +8,10 @@ from sqlalchemy.engine.base import Engine
 
 from usigrabber.db.schema import ModifiedPeptide, PeptideSpectrumMatch
 from usigrabber.file_parser.base import BaseFileParser, register_parser
-from usigrabber.file_parser.errors import MztabImportError, MztabParseError
+from usigrabber.file_parser.errors import (
+    MztabImportError,
+    MztabParseError,
+)
 from usigrabber.file_parser.helpers import get_db_insert_function
 from usigrabber.file_parser.models import ImportStats, ParsedMztabData
 from usigrabber.file_parser.mztab.parsing_functions import extract_mztab_data
@@ -43,9 +46,8 @@ class MztabFileParser(BaseFileParser):
         """Persist parsed mzTab data to the database with debug logging."""
         logger.debug(f"Persisting mzTab data to database for file '{stats.file_name}'")
 
-        insert_func = get_db_insert_function(engine)
-
         try:
+            insert_func = get_db_insert_function(engine)
             with engine.begin() as conn:
                 if parsed.modified_peptides:
                     # Use INSERT OR IGNORE (SQLite) or INSERT ON CONFLICT DO NOTHING (PostgreSQL)
