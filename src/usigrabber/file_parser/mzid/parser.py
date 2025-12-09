@@ -118,30 +118,47 @@ class MzidFileParser(BaseFileParser):
 
             with engine.begin() as conn:
                 if parsed.modified_peptides:
+                    # Sort by primary key to minimize deadlocks
+                    sorted_peptides = sorted(parsed.modified_peptides, key=lambda x: x["id"])
                     # Use INSERT OR IGNORE (SQLite) or INSERT ON CONFLICT DO NOTHING (PostgreSQL)
                     # for cross-file deduplication based on primary key
                     stmt = insert_func(ModifiedPeptide).on_conflict_do_nothing()
-                    conn.execute(stmt, parsed.modified_peptides)
-                    stats.peptide_count = len(parsed.modified_peptides)
+                    conn.execute(stmt, sorted_peptides)
+                    stats.peptide_count = len(sorted_peptides)
                 if parsed.modifications:
+                    # Sort by primary key to minimize deadlocks
+                    sorted_modifications = sorted(parsed.modifications, key=lambda x: x["id"])
                     # Use INSERT OR IGNORE (SQLite) or INSERT ON CONFLICT DO NOTHING (PostgreSQL)
                     # for cross-file deduplication based on unique constraint
                     stmt = insert_func(Modification).on_conflict_do_nothing()
-                    conn.execute(stmt, parsed.modifications)
-                    stats.modification_count = len(parsed.modifications)
+                    conn.execute(stmt, sorted_modifications)
+                    stats.modification_count = len(sorted_modifications)
                 if parsed.modified_peptide_modification_junctions:
+                    # Sort by composite primary key to minimize deadlocks
+                    sorted_junctions = sorted(
+                        parsed.modified_peptide_modification_junctions,
+                        key=lambda x: (x["modified_peptide_id"], x["modification_id"]),
+                    )
                     # Use INSERT OR IGNORE (SQLite) or INSERT ON CONFLICT DO NOTHING (PostgreSQL)
                     # for cross-file deduplication based on composite primary key
                     stmt = insert_func(ModifiedPeptideModificationJunction).on_conflict_do_nothing()
-                    conn.execute(stmt, parsed.modified_peptide_modification_junctions)
+                    conn.execute(stmt, sorted_junctions)
                 if parsed.peptide_evidence:
-                    conn.execute(insert(PeptideEvidence), parsed.peptide_evidence)
-                    stats.peptide_evidence_count = len(parsed.peptide_evidence)
+                    # Sort by primary key to minimize deadlocks
+                    sorted_evidence = sorted(parsed.peptide_evidence, key=lambda x: x["id"])
+                    conn.execute(insert(PeptideEvidence), sorted_evidence)
+                    stats.peptide_evidence_count = len(sorted_evidence)
                 if parsed.psms:
-                    conn.execute(insert(PeptideSpectrumMatch), parsed.psms)
-                    stats.psm_count = len(parsed.psms)
+                    # Sort by primary key to minimize deadlocks
+                    sorted_psms = sorted(parsed.psms, key=lambda x: x["id"])
+                    conn.execute(insert(PeptideSpectrumMatch), sorted_psms)
+                    stats.psm_count = len(sorted_psms)
                 if parsed.psm_peptide_evidence_junctions:
-                    conn.execute(insert(PSMPeptideEvidence), parsed.psm_peptide_evidence_junctions)
+                    # Sort by primary key to minimize deadlocks
+                    sorted_pe_junctions = sorted(
+                        parsed.psm_peptide_evidence_junctions, key=lambda x: x["id"]
+                    )
+                    conn.execute(insert(PSMPeptideEvidence), sorted_pe_junctions)
             logger.debug(f"Successfully imported mzID data for file '{stats.file_name}'")
         except Exception as e:
             error_msg = f"Database import failed for file '{stats.file_name}': {e}"
