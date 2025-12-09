@@ -12,6 +12,10 @@ from pathlib import Path
 from string import digits
 from typing import Any
 
+from sqlalchemy.dialects.postgresql import insert as pg_insert
+from sqlalchemy.dialects.sqlite import insert as sqlite_insert
+from sqlalchemy.engine import Engine
+
 from usigrabber.db.schema import IndexType
 from usigrabber.utils import logger, lookup_unimod_id_by_name
 
@@ -476,3 +480,12 @@ def get_txt_triples(files: list[Path]):
             )
 
     return triplets
+
+
+def get_db_insert_function(engine: Engine):
+    # Detect database type to use appropriate insert dialect
+    db_dialect = engine.dialect.name
+    is_postgresql = db_dialect == "postgresql"
+
+    # Select appropriate insert function based on database type
+    return pg_insert if is_postgresql else sqlite_insert

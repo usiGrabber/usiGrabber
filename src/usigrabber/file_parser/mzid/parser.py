@@ -5,8 +5,6 @@ from pathlib import Path
 from pyteomics import mzid
 from pyteomics.auxiliary import PyteomicsError
 from sqlalchemy import insert
-from sqlalchemy.dialects.postgresql import insert as pg_insert
-from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.engine import Engine
 from sqlmodel import Session
 
@@ -20,6 +18,7 @@ from usigrabber.db.schema import (
 )
 from usigrabber.file_parser.base import BaseFileParser, register_parser
 from usigrabber.file_parser.errors import MzidImportError, MzidParseError
+from usigrabber.file_parser.helpers import get_db_insert_function
 from usigrabber.file_parser.models import ImportStats, ParsedMzidData
 from usigrabber.file_parser.mzid.parsing_functions import (
     parse_db_sequences,
@@ -105,12 +104,7 @@ class MzidFileParser(BaseFileParser):
         """Persist parsed mzID data to the database with debug logging."""
         logger.debug(f"Persisting mzID data to database for file '{stats.file_name}'")
 
-        # Detect database type to use appropriate insert dialect
-        db_dialect = engine.dialect.name
-        is_postgresql = db_dialect == "postgresql"
-
-        # Select appropriate insert function based on database type
-        insert_func = pg_insert if is_postgresql else sqlite_insert
+        insert_func = get_db_insert_function(engine)
 
         try:
             with Session(engine) as session:
