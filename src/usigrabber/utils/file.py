@@ -181,10 +181,10 @@ async def get_interesting_files(files: list[FileMetadata], accession: str) -> tu
         while file_ext in ARCHIVE_TYPES:
             file_base, file_ext = os.path.splitext(file_base)
 
-        if file_ext not in FILETYPE_ALLOWLIST and not (
-            ".txt" in FILETYPE_ALLOWLIST and "" in FILETYPE_ALLOWLIST and "txt.zip" in str(filename)
-        ):
+        if file_ext not in FILETYPE_ALLOWLIST:
             logger.debug(f"Skipping file {filename} with unsupported extension '{file_ext}'.")
+            continue
+        if file_ext == "" and not filename.endswith("txt.zip"):
             continue
         if file_ext == ".txt" and file_base not in INTERESTING_TXT_FILES:
             logger.debug(f"Skipping .txt file {filename} as it is not interesting.")
@@ -240,6 +240,7 @@ def get_prioritized_files(
     # 2. Next prefer .mzTab files
     elif all_files.get(".mzTab", []):
         return all_files[".mzTab"], ".mzTab"
+
     # 3. Next prefer txt.zip/.txt files
     else:
         txt_zip_files = [
