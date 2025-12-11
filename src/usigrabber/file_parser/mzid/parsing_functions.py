@@ -24,6 +24,7 @@ from usigrabber.file_parser.models import (
     PeptideEvidenceDict,
     PeptideSpectrumMatchDict,
     PSMPeptideEvidenceDict,
+    SearchModificationDict,
 )
 from usigrabber.file_parser.uuid_helpers import (
     generate_deterministic_modification_uuid,
@@ -74,7 +75,11 @@ def parse_spectra_data(mzid_path: Path) -> dict[str, tuple[str, IndexType | None
 
         # Extract SpectrumIDFormat accession from nested cvParam
         spectrum_id_format: str | None = None
-        spectrum_id_format_cv = child.find(".//SpectrumIDFormat/cvParam")
+        spectrum_id_format_cv = (
+            child.find(".//SpectrumIDFormat/cvParam")
+            if child.find(".//SpectrumIDFormat/cvParam") is not None
+            else child.find(".//spectrumIDFormat/cvParam")  # this gives weird accessions
+        )
         if spectrum_id_format_cv is not None:
             spectrum_id_format = spectrum_id_format_cv.get("accession")
 
@@ -410,7 +415,9 @@ def parse_psms(
     peptide_id_map: dict[str, uuid.UUID],
     pe_id_map: dict[str, uuid.UUID],
     spectra_data_map: dict[str, tuple[str, IndexType | None]],
-) -> tuple[list[PeptideSpectrumMatchDict], list[PSMPeptideEvidenceDict]]:
+) -> tuple[
+    list[PeptideSpectrumMatchDict], list[PSMPeptideEvidenceDict], list[SearchModificationDict]
+]:
     """
     Parse SpectrumIdentificationResult elements.
 
@@ -425,10 +432,26 @@ def parse_psms(
                     Tuple of:
                     - List of PeptideSpectrumMatch records
                     - List of PSMPeptideEvidence junction records
+                    - List of SearchModification records
     """
 
     psm_batch: list[PeptideSpectrumMatchDict] = []
     junction_batch: list[PSMPeptideEvidenceDict] = []
+    search_mod_batch: list[SearchModificationDict] = []
+
+    for sil in reader.iterfind("SpectrumIdentificationList"):
+        print(sil.get("id", "no id for sil"))
+        # Parse search modifications from SpectrumIdentificationList
+        search_mods = []
+        for sip in reader.iterfind("SpectrumIdentificationProtocol"):
+            if sip.get("id", "") != sil.get("id", "").replace("List", "Protocol"):
+                continue
+            search_mods = sip.get("ModificationParams", {}).get("SearchModification", [])
+        if search_mods:
+            print(search_mods)
+
+        # TODO: get to mod names
+        # then only parse PSMs from sil
 
     for sir in reader.iterfind("SpectrumIdentificationResult"):
         spectrum_id: str = sir.get("spectrumID", "")
@@ -498,4 +521,4 @@ def parse_psms(
                     junction_batch.append(junction_dict)
 
     logger.debug(f"Parsed {len(psm_batch)} PSMs and {len(junction_batch)} junctions")
-    return psm_batch, junction_batch
+    return psm_batch, junction_batch, search_mod_batch

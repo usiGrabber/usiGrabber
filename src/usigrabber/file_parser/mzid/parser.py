@@ -73,7 +73,7 @@ class MzidFileParser(BaseFileParser):
                 pe_id_map, peptide_evidence_batch = parse_peptide_evidence(reader, db_seq_map)
 
                 logger.debug("Phase 4: Parsing spectrum identification results (PSMs)...")
-                psm_batch, junction_batch = parse_psms(
+                psm_batch, junction_batch, search_mod_batch = parse_psms(
                     reader,
                     project_accession,
                     mzid_file.id,
