@@ -6,6 +6,7 @@ import ijson
 import requests
 from async_http_client import AsyncHttpClient
 from ontology_resolver.ontology_helper import OntologyHelper
+from sqlalchemy.engine import Engine
 from sqlmodel import Session
 
 from usigrabber.backends.base import BaseBackend, FileMetadata, Files
@@ -188,7 +189,7 @@ class PrideBackend(BaseBackend):
 
     @classmethod
     async def _parse_and_add_cv_params(
-        cls, project_accession: str, session: Session, backend: type[BaseBackend]
+        cls, project_accession: str, engine: Engine, backend: type[BaseBackend]
     ) -> None:
         ontology_helper = OntologyHelper()
 
@@ -205,7 +206,7 @@ class PrideBackend(BaseBackend):
 
         project_data = await backend.get_project(project_accession)
 
-        async with CVInjector(project_accession, session) as injector:
+        async with CVInjector(project_accession, engine) as injector:
             for json_key in cv_data_keys:
                 for cv_data in project_data.get(json_key, []):
                     if cv_data.get("@type") == "Tuple":

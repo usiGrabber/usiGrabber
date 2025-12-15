@@ -93,7 +93,6 @@ def resolve_ontologies_for_project_sync(backend_enum: BackendEnum, project_acces
     import warnings
 
     from sqlalchemy import exc as sa_exc
-    from sqlmodel import Session
 
     logger.info(f"Resolving ontologies for {project_accession}")
 
@@ -104,15 +103,13 @@ def resolve_ontologies_for_project_sync(backend_enum: BackendEnum, project_acces
 
     with (
         warnings.catch_warnings(action="ignore", category=sa_exc.SAWarning),
-        Session(engine) as session,
     ):
         # Call the backend's ontology parsing method
         asyncio.run(
             backend_enum.value._parse_and_add_cv_params(
-                project_accession, session, backend_enum.value
+                project_accession, engine, backend_enum.value
             )
         )
-        session.commit()
 
     logger.info(f"Completed ontology resolution for {project_accession}")
 
