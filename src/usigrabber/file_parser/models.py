@@ -83,6 +83,14 @@ class PSMPeptideEvidenceDict(TypedDict):
     peptide_evidence_id: UUID
 
 
+class SearchModificationDict(TypedDict):
+    """Dictionary representation of junction table linking PSMs to modifications searched for."""
+
+    id: UUID
+    psm_id: UUID
+    unimod_id: int
+
+
 # ============================================================================
 # NamedTuples for parsed data containers
 # ============================================================================
@@ -105,6 +113,18 @@ class ParsedMztabData(NamedTuple):
 
     modified_peptides: list[ModifiedPeptideDict]
     psms: list[PeptideSpectrumMatchDict]
+
+
+class ParsedTxtZipData(NamedTuple):
+    """Container for all parsed data from an evidence.txt file."""
+
+    modified_peptides: list[ModifiedPeptideDict]
+    modifications: list[ModificationDict]
+    modified_peptide_modification_junctions: list[ModifiedPeptideModificationJunctionDict]
+    peptide_evidence: list[PeptideEvidenceDict]
+    psms: list[PeptideSpectrumMatchDict]
+    psm_peptide_evidence_junctions: list[PSMPeptideEvidenceDict]
+    search_modifications: list[SearchModificationDict]
 
 
 def now() -> datetime.datetime:

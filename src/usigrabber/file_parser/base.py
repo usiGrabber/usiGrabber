@@ -3,11 +3,15 @@
 import logging
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Any
 
 from sqlalchemy.engine import Engine
 
-from usigrabber.file_parser.models import ImportStats
+from usigrabber.file_parser.models import (  # Import models
+    ImportStats,
+    ParsedMzidData,
+    ParsedMztabData,
+    ParsedTxtZipData,
+)
 
 PARSER_REGISTRY: dict[str, "BaseFileParser"] = {}
 
@@ -44,7 +48,9 @@ class BaseFileParser(ABC):
         pass
 
     @abstractmethod
-    def parse_file(self, path: Path, project_accession: str) -> Any:
+    def parse_file(
+        self, path: Path | tuple[Path, Path, Path], project_accession: str
+    ) -> ParsedTxtZipData | ParsedMzidData | ParsedMztabData:
         """
         Parse the given file and return the parsed data structure.
         """
@@ -57,12 +63,18 @@ class BaseFileParser(ABC):
         """
         pass
 
-    def import_file(self, engine: Engine, path: Path, project_accession: str) -> ImportStats:
-        stats = ImportStats(file_name=path.name, project_accession=project_accession)
+    def import_file(
+        self,
+        engine: Engine,
+        path: Path | tuple[Path, Path, Path],
+        project_accession: str,
+    ) -> ImportStats:
+        path_name = path[0].name if isinstance(path, tuple) else path.name
+        stats = ImportStats(file_name=path_name, project_accession=project_accession)
         try:
-            parsed = self.parse_file(path, project_accession)
+            parsed_data = self.parse_file(path, project_accession)
             stats.mark_parsing_complete()
-            self.persist(engine, parsed, stats)
+            self.persist(engine, parsed_data, stats)
             stats.mark_complete()
             return stats
         except Exception as e:

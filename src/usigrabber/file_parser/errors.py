@@ -17,6 +17,12 @@ class FileImportError(Exception):
     pass
 
 
+class UnsupportedDatabaseError(Exception):
+    """Exception for unsupported database dialects."""
+
+    pass
+
+
 # mzID-specific errors
 class MzidParseError(FileParserError):
     """Failed to parse mzIdentML file."""
@@ -39,5 +45,18 @@ class MztabParseError(FileParserError):
 
 class MztabImportError(FileImportError):
     """Failed to import mzTab data to database."""
+
+    pass
+
+
+# evidence.txt-specific errors
+class TxtZipParseError(FileParserError):
+    """Failed to parse evidence.txt file."""
+
+    pass
+
+
+class TxtZipImportError(ImportError):
+    """Failed to import evidence.txt data to database."""
 
     pass

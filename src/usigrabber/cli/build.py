@@ -13,19 +13,18 @@ from sqlalchemy import inspect
 from sqlmodel import Session, select
 
 from usigrabber.backends import BackendEnum
-from usigrabber.backends.base import FileMetadata
 from usigrabber.cli import app
 from usigrabber.db import create_db_and_tables, load_db_engine
 from usigrabber.db.cli import reset as db_reset
 from usigrabber.db.schema import Project
-from usigrabber.file_parser import import_file
-from usigrabber.file_parser.errors import FileParserError
+from usigrabber.file_parser import import_files
 from usigrabber.utils import get_cache_dir
 from usigrabber.utils.file import (
-    download_ftp_with_semamphore,
-    extract_archive,
+    get_interesting_files,
     temporary_path,
 )
+
+FILE_CATEGORIES = ["result", "search", "other"]
 
 CACHE_DIR = get_cache_dir()
 STANDARD_BACKENDS = [enum for enum in BackendEnum]
@@ -124,9 +123,6 @@ def build(
         max_workers=max_workers or multiprocessing.cpu_count(),
     )
 
-    # WORKFLOW
-    build_start_time = asyncio.get_event_loop().time()
-
     # set up database connection
     db_engine = load_db_engine()
     inspector = inspect(db_engine)
@@ -154,6 +150,7 @@ async def build_all_projects(
         await build_all_projects_in_single_process(backends, config, existing_accessions)
     else:
         await build_all_projects_in_process_pool(backends, config, existing_accessions)
+
 
 async def build_project(
     backend_enum: BackendEnum,
@@ -194,121 +191,27 @@ async def build_project(
     # download files
     files = backend.get_files_for_project(project["accession"])
     with temporary_path() as tmp_dir:
-        # process files
-        if files["result"]:
-            files_to_be_downloaded: list[FileMetadata] = []
+        is_fully_processed: bool = False
+        main_source_type = None
+        for category in FILE_CATEGORIES:
+            if not files[category] or is_fully_processed or main_source_type is not None:
+                continue
 
-            # filter files based on extension allowlist
-            for file in files["result"]:
-                # parse filename from file url
-                file_url = file["filepath"]
-                filename = os.path.basename(file_url)
+            interesting_ftp_paths, file_ext = await get_interesting_files(
+                files[category], project["accession"]
+            )
 
-                if file["file_size"] > MAX_FILESIZE_BYTES:
-                    logger.warning(
-                        "Skipping file '%s' in project %s due " + "to size (%.2f GiB > %.2f GiB).",
-                        filename,
-                        project["accession"],
-                        file["file_size"] / (1024**3),
-                        MAX_FILESIZE_BYTES / (1024**3),
-                    )
-                    continue
+            if not interesting_ftp_paths:
+                continue
 
-                # find actual file extension, without archives
-                file_base, file_ext = os.path.splitext(filename)
-                while file_ext in {".zip", ".gz", ".tar", ".rar", ".7z"}:
-                    file_base, file_ext = os.path.splitext(file_base)
-
-                if file_ext not in FILETYPE_ALLOWLIST:
-                    logger.debug(
-                        "Skipping file %s with unsupported extension %s.",
-                        filename,
-                        file_ext,
-                    )
-                    continue
-
-                files_to_be_downloaded.append(file)
-
-            if len(files_to_be_downloaded) == 0:
-                logger.warning(
-                    "Found result files for project %s, but none match the supported file types.",
-                    project["accession"],
-                )
-
-            # download all matching files asynchronously (limit concurrency)
-            sem = asyncio.Semaphore(PARALLEL_DOWNLOADS)
-            path_coros = [
-                download_ftp_with_semamphore(
-                    semaphore=sem,
-                    url=file["filepath"],
-                    out_dir=tmp_dir / project["accession"] / str(idx),
-                )
-                for idx, file in enumerate(files_to_be_downloaded)
-            ]
-
-            for fut in asyncio.as_completed(path_coros):
-                try:
-                    await backend.dump_project_to_db(session, project)
-                    session.commit()
-                except Exception as e:
-                    logger.error(
-                        "Error in while downloading file for project %s: %s",
-                        project["accession"],
-                        e,
-                        exc_info=True,
-                    )
-                    continue
-
-                # contains all files extracted from archive
-                extracted_files = extract_archive(
-                    archive_path=path, extract_to=path.parent / "extracted"
-                )
-
-                interesting_files: dict[str, list[Path]] = {ext: [] for ext in FILETYPE_ALLOWLIST}
-                for f in extracted_files:
-                    ext = os.path.splitext(str(f))[1]
-                    if ext in FILETYPE_ALLOWLIST:
-                        interesting_files[ext].append(f)
-
-                for _, flist in interesting_files.items():
-                    for file in flist:
-                        try:
-                            stats = import_file(
-                                engine,
-                                file,
-                                project["accession"],
-                                file["file_size"] / (1024**3),
-                                MAX_FILESIZE_BYTES / (1024**3),
-                            )
-                            duration_str = (
-                                f"{stats.duration_seconds:.1f}s"
-                                if stats.duration_seconds is not None
-                                else "N/A"
-                            )
-                            logger.info(
-                                f"Imported {stats.psm_count:,} PSMs from '{file.name}'"
-                                f" ({duration_str})"
-                            )
-                        except FileParserError as e:
-                            logger.error(
-                                f"Failed to import file '{file.name}': {e}",
-                                exc_info=True,
-                                stack_info=True,
-                                extra={
-                                    "file": str(file),
-                                    "project_accession": project["accession"],
-                                },
-                            )
-                            continue
-
-        elif files["search"]:
-            # TODO: support search files
-            pass
-        else:
-            logger.warning(
-                "No results/search files found for project '%s' from backend %s.",
+            main_source_type = file_ext
+            is_fully_processed = await import_files(
+                engine,
+                interesting_ftp_paths,
+                file_ext,
                 project["accession"],
-                backend_enum.name,
+                tmp_dir,
+                logger,
             )
 
 

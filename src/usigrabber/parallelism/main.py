@@ -70,8 +70,15 @@ async def build_all_projects_in_single_process(
     from usigrabber.cli.build import build_project
 
     async for project, backend in iterate_projects(backends, existing_accessions):
-        await build_project(backend, project)
-    logger.info("Done")
+        try:
+            await build_project(backend, project)
+        except Exception as e:
+            logger.error(
+                f"Error building project {project['accession']}: {e}",
+                exc_info=True,
+                extra={"project_accession": project["accession"], "backend": backend.name},
+            )
+    logger.info("Done finishing all projects")
 
 
 def resolve_ontologies_for_project_sync(backend_enum: BackendEnum, project: dict[str, Any]) -> None:

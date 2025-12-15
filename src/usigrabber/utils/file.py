@@ -16,79 +16,51 @@ from urllib.parse import urlparse
 
 import aioftp
 import typer
-from async_http_client import AsyncHttpClient
+from tenacity import before_sleep_log, retry, stop_after_attempt, wait_random_exponential
+
+from usigrabber.backends.base import FileMetadata
 
 logger = logging.getLogger(__name__)
 
+# to be able to parse txt.zip files plese include {".txt", ""}
+# to be able to parse mzTab files please include {".mzTab"}
+FILETYPE_ALLOWLIST = {".mzid"}
 
+ARCHIVE_TYPES = {".zip", ".gz", ".tar", ".rar", ".7z"}
+PARALLEL_DOWNLOADS = int(os.getenv("PARALLEL_DOWNLOADS", "10"))
+INTERESTING_TXT_FILES = {"evidence", "summary", "peptides"}
+MAX_FILESIZE_BYTES = 5 * 1024**3  # 5 GiB
+
+
+@retry(
+    stop=stop_after_attempt(7),
+    wait=wait_random_exponential(multiplier=1, max=60),
+    reraise=True,
+    before_sleep=before_sleep_log(logger, logging.DEBUG),
+)
 async def download_ftp(
     url: str,
     out_dir: Path,
     file_name: str | None = None,
-    retries: int = 3,
-    delay: int = 5,
 ) -> Path:
-    """Download a file from an FTP or HTTP URL asynchronously.
-
-    For PRIDE HTTP URLs (https://ftp.pride.ebi.ac.uk/...), uses AsyncHttpClient.
-    For other FTP URLs, falls back to aioftp client.
-    """
-
-    logger.debug("Downloading file from '%s'", url)
+    """Download a file from an FTP URL asynchronously."""
+    logger.debug("Downloading FTP file from '%s'", url)
 
     parsed = urlparse(url)
     filename = file_name or os.path.basename(parsed.path)
     out_path = out_dir / filename
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    # Use HTTP client for PRIDE HTTP URLs
-    if parsed.scheme in ("http", "https") and "ftp.pride.ebi.ac.uk" in url:
-        logger.debug("Using HTTP client for PRIDE URL: %s", url)
-        async with AsyncHttpClient(retry_attempts=retries, verbose=False) as client:
-            downloaded_path = await client.stream_file(url, download_file_name=out_path)
-            return downloaded_path
-
-    # Fall back to FTP client for other FTP URLs
-    if parsed.scheme == "ftp":
-        logger.debug("Using FTP client for URL: %s", url)
-        assert parsed.hostname is not None, "FTP URL must have a hostname"
-
-        for attempt in range(retries):
-            try:
-                async with aioftp.Client.context(
-                    parsed.hostname,
-                    user=parsed.username or "anonymous",
-                    password=parsed.password or "anonymous@",
-                ) as client:
-                    await client.download(parsed.path, str(out_path), write_into=True)
-                return out_path
-            except ConnectionResetError:
-                if attempt > 2:
-                    # first few attempts often fail, so only log after 2nd attempt
-                    logger.warning(
-                        f"FTP connection reset on attempt {attempt + 1}/{retries} for {url}",
-                    )
-                if attempt < retries - 1:
-                    await asyncio.sleep(delay)
-                else:
-                    raise
-            except Exception:
-                if attempt > 2:
-                    logger.warning(
-                        f"FTP download attempt {attempt + 1}/{retries} failed for {url}",
-                        exc_info=True,
-                    )
-                if attempt < retries - 1:
-                    await asyncio.sleep(delay)
-                else:
-                    raise
-
-        raise RuntimeError("Unreachable: retry loop ended without returning or raising")
-
-    raise ValueError(f"Unsupported URL scheme for {url}: {parsed.scheme}")
+    async with aioftp.Client.context(
+        parsed.hostname,
+        user=parsed.username or "anonymous",
+        password=parsed.password or "anonymous@",
+    ) as client:
+        await client.download(parsed.path, str(out_path), write_into=True)
+    return out_path
 
 
-async def download_ftp_with_semamphore(
+async def download_ftp_with_semaphore(
     semaphore: asyncio.Semaphore,
     url: str,
     out_dir: Path,
@@ -125,6 +97,10 @@ def extract_archive(
     Recursively extract archives into extract_to.
     Returns a list of extracted file paths.
     """
+    # Not an archive → return as-is
+    if not is_archive_file(archive_path):
+        return [archive_path]
+
     archive_path = archive_path.resolve()
     extract_to = extract_to.resolve()
 
@@ -134,10 +110,6 @@ def extract_archive(
     if archive_path.is_dir():
         # Not a real archive; return directory contents but no extraction
         return [p for p in archive_path.iterdir()]
-
-    # Not an archive → return as-is
-    if not is_archive_file(archive_path):
-        return [archive_path]
 
     archive_str = str(archive_path).lower()
 
@@ -188,12 +160,95 @@ def extract_archive(
 
         # Recurse only into REAL archive files
         if is_archive_file(member_path):
-            next_extract_dir = extract_to / member_path.stem
+            next_extract_dir = extract_to / str(member_path.stem).replace(".", "_")
             extracted_members.extend(extract_archive(member_path, next_extract_dir))
         else:
             extracted_members.append(member_path)
 
     return extracted_members
+
+
+async def get_interesting_files(files: list[FileMetadata], accession: str) -> tuple[list[str], str]:
+    all_files: dict[str, list[FileMetadata]] = {ext: [] for ext in FILETYPE_ALLOWLIST}
+    for file in files:
+        file_url = file["filepath"]
+        filename = os.path.basename(file_url)
+
+        # find actual file extension, without archives
+        file_base, file_ext = os.path.splitext(filename)
+        while file_ext in ARCHIVE_TYPES:
+            file_base, file_ext = os.path.splitext(file_base)
+
+        if file_ext not in FILETYPE_ALLOWLIST:
+            logger.debug(f"Skipping file {filename} with unsupported extension '{file_ext}'.")
+            continue
+        if file_ext == "" and not filename.endswith("txt.zip"):
+            continue
+        if file_ext == ".txt" and file_base not in INTERESTING_TXT_FILES:
+            logger.debug(f"Skipping .txt file {filename} as it is not interesting.")
+            continue
+
+        all_files[file_ext].append(file)
+
+    interesting_files, file_ext = get_prioritized_files(all_files)
+
+    for file in interesting_files:
+        if file["file_size"] > MAX_FILESIZE_BYTES:
+            logger.warning(
+                "Skipping file '%s' in project %s due to size (%.2f GiB > %.2f GiB).",
+                Path(file["filepath"]).name,
+                accession,
+                file["file_size"] / (1024**3),
+                MAX_FILESIZE_BYTES / (1024**3),
+            )
+            interesting_files.remove(file)
+
+    if len(interesting_files) == 0:
+        logger.warning(
+            f"Found {files[0]['category']} files for project {accession}, "
+            f"but none match the supported file types.",
+        )
+
+    interesting_paths = [file["filepath"] for file in interesting_files]
+
+    return interesting_paths, file_ext
+
+
+def get_prioritized_files(
+    all_files: dict[str, list[FileMetadata]],
+) -> tuple[list[FileMetadata], str]:
+    """
+    From the available files, select the best candidates for download.
+
+    Preference order:
+    1. .mzid files
+    2. .mzTab files
+    2. txt.zip and .txt files
+
+    Args:
+        all_files: Dictionary mapping file extensions to lists of FileMetadata
+
+    Returns:
+        List of FileMetadata objects selected for download
+    """
+    # 1. Prefer .mzid files
+    if all_files.get(".mzid", []):
+        return all_files[".mzid"], ".mzid"
+
+    # 2. Next prefer .mzTab files
+    elif all_files.get(".mzTab", []):
+        return all_files[".mzTab"], ".mzTab"
+
+    # 3. Next prefer txt.zip/.txt files
+    else:
+        txt_zip_files = [
+            f for f in all_files.get("", []) if f["filepath"].lower().endswith("txt.zip")
+        ]
+        txt_files = all_files.get(".txt", [])
+        if txt_zip_files or txt_files:
+            return txt_zip_files + txt_files, ".txt"
+
+    return [], ""
 
 
 @contextmanager
