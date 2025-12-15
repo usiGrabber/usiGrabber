@@ -47,6 +47,9 @@ async def download_ftp(
     logger.debug("Downloading FTP file from '%s'", url)
 
     parsed = urlparse(url)
+    if parsed.scheme != "ftp":
+        raise ValueError(f"URL scheme for {url} is not FTP, found {parsed.scheme}")
+    assert parsed.hostname is not None, "FTP URL must have a hostname"
     filename = file_name or os.path.basename(parsed.path)
     out_path = out_dir / filename
     out_dir.mkdir(parents=True, exist_ok=True)

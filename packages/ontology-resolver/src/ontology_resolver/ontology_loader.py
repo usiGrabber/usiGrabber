@@ -1,6 +1,5 @@
 import json
 import logging
-import os
 from pathlib import Path
 
 from async_http_client import AsyncHttpClient
@@ -8,6 +7,7 @@ from pronto.ontology import Ontology
 
 from ontology_resolver.utils import shrink_owl_file
 from usigrabber.utils import get_cache_dir
+from usigrabber.utils.env_variables import is_env_variable_true
 
 logger = logging.getLogger(__name__)
 ONTOLOGIES_TO_SHRINK = ["NCBITaxon"]
@@ -24,7 +24,7 @@ class OntologyLoader:
 
     async def download_ontology(self, onto: str) -> Path:
         async with AsyncHttpClient(
-            retry_attempts=0, verbose=os.environ.get("DEBUG") is not None
+            retry_attempts=0, verbose=is_env_variable_true("DEBUG") is not None
         ) as session:
             params = {"lang": "en", "outputOpts": json.dumps({})}
             ontology_info = await session.get(

@@ -2,11 +2,13 @@
 
 import json
 import re
+from collections import defaultdict
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import Annotated, Any
 
+import matplotlib.pyplot as plt
 import typer
 from rich.console import Console
 from rich.table import Table
@@ -73,6 +75,7 @@ class PSMAnalyzer:
         duration = data["duration"]
 
         iso_timestamp = data.get("iso_timestamp") or data.get("timestamp")
+        assert isinstance(iso_timestamp, str)
         timestamp = datetime.fromisoformat(iso_timestamp.replace("Z", "+00:00"))
 
         return PSMEntry(
@@ -175,10 +178,7 @@ class PSMAnalyzer:
         for rate in psm_rates:
             if rate < min_rate or rate > max_rate:
                 continue
-            if rate == max_rate:
-                bin_idx = bins - 1
-            else:
-                bin_idx = int((rate - min_rate) / bin_width)
+            bin_idx = bins - 1 if rate == max_rate else int((rate - min_rate) / bin_width)
             histogram[bin_idx] += 1
 
         max_count = max(histogram)
@@ -202,16 +202,22 @@ class PSMAnalyzer:
 
 @app_cli.command()
 def analyze(
-    log_dir: Path = typer.Argument(
-        ...,
-        help="Directory containing JSONL log files",
-        exists=True,
-        file_okay=False,
-        dir_okay=True,
-    ),
-    bins: int = typer.Option(20, help="Number of bins for histogram"),
-    hist_min: float | None = typer.Option(None, help="Minimum value for histogram (default: auto)"),
-    hist_max: float | None = typer.Option(None, help="Maximum value for histogram (default: auto)"),
+    log_dir: Annotated[
+        Path,
+        typer.Argument(
+            help="Directory containing JSONL log files",
+            exists=True,
+            file_okay=False,
+            dir_okay=True,
+        ),
+    ],
+    bins: Annotated[int, typer.Option(help="Number of bins for histogram")] = 20,
+    hist_min: Annotated[
+        float | None, typer.Option(help="Minimum value for histogram (default: auto)")
+    ] = None,
+    hist_max: Annotated[
+        float | None, typer.Option(help="Maximum value for histogram (default: auto)")
+    ] = None,
 ) -> None:
     """Analyze PSM persistence performance from log files."""
     console = Console()
@@ -288,17 +294,16 @@ def analyze(
 
 @app_cli.command()
 def export(
-    log_dir: Path = typer.Argument(
-        ...,
-        help="Directory containing JSONL log files",
-        exists=True,
-        file_okay=False,
-        dir_okay=True,
-    ),
-    output: Path = typer.Option(
-        Path("psm_analysis.csv"),
-        help="Output CSV file",
-    ),
+    log_dir: Annotated[
+        Path,
+        typer.Argument(
+            help="Directory containing JSONL log files",
+            exists=True,
+            file_okay=False,
+            dir_okay=True,
+        ),
+    ],
+    output: Annotated[Path, typer.Option(help="Output CSV file")] = Path("psm_analysis.csv"),
 ) -> None:
     """Export PSM performance data to CSV for further analysis."""
     console = Console()
@@ -331,23 +336,19 @@ def export(
     console.print(f"[green]Exported {len(analyzer.entries)} entries to {output}[/green]")
 
 
-from collections import defaultdict
-
-import matplotlib.pyplot as plt
-
-
 @app_cli.command()
 def chart(
-    log_dir: Path = typer.Argument(
-        ...,
-        help="Directory containing JSONL log files",
-        exists=True,
-        file_okay=False,
-        dir_okay=True,
-    ),
-    output: Path = typer.Option(
-        Path("psm_rate_per_minute.png"),
-        help="Output PNG file for the chart",
+    log_dir: Annotated[
+        Path,
+        typer.Argument(
+            help="Directory containing JSONL log files",
+            exists=True,
+            file_okay=False,
+            dir_okay=True,
+        ),
+    ],
+    output: Annotated[Path, typer.Option(help="Output PNG file for the chart")] = Path(
+        "psm_rate_per_minute.png"
     ),
 ):
     """Create a matplotlib chart of the average PSM write rate per minute."""
