@@ -173,17 +173,6 @@ async def build_project(
     # Use worker db_engine if available (multiprocessing), otherwise load a new one
     engine = worker_db_engine if worker_db_engine is not None else load_db_engine()
 
-    if not backend.is_project_complete(project):
-        logger.info(
-            f"Project {project_accession} is incomplete. Skipping build.",
-            extra={
-                "event": "project_skipped",
-                "project_accession": project_accession,
-                "backend": backend_enum.name,
-            },
-        )
-        return
-
     with Session(engine) as session:
         await backend.dump_project_to_db(session, project)
         session.commit()

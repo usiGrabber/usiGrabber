@@ -46,12 +46,8 @@ def system_setup(is_main_process: bool, logger_name: str | None = None):
 
     # overwrite root logger, should only be called in application code
     logger = logging.getLogger(logger_name if logger_name else "")
-    if logger.hasHandlers():
-        logger.handlers.clear()
-        # overwrite root logger, should only be called in application code
-        logger = logging.getLogger(logger_name)
-        LOGLEVEL = os.getenv("LOGLEVEL", "DEBUG").upper()
-        logger.setLevel(level=LOGLEVEL)
+    LOGLEVEL = os.getenv("LOGLEVEL", "DEBUG").upper()
+    logger.setLevel(level=LOGLEVEL)
 
     # mute noisy libraries
     for child in ["sqlalchemy", "aioftp", "urllib3"]:

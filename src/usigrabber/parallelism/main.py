@@ -2,8 +2,14 @@ import logging
 import multiprocessing
 import os
 from collections import deque
-from collections.abc import AsyncGenerator
-from concurrent.futures import FIRST_COMPLETED, Future, ProcessPoolExecutor, as_completed, wait
+from collections.abc import AsyncGenerator, Callable
+from concurrent.futures import (
+    FIRST_COMPLETED,
+    Future,
+    ProcessPoolExecutor,
+    wait,
+)
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 from tqdm import tqdm
@@ -81,7 +87,7 @@ async def build_all_projects_in_single_process(
     logger.info("Done finishing all projects")
 
 
-def resolve_ontologies_for_project_sync(backend_enum: BackendEnum, project: dict[str, Any]) -> None:
+def resolve_ontologies_for_project_sync(backend_enum: BackendEnum, project_accession: str) -> None:
     """Resolve and add ontologies for a single project (runs in ontology worker)."""
     import asyncio
     import warnings
@@ -89,7 +95,6 @@ def resolve_ontologies_for_project_sync(backend_enum: BackendEnum, project: dict
     from sqlalchemy import exc as sa_exc
     from sqlmodel import Session
 
-    project_accession = backend_enum.value.get_project_accession(project)
     logger.info(f"Resolving ontologies for {project_accession}")
 
     # Use worker db_engine
@@ -103,11 +108,105 @@ def resolve_ontologies_for_project_sync(backend_enum: BackendEnum, project: dict
     ):
         # Call the backend's ontology parsing method
         asyncio.run(
-            backend_enum.value._parse_and_add_cv_params(project_accession, session, project)
+            backend_enum.value._parse_and_add_cv_params(
+                project_accession, session, backend_enum.value
+            )
         )
         session.commit()
 
     logger.info(f"Completed ontology resolution for {project_accession}")
+
+
+@dataclass
+class FutureContext:
+    config: "BuildConfiguration"
+    project_accession: str
+    backend: BackendEnum
+    increment_main_progress_bar: Callable[[], Any]
+    increment_onto_progress_bar: Callable[[], Any]
+    onto_executor: ProcessPoolExecutor
+    future_holder: "FutureHolder"
+
+
+class WorkFuture:
+    def __init__(self, future: Future, context: FutureContext) -> None:
+        self.future = future
+        self._context = context
+
+    def get_and_process_result(self):
+        raise NotImplementedError()
+
+
+class FutureHolder:
+    """
+    Holds a number of futures and useses a strategy pattern to execute future side effects and track succcess
+    """
+
+    def __init__(self) -> None:
+        self._futures: dict[Future, WorkFuture] = {}
+
+    def add(self, future_wrapper: WorkFuture) -> None:
+        self._futures[future_wrapper.future] = future_wrapper
+
+    def count_of(self, future_type: type[WorkFuture]) -> int:
+        return sum(1 for future in self._futures.values() if isinstance(future, future_type))
+
+    def process_first_completed(self):
+        """
+        Processes the first completed future.
+        """
+        futures = list(self._futures.keys())
+        done_futures, waiting_futures = wait(futures, return_when=FIRST_COMPLETED)
+
+        for future in done_futures:
+            future_wrapper = self._futures[future]
+            future_wrapper.get_and_process_result()
+            self._futures.pop(future)
+
+    def process_all_completed(self):
+        """
+        Waits until all futures are completed and processes their results.
+
+        We don't use the native ALL_COMPLETED because a processed future might cause a new future to be added to the holder.
+        """
+        while len(self._futures) > 0:
+            self.process_first_completed()
+
+
+class OntologyWorkFuture(WorkFuture):
+    def get_and_process_result(self):
+        try:
+            self.future.result()
+        except Exception as e:
+            logger.error(
+                f"Error for ontologies occurred in {self._context.project_accession} for backend {self._context.backend.name}: {e}",
+                exc_info=True,
+                extra={"project_accession": self._context.project_accession},
+            )
+        finally:
+            self._context.increment_onto_progress_bar()
+
+
+class MainWorkFuture(WorkFuture):
+    def get_and_process_result(self):
+        try:
+            self.future.result()
+        except Exception as e:
+            logger.error(
+                f"Error occurred in {self._context.project_accession} for backend {self._context.backend.name}: {e}",
+                exc_info=True,
+                extra={"project_accession": self._context.project_accession},
+            )
+        finally:
+            self._context.increment_main_progress_bar()
+            if not self._context.config.ontologies.skip_ontos:
+                onto_future = self._context.onto_executor.submit(
+                    resolve_ontologies_for_project_sync,
+                    self._context.backend,
+                    self._context.project_accession,
+                )
+                onto_future_wrapper = OntologyWorkFuture(onto_future, self._context)
+                self._context.future_holder.add(onto_future_wrapper)
 
 
 async def build_all_projects_in_process_pool(
@@ -118,30 +217,17 @@ async def build_all_projects_in_process_pool(
     # Set environment variable to skip ontologies in main build phase
     os.environ["IS_IN_MULTIPROCESSING_MODE"] = "1"
 
-    # Track project states for ontology processing
-    completed_queue: deque[tuple[str, BackendEnum]] = (
-        deque()
-    )  # Queue of (accession, backend) for ontology processing
-    failed_projects: set[str] = set()
-    main_future_to_data: dict[
-        Future, tuple[str, BackendEnum]
-    ] = {}  # Future -> (accession, backend)
-    onto_future_to_accession: dict[Future, str] = {}
-
-    main_futures: set[Future] = set()
-    onto_futures: set[Future] = set()
     max_workers = config.max_workers or multiprocessing.cpu_count()
     ontology_workers = config.ontologies.ontology_workers
 
-    total_successful = 0
-    total_errors = 0
-    ontology_successful = 0
-    ontology_errors = 0
+    logger.info(f"Using {max_workers} workers for main build phase")
+    logger.info(f"Using {ontology_workers} workers for ontology resolution\n")
 
     with logging_redirect_tqdm():
         # Progress bars
         pbar = tqdm(desc="Building projects", unit=" projects", position=0)
         onto_pbar = tqdm(desc="Resolving ontologies", unit=" projects", position=1)
+        future_holder: FutureHolder = FutureHolder()
 
         with (
             ProcessPoolExecutor(
@@ -154,144 +240,27 @@ async def build_all_projects_in_process_pool(
             ) as onto_executor,
         ):
             async for project, current_backend in iterate_projects(backends, existing_accessions):
-                accession = current_backend.value.get_project_accession(project)
-
-                # Submit to main build queue
-                if len(main_futures) < max_workers:
-                    fut: Future[None] = main_executor.submit(
-                        build_project_sync, current_backend, project
-                    )
-                    main_futures.add(fut)
-                    main_future_to_data[fut] = (accession, current_backend)
-                else:
-                    # Wait for at least one main future to complete
-                    done, main_futures = wait(main_futures, return_when=FIRST_COMPLETED)
-                    for finished in done:
-                        acc, backend = main_future_to_data.pop(finished)
-                        try:
-                            finished.result()
-                            # Push to ontology queue on success
-                            if not config.ontologies.skip_ontos:
-                                completed_queue.append((acc, backend))
-                            total_successful += 1
-                        except Exception as e:
-                            failed_projects.add(acc)
-                            logger.error(f"Error occurred in {acc}: {e}", exc_info=True)
-                            total_errors += 1
-                        finally:
-                            pbar.update(1)
-
-                    # Now submit the current project
-                    fut = main_executor.submit(build_project_sync, current_backend, project)
-                    main_futures.add(fut)
-                    main_future_to_data[fut] = (accession, current_backend)
-
-                # Process ontology queue if we have capacity
-                if not config.ontologies.skip_ontos:
-                    while len(completed_queue) > 0 and len(onto_futures) < ontology_workers:
-                        acc, backend = completed_queue.popleft()
-                        # Retrieve project details again
-                        try:
-                            project_data = await backend.value.get_project(acc)
-                            fut_onto: Future[None] = onto_executor.submit(
-                                resolve_ontologies_for_project_sync, backend, project_data
-                            )
-                            onto_futures.add(fut_onto)
-                            onto_future_to_accession[fut_onto] = acc
-                        except Exception as e:
-                            logger.error(
-                                f"Failed to retrieve project {acc} for ontology processing: {e}"
-                            )
-                            ontology_errors += 1
-
-                # Check for completed ontology futures
-                if len(onto_futures) > 0:
-                    done_onto, onto_futures = wait(
-                        onto_futures, timeout=0, return_when=FIRST_COMPLETED
-                    )
-                    for finished in done_onto:
-                        acc = onto_future_to_accession.pop(finished)
-                        try:
-                            finished.result()
-                            ontology_successful += 1
-                        except Exception as e:
-                            logger.error(f"Error resolving ontologies for {acc}: {e}")
-                            ontology_errors += 1
-                        finally:
-                            onto_pbar.update(1)
-
-            # Process remaining main futures
-            logger.info(
-                f"All projects submitted to workers: Waiting for the remaining {len(main_futures)} projects to complete"
-            )
-            for finished in as_completed(main_futures):
-                acc, backend = main_future_to_data.pop(finished)
-                try:
-                    finished.result()
-                    # Push to ontology queue on success
-                    if not config.ontologies.skip_ontos:
-                        completed_queue.append((acc, backend))
-                    total_successful += 1
-                except Exception as e:
-                    failed_projects.add(acc)
-                    logger.error(f"Error occurred in {acc}: {e}")
-                    total_errors += 1
-                finally:
-                    pbar.update(1)
-
-            # Process remaining items in ontology queue
-            if not config.ontologies.skip_ontos:
-                logger.info(
-                    f"Main loop complete. Processing remaining {len(completed_queue)} projects for ontology resolution"
+                future_context = FutureContext(
+                    config=config,
+                    project_accession=current_backend.value.get_project_accession(project),
+                    backend=current_backend,
+                    increment_main_progress_bar=lambda: pbar.update(),
+                    increment_onto_progress_bar=lambda: onto_pbar.update(),
+                    onto_executor=onto_executor,
+                    future_holder=future_holder,
                 )
-                while len(completed_queue) > 0:
-                    # Submit up to ontology_workers at a time
-                    while len(completed_queue) > 0 and len(onto_futures) < ontology_workers:
-                        acc, backend = completed_queue.popleft()
-                        try:
-                            project_data = await backend.value.get_project(acc)
-                            fut_onto = onto_executor.submit(
-                                resolve_ontologies_for_project_sync, backend, project_data
-                            )
-                            onto_futures.add(fut_onto)
-                            onto_future_to_accession[fut_onto] = acc
-                        except Exception as e:
-                            logger.error(
-                                f"Failed to retrieve project {acc} for ontology processing: {e}"
-                            )
-                            ontology_errors += 1
+                if future_holder.count_of(MainWorkFuture) >= max_workers:
+                    future_holder.process_first_completed()
 
-                    # Wait for at least one to complete
-                    if len(onto_futures) > 0:
-                        done_onto, onto_futures = wait(onto_futures, return_when=FIRST_COMPLETED)
-                        for finished in done_onto:
-                            acc = onto_future_to_accession.pop(finished)
-                            try:
-                                finished.result()
-                                ontology_successful += 1
-                            except Exception as e:
-                                logger.error(f"Error resolving ontologies for {acc}: {e}")
-                                ontology_errors += 1
-                            finally:
-                                onto_pbar.update(1)
+                fut: Future[None] = main_executor.submit(
+                    build_project_sync, current_backend, project
+                )
+                future_wrapper = MainWorkFuture(fut, future_context)
+                future_holder.add(future_wrapper)
 
-                # Wait for final ontology futures
-                logger.info(f"Waiting for final {len(onto_futures)} ontology tasks to complete")
-                for finished in as_completed(onto_futures):
-                    acc = onto_future_to_accession.pop(finished)
-                    try:
-                        finished.result()
-                        ontology_successful += 1
-                    except Exception as e:
-                        logger.error(f"Error resolving ontologies for {acc}: {e}")
-                        ontology_errors += 1
-                    finally:
-                        onto_pbar.update(1)
-
+            logger.info(
+                f"All projects submitted to workers: Waiting for the remaining {future_holder.count_of(MainWorkFuture)} projects to complete"
+            )
+            future_holder.process_all_completed()
         pbar.close()
         onto_pbar.close()
-
-    logger.info(
-        f"Build complete: {total_successful} successful, {total_errors} failed. "
-        f"Ontologies: {ontology_successful} successful, {ontology_errors} failed"
-    )

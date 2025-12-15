@@ -161,12 +161,9 @@ class PrideBackend(BaseBackend):
                         )
                         continue
 
-                    # Convert FTP URL to HTTP URL
-                    http_link = cls._convert_ftp_to_http(ftp_link)
-
                     file = FileMetadata(
                         {
-                            "filepath": http_link,
+                            "filepath": ftp_link,
                             "category": category,
                             "file_size": file_info.get("fileSizeBytes"),
                         }
@@ -191,7 +188,7 @@ class PrideBackend(BaseBackend):
 
     @classmethod
     async def _parse_and_add_cv_params(
-        cls, project_accession: str, session: Session, project_data: dict
+        cls, project_accession: str, session: Session, backend: type[BaseBackend]
     ) -> None:
         ontology_helper = OntologyHelper()
 
@@ -205,6 +202,8 @@ class PrideBackend(BaseBackend):
             "diseases",
             "identifiedPTMStrings",
         ]
+
+        project_data = await backend.get_project(project_accession)
 
         async with CVInjector(project_accession, session) as injector:
             for json_key in cv_data_keys:
@@ -298,4 +297,4 @@ class PrideBackend(BaseBackend):
         # Skip ontologies if NO_ONTOLOGY is set or if we're in main build phase of multiprocessing
         # (ontologies will be resolved in separate pass)
         if not os.getenv("NO_ONTOLOGY") and not os.getenv("IS_IN_MULTIPROCESSING_MODE"):
-            await cls._parse_and_add_cv_params(project.accession, session, project_data)
+            logger.warning("Getting ontos in single processing mode is currently not supported.")
