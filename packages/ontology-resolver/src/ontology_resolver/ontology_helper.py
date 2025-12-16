@@ -42,6 +42,10 @@ class OntologyHelper(metaclass=OntologyHelperSingletonMeta):
     def build_accession(self, cv_prefix: str, number: str) -> str:
         return f"{cv_prefix}:{number}"
 
+    def sanitize_accession(self, accession: str) -> str:
+        cv_prefix, number = self.parse_accession(accession)
+        return self.build_accession(cv_prefix, number)
+
     async def get_ontology(self, onto: str) -> Ontology:
         if onto in self.ontologies:
             return self.ontologies[onto]

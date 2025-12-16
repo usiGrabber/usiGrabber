@@ -15,7 +15,7 @@ from usigrabber.db.schema import ProjectAffiliation, ProjectOtherOmicsLink
 from usigrabber.utils import get_cache_dir, logger, parse_date
 
 
-def parse_cv_param(cv_data: dict) -> CVParam | None:
+def parse_cv_param(cv_data: dict, ontology_helper: OntologyHelper) -> CVParam | None:
     """Parse and validate a CV parameter from PRIDE project data.
 
     Args:
@@ -29,11 +29,13 @@ def parse_cv_param(cv_data: dict) -> CVParam | None:
         logger.error(f"Pride CV Param accession is malformed: {cv_data}")
         return None
 
+    cv_accession = ontology_helper.sanitize_accession(cv_accession)
+
     cv_value = cv_data.get("value")
     return CVParam(accession=cv_accession, value=cv_value)
 
 
-def parse_cv_tuple(cv_data: dict) -> CVTuple | None:
+def parse_cv_tuple(cv_data: dict, ontology_helper: OntologyHelper) -> CVTuple | None:
     """Parse and validate a CV tuple from PRIDE project data.
 
     Args:
@@ -49,16 +51,20 @@ def parse_cv_tuple(cv_data: dict) -> CVTuple | None:
         logger.warning(f"Pride CV Tuple (value) is malformed: {cv_data}")
         return None
 
-    if "accession" not in cv_data["key"]:
-        logger.warning(f"Pride CV Tuple key missing accession: {cv_data}")
-        return None
-    if "accession" not in cv_data["value"]:
-        logger.warning(f"Pride CV Tuple value missing accession: {cv_data}")
+    if "accession" not in cv_data["key"] or not isinstance(cv_data["key"]["accession"], str):
+        logger.warning(f"Pride CV Tuple (key.accession) is missing or malformed: {cv_data}")
         return None
 
-    key = CVParam(accession=cv_data["key"]["accession"], value=cv_data["key"].get("value"))
+    if "accession" not in cv_data["value"] or not isinstance(cv_data["value"]["accession"], str):
+        logger.warning(f"Pride CV Tuple (value.accession) is missing or malformed: {cv_data}")
+        return None
+
+    key = CVParam(
+        accession=ontology_helper.sanitize_accession(cv_data["key"]["accession"]),
+        value=cv_data["key"].get("value"),
+    )
     value = CVParam(
-        accession=cv_data["value"]["accession"],
+        accession=ontology_helper.sanitize_accession(cv_data["value"]["accession"]),
         value=cv_data["value"].get("value"),
     )
 
@@ -176,13 +182,13 @@ class PrideBackend(BaseBackend):
             for json_key in cv_data_keys:
                 for cv_data in project_data.get(json_key, []):
                     if cv_data.get("@type") == "Tuple":
-                        cv_tuple = parse_cv_tuple(cv_data)
+                        cv_tuple = parse_cv_tuple(cv_data, ontology_helper)
                         if cv_tuple is None:
                             continue
                         await injector.add(cv_tuple)
 
                     elif cv_data.get("@type") == "CvParam":
-                        cv_param = parse_cv_param(cv_data)
+                        cv_param = parse_cv_param(cv_data, ontology_helper)
                         if cv_param is None:
                             continue
                         await injector.add(cv_param)
