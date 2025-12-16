@@ -8,8 +8,8 @@ from typing import Annotated, Any
 
 import typer
 from pydantic import BaseModel
+from sqlalchemy import Engine, inspect
 from sqlalchemy import exc as sa_exc
-from sqlalchemy import inspect
 from sqlmodel import Session, select
 
 from usigrabber.backends import BackendEnum
@@ -135,11 +135,14 @@ def build(
         existing_accessions: set[str] = set(session.exec(statement).all())
         logger.info(f"Found {len(existing_accessions)} existing projects.")
 
-    asyncio.run(build_all_projects(backends, config, existing_accessions))
+    asyncio.run(build_all_projects(backends, config, existing_accessions, db_engine))
 
 
 async def build_all_projects(
-    backends: list[BackendEnum], config: BuildConfiguration, existing_accessions: set[str]
+    backends: list[BackendEnum],
+    config: BuildConfiguration,
+    existing_accessions: set[str],
+    engine: Engine,
 ):
     from usigrabber.parallelism.main import (
         build_all_projects_in_process_pool,
@@ -147,14 +150,15 @@ async def build_all_projects(
     )
 
     if config.max_workers == 1:
-        await build_all_projects_in_single_process(backends, config, existing_accessions)
+        await build_all_projects_in_single_process(
+            backends, config, existing_accessions, engine=engine
+        )
     else:
         await build_all_projects_in_process_pool(backends, config, existing_accessions)
 
 
 async def build_project(
-    backend_enum: BackendEnum,
-    project: dict[str, Any],
+    backend_enum: BackendEnum, project: dict[str, Any], db_engine: None | Engine = None
 ) -> None:
     """Build USI database."""
     from usigrabber.parallelism.main import db_engine as worker_db_engine
@@ -171,7 +175,14 @@ async def build_project(
     )
 
     # Use worker db_engine if available (multiprocessing), otherwise load a new one
-    engine = worker_db_engine if worker_db_engine is not None else load_db_engine()
+    if db_engine:
+        engine = db_engine
+    elif worker_db_engine is not None:
+        engine = worker_db_engine
+    else:
+        raise ValueError(
+            "DB engine must be passed in single process mode or loaded per individual worker with the ProcessPool"
+        )
 
     with Session(engine) as session:
         await backend.dump_project_to_db(session, project)

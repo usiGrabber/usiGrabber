@@ -12,6 +12,7 @@ from concurrent.futures import (
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
+from sqlalchemy import Engine
 from tqdm import tqdm
 from tqdm.contrib.logging import logging_redirect_tqdm
 
@@ -71,13 +72,16 @@ async def iterate_projects(
 
 
 async def build_all_projects_in_single_process(
-    backends: list[BackendEnum], config: "BuildConfiguration", existing_accessions: set[str]
+    backends: list[BackendEnum],
+    config: "BuildConfiguration",
+    existing_accessions: set[str],
+    engine: Engine,
 ) -> None:
     from usigrabber.cli.build import build_project
 
     async for project, backend in iterate_projects(backends, existing_accessions):
         try:
-            await build_project(backend, project)
+            await build_project(backend, project, engine)
         except Exception as e:
             logger.error(
                 f"Error building project {project['accession']}: {e}",

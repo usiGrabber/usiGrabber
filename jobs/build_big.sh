@@ -4,6 +4,6 @@
 #SBATCH --partition=cpu-batch
 #SBATCH --cpus-per-task=16 # -c
 #SBATCH --mem=128gb
-#SBATCH --time=02:00:00
+#SBATCH --time=48:00:00
 
-uv run usigrabber build --reset --max-workers 16 --ontology-workers 1
+uv run usigrabber build --reset --max-workers 8 --ontology-workers 2
