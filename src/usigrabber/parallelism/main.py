@@ -218,7 +218,7 @@ async def build_all_projects_in_process_pool(
     # Set environment variable to skip ontologies in main build phase
     os.environ["IS_IN_MULTIPROCESSING_MODE"] = "1"
 
-    max_workers = config.max_workers or multiprocessing.cpu_count()
+    max_workers = config.max_workers
     ontology_workers = config.ontologies.ontology_workers
 
     logger.info(f"Using {max_workers} workers for main build phase")
