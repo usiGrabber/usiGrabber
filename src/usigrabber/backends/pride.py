@@ -6,6 +6,7 @@ import ijson
 import requests
 from async_http_client import AsyncHttpClient
 from ontology_resolver.ontology_helper import OntologyHelper
+from sqlalchemy.engine import Engine
 from sqlmodel import Session
 
 from usigrabber.backends.base import BaseBackend, FileMetadata, Files
@@ -68,12 +69,43 @@ def parse_cv_tuple(cv_data: dict) -> CVTuple | None:
 class PrideBackend(BaseBackend):
     BASE_URL: str = "https://www.ebi.ac.uk/pride/ws/archive/v3"
 
+    @staticmethod
+    def _convert_ftp_to_http(ftp_url: str) -> str:
+        """Convert FTP URL to HTTP URL for PRIDE archive.
+
+        Converts from: ftp://ftp.pride.ebi.ac.uk/pride/data/archive/<year>/<month>/<accession>/<filename>
+        To: https://ftp.pride.ebi.ac.uk/pride/data/archive/<year>/<month>/<accession>/<filename>
+        """
+        if ftp_url.startswith("ftp://ftp.pride.ebi.ac.uk"):
+            return ftp_url.replace("ftp://", "https://", 1)
+        return ftp_url
+
     @classmethod
     def check_availability(cls, accession: str) -> bool:
         url = f"{cls.BASE_URL}/status/{accession}"
         with requests.get(url) as response:
             response.raise_for_status()
             return response.text == "PUBLIC"
+
+    @classmethod
+    def get_project_accession(cls, project: dict[str, Any]) -> str:
+        return project["accession"]
+
+    @classmethod
+    async def get_project(cls, project_accession: str) -> dict[str, Any]:
+        projects = cls.get_new_projects(existing_accessions=set())
+        total_searched_projects = 0
+        async for project in projects:
+            total_searched_projects += 1
+            if project["accession"] == project_accession:
+                return project
+        raise ValueError(
+            f"No project found for accession: {project_accession} in {total_searched_projects} projects"
+        )
+
+    @classmethod
+    def is_project_complete(cls, project: dict[str, Any]) -> bool:
+        return project.get("submissionType") == "COMPLETE"
 
     @classmethod
     async def get_new_projects(
@@ -157,7 +189,7 @@ class PrideBackend(BaseBackend):
 
     @classmethod
     async def _parse_and_add_cv_params(
-        cls, project_accession: str, session: Session, project_data: dict
+        cls, project_accession: str, engine: Engine, backend: type[BaseBackend]
     ) -> None:
         ontology_helper = OntologyHelper()
 
@@ -172,7 +204,9 @@ class PrideBackend(BaseBackend):
             "identifiedPTMStrings",
         ]
 
-        async with CVInjector(project_accession, session) as injector:
+        project_data = await backend.get_project(project_accession)
+
+        async with CVInjector(project_accession, engine) as injector:
             for json_key in cv_data_keys:
                 for cv_data in project_data.get(json_key, []):
                     if cv_data.get("@type") == "Tuple":
@@ -261,5 +295,7 @@ class PrideBackend(BaseBackend):
                 session.add(ProjectOtherOmicsLink(project_accession=project.accession, link=link))
 
         # 8. CV Params
-        if not os.getenv("NO_ONTOLOGY"):
-            await cls._parse_and_add_cv_params(project.accession, session, project_data)
+        # Skip ontologies if NO_ONTOLOGY is set or if we're in main build phase of multiprocessing
+        # (ontologies will be resolved in separate pass)
+        if not os.getenv("NO_ONTOLOGY") and not os.getenv("IS_IN_MULTIPROCESSING_MODE"):
+            logger.warning("Getting ontos in single processing mode is currently not supported.")
