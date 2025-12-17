@@ -130,8 +130,7 @@ def test_parse_psms_basic(
         pe_id_map,
     )
 
-    assert len(psm_batch) > 0
-    assert len(psm_batch) <= 25
+    assert len(psm_batch) == 17
     assert len(junction_batch) > len(pe_id_map)
     for psm in psm_batch:
         assert (
@@ -162,8 +161,7 @@ def test_parse_psms(
         pe_id_map,
     )
 
-    assert len(psm_batch) > 0
-    assert len(psm_batch) <= 2000
+    assert len(psm_batch) == 1640
     assert len(junction_batch) > len(pe_id_map)
     for psm in psm_batch:
         assert (

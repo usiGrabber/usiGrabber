@@ -15,6 +15,7 @@ from usigrabber.db.schema import (
     PeptideEvidence,
     PeptideSpectrumMatch,
     PSMPeptideEvidence,
+    SearchModification,
 )
 from usigrabber.file_parser.base import BaseFileParser, register_parser
 from usigrabber.file_parser.errors import MzidImportError, MzidParseError
@@ -90,6 +91,7 @@ class MzidFileParser(BaseFileParser):
                     peptide_evidence=peptide_evidence_batch,
                     psms=psm_batch,
                     psm_peptide_evidence_junctions=junction_batch,
+                    search_modifications=search_mod_batch,
                 )
 
                 logger.debug(f"Successfully parsed '{path.name}'")
@@ -136,6 +138,12 @@ class MzidFileParser(BaseFileParser):
                     stats.psm_count = len(parsed.psms)
                 if parsed.psm_peptide_evidence_junctions:
                     conn.execute(insert(PSMPeptideEvidence), parsed.psm_peptide_evidence_junctions)
+                if parsed.search_modifications:
+                    stmt = insert_func(SearchModification).on_conflict_do_nothing()
+                    conn.execute(
+                        stmt,
+                        parsed.search_modifications,
+                    )
             logger.debug(f"Successfully imported mzID data for file '{stats.file_name}'")
         except Exception as e:
             error_msg = f"Database import failed for file '{stats.file_name}': {e}"

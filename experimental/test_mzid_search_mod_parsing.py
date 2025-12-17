@@ -7,6 +7,7 @@ from usigrabber.file_parser import import_file
 mzid_dir = "./data/mzids/"
 
 engine = load_db_engine()
+
 for filename in os.listdir(mzid_dir):
     if filename.endswith(".mzid"):
         filepath = os.path.join(mzid_dir, filename)
