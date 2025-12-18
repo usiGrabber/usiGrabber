@@ -10,6 +10,7 @@ from pyteomics import mzid
 
 from usigrabber.db.schema import IndexType, MzidFile
 from usigrabber.file_parser.helpers import (
+    create_search_mod_log_str,
     extract_index_type_and_number,
     extract_score_values,
     extract_unimod_id_or_name,
@@ -459,6 +460,9 @@ def parse_psms(
         protocol_search_mods_map[sip.get("id", "")] = [
             unimod_id for unimod_id in unimod_id_list if unimod_id is not None
         ]
+    search_mod_counts = set[int]()
+    for mods in protocol_search_mods_map.values():
+        search_mod_counts.add(len(mods))
 
     for sil in reader.iterfind("SpectrumIdentificationList"):
         for sir in sil.get("SpectrumIdentificationResult", []):
@@ -542,17 +546,7 @@ def parse_psms(
                         junction_batch.append(junction_dict)
 
     logger.debug(f"Parsed {len(psm_batch)} PSMs and {len(junction_batch)} junctions")
-
-    search_mod_counts = set[int]()
-    for mods in protocol_search_mods_map.values():
-        search_mod_counts.add(len(mods))
-    search_mod_counts = sorted(search_mod_counts)
-    search_mod_count_str: str = "N.A."
-    if len(search_mod_counts) == 0:
-        search_mod_count_str = "0"
-    elif len(search_mod_counts) == 1:
-        search_mod_count_str = str(search_mod_counts[0])
-    else:
-        search_mod_count_str = "/".join(str(count) for count in search_mod_counts)
-    logger.debug(f"Each PSM is linked to {search_mod_count_str} search modification(s)")
+    logger.debug(
+        f"Each PSM is linked to {create_search_mod_log_str(search_mod_counts)} search modification(s)"
+    )
     return psm_batch, junction_batch, search_mod_batch

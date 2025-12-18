@@ -7,6 +7,7 @@ from usigrabber.db.engine import logger
 from usigrabber.db.schema import IndexType
 from usigrabber.file_parser.helpers import (
     clean_mod_list_of_numbers,
+    create_search_mod_log_str,
     extract_mods,
     simple_mod_name,
 )
@@ -354,14 +355,7 @@ def parse_psms(
             junction_batch.append(junction)
 
     logger.debug(f"Parsed {len(psm_batch)} PSMs and {len(junction_batch)} junctions")
-
-    search_mod_counts = sorted(search_mod_counts)
-    search_mod_count_str: str = "N.A."
-    if len(search_mod_counts) == 0:
-        search_mod_count_str = "0"
-    elif len(search_mod_counts) == 1:
-        search_mod_count_str = str(search_mod_counts[0])
-    else:
-        search_mod_count_str = "/".join(str(count) for count in search_mod_counts)
-    logger.debug(f"Each PSM is linked to {search_mod_count_str} search modification(s)")
+    logger.debug(
+        f"Each PSM is linked to {create_search_mod_log_str(search_mod_counts)} search modification(s)"
+    )
     return psm_batch, junction_batch, search_mod_batch

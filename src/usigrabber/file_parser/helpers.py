@@ -494,3 +494,15 @@ def get_db_insert_function(
 
     # Select appropriate insert function based on database type
     return pg_insert if db_dialect == "postgresql" else sqlite_insert
+
+
+def create_search_mod_log_str(search_mod_counts: set[int]) -> str:
+    sorted_search_mod_counts = sorted(search_mod_counts)
+    search_mod_count_str: str = "N.A."
+    if len(search_mod_counts) == 0:
+        search_mod_count_str = "0"
+    elif len(search_mod_counts) == 1:
+        search_mod_count_str = str(sorted_search_mod_counts[0])
+    else:
+        search_mod_count_str = "/".join(str(count) for count in sorted_search_mod_counts)
+    return search_mod_count_str

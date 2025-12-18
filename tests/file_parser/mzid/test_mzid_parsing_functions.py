@@ -2,15 +2,12 @@
 Unit tests for individual mzID parsing functions.
 """
 
-from uuid import uuid4
-
 from usigrabber.db.schema import IndexType
 from usigrabber.file_parser.mzid.parsing_functions import (
     parse_db_sequences,
     parse_mzid_metadata,
     parse_peptide_evidence,
     parse_peptides_and_modifications,
-    parse_psms,
     parse_software_info,
     parse_spectra_data,
     parse_threshold_info,
@@ -226,35 +223,3 @@ def test_parse_spectra_data(full_mzid_path) -> None:
     ms_run_name, spectrum_id_format = spectra_data["SD_1"]
     assert ms_run_name == "OTE0019_York_060813_JH16"
     assert spectrum_id_format == IndexType.index
-
-
-# ============================================================================
-# Tests for PSM Parsing
-# ============================================================================
-
-
-def test_parse_psms(full_mzid_path, full_mzid_reader):
-    """Test parsing PSMs from a real mzID file."""
-    spectra_data_map = parse_spectra_data(full_mzid_path)
-    db_seq_map = parse_db_sequences(full_mzid_reader)
-    peptide_id_map, _, _, _ = parse_peptides_and_modifications(full_mzid_reader)
-    pe_id_map, _ = parse_peptide_evidence(full_mzid_reader, db_seq_map)
-
-    psm_batch, junction_batch, search_mod_batch = parse_psms(
-        full_mzid_reader,
-        "Test_Project",
-        uuid4(),
-        peptide_id_map,
-        pe_id_map,
-        spectra_data_map,
-    )
-
-    assert len(psm_batch) == 695
-    assert len(junction_batch) >= len(pe_id_map)
-    for psm in psm_batch:
-        assert (
-            len(
-                [search_mod for search_mod in search_mod_batch if search_mod["psm_id"] == psm["id"]]
-            )
-            == 5
-        )

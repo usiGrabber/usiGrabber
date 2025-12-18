@@ -25,6 +25,7 @@ def test_mzid_parser_with_full_file(full_mzid_path):
     peptide_evidence = parsed_data.peptide_evidence
     psms = parsed_data.psms
     psm_peptide_evidence_junctions = parsed_data.psm_peptide_evidence_junctions
+    search_mods = parsed_data.search_modifications
 
     # =========================================================================
     # Test Peptides (with deduplication)
@@ -66,6 +67,10 @@ def test_mzid_parser_with_full_file(full_mzid_path):
         assert psm["mzid_file_id"] == mzid_file.id
         assert psm["modified_peptide_id"] is not None
         assert psm["spectrum_id"] is not None, "PSM should have spectrum ID"
+        assert (
+            len([search_mod for search_mod in search_mods if search_mod["psm_id"] == psm["id"]])
+            == 5
+        )
 
     # Verify specific PSM exists
     # SII_30_6: spectrum "index=1528", peptide ELLTK
