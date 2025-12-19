@@ -2,9 +2,10 @@
 CLI command for USI validation.
 
 Validates USI strings for peptide spectrum matches by sampling PSMs from each
-mzID file and checking against the PRIDE backend.
+mzID file and checking against available backends.
 """
 
+import asyncio
 from pathlib import Path
 from typing import Annotated
 
@@ -13,7 +14,7 @@ from rich.console import Console
 from rich.table import Table
 from sqlmodel import Session, func, select
 
-from usigrabber.backends.pride import PrideBackend
+from usigrabber.backends.project_exchange import ProjectExchange
 from usigrabber.cli import app
 from usigrabber.db import load_db_engine
 from usigrabber.db.schema import MzidFile, PeptideSpectrumMatch
@@ -148,9 +149,29 @@ def validate_usi(
                 files_processed += 1
                 continue
 
+            # Find which backends have this project
+            available_backends = asyncio.run(
+                ProjectExchange.get_backends_for_project(mzid_file.project_accession)
+            )
+
+            if not available_backends:
+                console.print(
+                    f"⚠️  Skipping {mzid_file.file_name}: project {mzid_file.project_accession} not found in any backend",
+                    style="yellow",
+                )
+                continue
+
+            # Use the first available backend for validation
+            backend_enum = available_backends[0]
+            backend_class = backend_enum.value
+            console.print(
+                f"  Using {backend_enum.name} backend for validation",
+                style="dim",
+            )
+
             # Validate batch
             validation_results = validate_psms_batch(
-                psms_to_validate, PrideBackend, requests_per_second
+                psms_to_validate, backend_class, requests_per_second
             )
 
             # Update database - modify PSMs that are already tracked by the session

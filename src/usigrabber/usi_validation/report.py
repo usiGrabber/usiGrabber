@@ -190,7 +190,7 @@ def generate_report(
         else:
             project_stats.psms_invalid += 1
 
-    # Calculate success rates
+    # Calculate success rates and sort
     for project_stats in project_map.values():
         if project_stats.psms_validated > 0:
             project_stats.success_rate = project_stats.psms_valid / project_stats.psms_validated
@@ -198,6 +198,12 @@ def generate_report(
         for mzid_stats in project_stats.mzid_files:
             if mzid_stats.psms_validated > 0:
                 mzid_stats.success_rate = mzid_stats.psms_valid / mzid_stats.psms_validated
+
+        # Sort mzID files within project: failed mzID files first (by number of failures)
+        project_stats.mzid_files.sort(key=lambda mf: mf.psms_invalid, reverse=True)
+
+    # Sort projects: failed projects first (by number of failures)
+    sorted_projects = sorted(project_map.values(), key=lambda p: p.psms_invalid, reverse=True)
 
     # Build summary
     total_validated = sum(p.psms_validated for p in project_map.values())
@@ -220,9 +226,7 @@ def generate_report(
         "success_rate": round(success_rate, 4),
     }
 
-    report = ValidationReport(
-        metadata=metadata, summary=summary, projects=list(project_map.values())
-    )
+    report = ValidationReport(metadata=metadata, summary=summary, projects=sorted_projects)
 
     logger.info(
         f"Report generated: {total_validated} PSMs validated, "
