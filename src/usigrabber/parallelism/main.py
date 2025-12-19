@@ -3,12 +3,7 @@ import multiprocessing
 import os
 from collections import deque
 from collections.abc import AsyncGenerator, Callable
-from concurrent.futures import (
-    FIRST_COMPLETED,
-    Future,
-    ProcessPoolExecutor,
-    wait,
-)
+from concurrent.futures import FIRST_COMPLETED, Future, ProcessPoolExecutor, wait
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
@@ -18,7 +13,7 @@ from tqdm.contrib.logging import logging_redirect_tqdm
 
 from usigrabber.backends import BackendEnum
 from usigrabber.db.engine import load_db_engine
-from usigrabber.utils.setup import system_setup
+from usigrabber.utils.setup import setup_logger
 
 db_engine = None  # This is loaded once per worker
 ontology_helper = None  # This is loaded once per ontology worker
@@ -33,7 +28,7 @@ mp_context = multiprocessing.get_context("spawn")
 
 def init_worker() -> None:
     global db_engine
-    system_setup(is_main_process=False)
+    setup_logger(is_main_process=False)
     # Dispose of any existing engine from parent process
     if db_engine is not None:
         db_engine.dispose()
@@ -48,7 +43,7 @@ def init_ontology_worker() -> None:
     from ontology_resolver.ontology_helper import OntologyHelper
 
     logger.info(f"Ontology worker {os.getpid()} is starting")
-    system_setup(is_main_process=False)
+    setup_logger(is_main_process=False)
     # Dispose of any existing engine from parent process
     if db_engine is not None:
         db_engine.dispose()
