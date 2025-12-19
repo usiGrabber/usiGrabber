@@ -26,6 +26,8 @@ dependencies = [
     "better-exceptions>=0.3.3",
     "cachetools>=6.2.2",
     "tenacity>=9.1.2",
+    "matplotlib>=3.10.8",
+    "anytree>=2.13.0",
 ]
 
 [project.scripts]
