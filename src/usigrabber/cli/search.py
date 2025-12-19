@@ -3,6 +3,7 @@ from typing import Annotated
 import typer
 
 from usigrabber.cli import app
+from usigrabber.utils.setup import setup_logger
 
 
 @app.command()
@@ -16,6 +17,8 @@ def search(
     ] = None,
 ) -> None:
     """Search USI database with SQL query."""
+
+    setup_logger(is_main_process=True)
 
     if sql_string:
         pass

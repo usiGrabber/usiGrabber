@@ -19,10 +19,8 @@ from usigrabber.db.cli import reset as db_reset
 from usigrabber.db.schema import Project
 from usigrabber.file_parser import import_files
 from usigrabber.utils import get_cache_dir
-from usigrabber.utils.file import (
-    get_interesting_files,
-    temporary_path,
-)
+from usigrabber.utils.file import get_interesting_files, temporary_path
+from usigrabber.utils.setup import setup_logger
 
 FILE_CATEGORIES = ["result", "search", "other"]
 
@@ -93,6 +91,8 @@ def build(
     ] = CACHE_DIR,
     max_workers: int | None = 1,
 ):
+    setup_logger(is_main_process=True)
+
     if os.name == "nt":
         raise RuntimeError(
             "Windows is not supported. This application requires the 'sed' command-line utility, "
