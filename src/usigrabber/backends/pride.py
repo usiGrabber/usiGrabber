@@ -11,6 +11,7 @@ from sqlmodel import Session
 
 from usigrabber.backends.base import BaseBackend, FileMetadata, Files
 from usigrabber.cv_parameters.cv_engine import CVInjector, CVParam, CVTuple
+from usigrabber.cv_parameters.instrument_cleaner import clean_instruments
 from usigrabber.db import Project, ProjectCountry, ProjectKeyword, ProjectTag, Reference
 from usigrabber.db.schema import ProjectAffiliation, ProjectOtherOmicsLink
 from usigrabber.utils import get_cache_dir, logger, parse_date
@@ -211,6 +212,12 @@ class PrideBackend(BaseBackend):
         ]
 
         project_data = await backend.get_project(project_accession)
+
+        # Clean instrument data to handle MS:1000031 cases
+        if "instruments" in project_data:
+            project_data["instruments"] = await clean_instruments(
+                project_data.get("instruments", [])
+            )
 
         async with CVInjector(project_accession, engine) as injector:
             for json_key in cv_data_keys:
