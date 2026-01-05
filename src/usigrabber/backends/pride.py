@@ -129,6 +129,9 @@ class PrideBackend(BaseBackend):
             if is_debug:
                 raise FileNotFoundError(f"Debug projects file: {file_path} not found.")
 
+            # Ensure parent directory exists
+            file_path.parent.mkdir(parents=True, exist_ok=True)
+
             url = f"{cls.BASE_URL}/projects/all"
 
             async with AsyncHttpClient() as client:

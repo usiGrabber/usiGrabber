@@ -41,7 +41,7 @@ def main():
             return
         usi = (
             f"mzspec:{psm.project.accession}:{psm.ms_run}:"
-            + "{psm.index_type.value}:{psm.index_number}:{psm.peptide.sequence}/{psm.charge_state}"
+            f"{psm.index_type.value}:{psm.index_number}:{psm.modified_peptide.peptide_sequence}/{psm.charge_state}"
         )
 
         print("Retrieving spectrum for USI:", usi)
