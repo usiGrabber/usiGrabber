@@ -12,7 +12,6 @@ from usigrabber.cv_parameters.instrument_cleaner import (
     _normalize_for_fuzzy_match,
     _normalize_name,
     clean_instruments,
-    clean_instruments_sync,
 )
 
 # Path to mini ontology fixture for testing
@@ -135,10 +134,10 @@ class TestFindMatchingSpecificInstrument:
         assert result is None
 
 
-class TestCleanInstrumentsSync:
-    """Tests for synchronous instrument cleaning (Case 1 only - duplicates)."""
+class TestCleanInstruments:
+    """Tests for instrument cleaning."""
 
-    def test_removes_duplicate_generic_entry(self):
+    def test_removes_duplicate_generic_entry(self, resolver: InstrumentNameResolver):
         """When specific instrument and matching MS:1000031 exist, remove the generic."""
         instruments = [
             {
@@ -156,98 +155,22 @@ class TestCleanInstrumentsSync:
             },
         ]
 
-        result = clean_instruments_sync(instruments)
+        result = run_async(clean_instruments(instruments, resolver=resolver))
 
         assert len(result) == 1
         assert result[0]["accession"] == "MS:1000449"
 
-    def test_removes_duplicate_case_insensitive(self):
+    def test_removes_duplicate_case_insensitive(self, resolver: InstrumentNameResolver):
         """Duplicate detection should be case-insensitive."""
         instruments = [
             {"accession": "MS:1000449", "name": "LTQ Orbitrap"},
             {"accession": "MS:1000031", "name": "instrument model", "value": "ltq orbitrap"},
         ]
 
-        result = clean_instruments_sync(instruments)
-
-        assert len(result) == 1
-        assert result[0]["accession"] == "MS:1000449"
-
-    def test_keeps_generic_when_no_duplicate(self):
-        """When no matching specific instrument, keep the generic entry."""
-        instruments = [
-            {"accession": "MS:1000031", "name": "instrument model", "value": "Unknown Instrument"},
-        ]
-
-        result = clean_instruments_sync(instruments)
-
-        assert len(result) == 1
-        assert result[0]["accession"] == "MS:1000031"
-        assert result[0]["value"] == "Unknown Instrument"
-
-    def test_keeps_generic_without_value(self):
-        """Generic entry without value should be kept."""
-        instruments = [
-            {"accession": "MS:1000031", "name": "instrument model"},
-        ]
-
-        result = clean_instruments_sync(instruments)
-
-        assert len(result) == 1
-        assert result[0]["accession"] == "MS:1000031"
-
-    def test_handles_empty_list(self):
-        assert clean_instruments_sync([]) == []
-
-    def test_preserves_order_of_specific_instruments(self):
-        """Specific instruments should maintain their order."""
-        instruments = [
-            {"accession": "MS:1000449", "name": "LTQ Orbitrap"},
-            {"accession": "MS:1001910", "name": "Orbitrap Elite"},
-            {"accession": "MS:1000031", "name": "instrument model", "value": "LTQ Orbitrap"},
-        ]
-
-        result = clean_instruments_sync(instruments)
-
-        assert len(result) == 2
-        assert result[0]["accession"] == "MS:1000449"
-        assert result[1]["accession"] == "MS:1001910"
-
-    def test_multiple_generic_entries(self):
-        """Handle multiple MS:1000031 entries correctly."""
-        instruments = [
-            {"accession": "MS:1000449", "name": "LTQ Orbitrap"},
-            {"accession": "MS:1000031", "name": "instrument model", "value": "LTQ Orbitrap"},
-            {"accession": "MS:1000031", "name": "instrument model", "value": "Unknown Device"},
-        ]
-
-        result = clean_instruments_sync(instruments)
-
-        # First generic should be removed (duplicate), second should be kept
-        assert len(result) == 2
-        assert result[0]["accession"] == "MS:1000449"
-        assert result[1]["accession"] == "MS:1000031"
-        assert result[1]["value"] == "Unknown Device"
-
-
-class TestCleanInstrumentsAsync:
-    """Tests for async instrument cleaning (includes Case 2 - resolution)."""
-
-    def test_removes_duplicate_generic_entry(self, resolver: InstrumentNameResolver):
-        """Same as sync version - removes duplicates."""
-        instruments = [
-            {"accession": "MS:1000449", "name": "LTQ Orbitrap"},
-            {"accession": "MS:1000031", "name": "instrument model", "value": "LTQ Orbitrap"},
-        ]
-
         result = run_async(clean_instruments(instruments, resolver=resolver))
 
         assert len(result) == 1
         assert result[0]["accession"] == "MS:1000449"
-
-    def test_handles_empty_list(self, resolver: InstrumentNameResolver):
-        result = run_async(clean_instruments([], resolver=resolver))
-        assert result == []
 
     def test_resolves_known_instrument(self, resolver: InstrumentNameResolver):
         """When MS:1000031 has a known instrument name, resolve it."""
@@ -278,6 +201,51 @@ class TestCleanInstrumentsAsync:
         assert len(result) == 1
         assert result[0]["accession"] == "MS:1000031"
         assert result[0]["value"] == "Completely Made Up Instrument XYZ123"
+
+    def test_keeps_generic_without_value(self, resolver: InstrumentNameResolver):
+        """Generic entry without value should be kept."""
+        instruments = [
+            {"accession": "MS:1000031", "name": "instrument model"},
+        ]
+
+        result = run_async(clean_instruments(instruments, resolver=resolver))
+
+        assert len(result) == 1
+        assert result[0]["accession"] == "MS:1000031"
+
+    def test_handles_empty_list(self, resolver: InstrumentNameResolver):
+        result = run_async(clean_instruments([], resolver=resolver))
+        assert result == []
+
+    def test_preserves_order_of_specific_instruments(self, resolver: InstrumentNameResolver):
+        """Specific instruments should maintain their order."""
+        instruments = [
+            {"accession": "MS:1000449", "name": "LTQ Orbitrap"},
+            {"accession": "MS:1001910", "name": "Orbitrap Elite"},
+            {"accession": "MS:1000031", "name": "instrument model", "value": "LTQ Orbitrap"},
+        ]
+
+        result = run_async(clean_instruments(instruments, resolver=resolver))
+
+        assert len(result) == 2
+        assert result[0]["accession"] == "MS:1000449"
+        assert result[1]["accession"] == "MS:1001910"
+
+    def test_multiple_generic_entries(self, resolver: InstrumentNameResolver):
+        """Handle multiple MS:1000031 entries correctly."""
+        instruments = [
+            {"accession": "MS:1000449", "name": "LTQ Orbitrap"},
+            {"accession": "MS:1000031", "name": "instrument model", "value": "LTQ Orbitrap"},
+            {"accession": "MS:1000031", "name": "instrument model", "value": "Unknown Device"},
+        ]
+
+        result = run_async(clean_instruments(instruments, resolver=resolver))
+
+        # First generic should be removed (duplicate), second kept but unresolved
+        assert len(result) == 2
+        assert result[0]["accession"] == "MS:1000449"
+        assert result[1]["accession"] == "MS:1000031"
+        assert result[1]["value"] == "Unknown Device"
 
 
 class TestInstrumentNameResolver:
@@ -361,29 +329,18 @@ class TestRealWorldExamples:
     - MS:1000031 with value "Q-Tof Global Ultima (Waters)"
     """
 
-    def test_example_with_duplicate_ltq(self):
+    def test_example_with_duplicate_ltq(self, resolver: InstrumentNameResolver):
         """Example: Both LTQ specific term and MS:1000031 with value 'LTQ'"""
         instruments = [
             {"accession": "MS:1000447", "name": "LTQ"},
             {"accession": "MS:1000031", "name": "instrument model", "value": "LTQ"},
         ]
 
-        result = clean_instruments_sync(instruments)
+        result = run_async(clean_instruments(instruments, resolver=resolver))
 
         # Should remove the duplicate
         assert len(result) == 1
         assert result[0]["accession"] == "MS:1000447"
-
-    def test_sync_keeps_unresolvable_instruments(self):
-        """Sync version keeps instruments it cannot resolve."""
-        instruments = [
-            {"accession": "MS:1000031", "name": "instrument model", "value": "Esquire HCT"},
-        ]
-
-        result = clean_instruments_sync(instruments)
-        # Sync cannot resolve, so keeps original
-        assert len(result) == 1
-        assert result[0]["accession"] == "MS:1000031"
 
     def test_resolve_ltq(self, resolver: InstrumentNameResolver):
         """Resolve 'LTQ' to MS:1000447 via ontology."""
