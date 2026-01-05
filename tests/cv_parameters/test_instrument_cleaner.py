@@ -203,15 +203,14 @@ class TestCleanInstruments:
         assert result[0]["value"] == "Completely Made Up Instrument XYZ123"
 
     def test_keeps_generic_without_value(self, resolver: InstrumentNameResolver):
-        """Generic entry without value should be kept."""
+        """Generic entry without value should not be kept."""
         instruments = [
             {"accession": "MS:1000031", "name": "instrument model"},
         ]
 
         result = run_async(clean_instruments(instruments, resolver=resolver))
 
-        assert len(result) == 1
-        assert result[0]["accession"] == "MS:1000031"
+        assert len(result) == 0
 
     def test_handles_empty_list(self, resolver: InstrumentNameResolver):
         result = run_async(clean_instruments([], resolver=resolver))
