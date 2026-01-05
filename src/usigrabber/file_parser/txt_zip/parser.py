@@ -2,7 +2,7 @@ import logging
 from pathlib import Path
 
 import pandas as pd
-from pandas.core.frame import DataFrame
+from pandas import DataFrame
 from sqlalchemy import insert
 from sqlalchemy.engine import Engine
 
