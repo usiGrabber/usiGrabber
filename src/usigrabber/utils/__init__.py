@@ -71,3 +71,24 @@ def parse_date(date_str: str | None) -> date | None:
         return dt.date()
     except (ValueError, AttributeError):
         return None
+
+
+def get_filetype_allowlist() -> set[str]:
+    """
+    Get the set of allowed file extensions for download from environment variable.
+
+    Returns:
+        Set of allowed file extensions
+    """
+    allowlist = set[str]()
+
+    for type in os.getenv("FILETYPE_ALLOWLIST", "mzid").split(","):
+        type = type.replace(".", "").replace(" ", "")
+        if type.lower() == "mzid":
+            allowlist.add(".mzid")
+        elif type.lower() == "mztab":
+            allowlist.add(".mzTab")
+        elif type.lower() == "txt":
+            allowlist.add(".txt")
+            allowlist.add("")
+    return allowlist
