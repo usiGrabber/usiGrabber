@@ -2,7 +2,7 @@ services:
   db:
     image: postgres:18
     container_name: usigrabber_db
-    restart: "unless-stopped"
+    restart: unless-stopped
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-usigrabber}
       POSTGRES_USER: ${POSTGRES_USER}
@@ -10,12 +10,31 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - usigrabber_pgdata:/var/lib/postgresql
+      - usigrabber_helix_pgdata:/var/lib/postgresql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
       interval: 10s
       timeout: 5s
       retries: 5
+    command:
+      - "postgres"
+      - "-c"
+      - "synchronous_commit=off"
+      - "-c"
+      - "wal_compression=on"
+      - "-c"
+      - "max_wal_size=16GB"
+      - "-c"
+      - "shared_buffers=18GB"
+      - "-c"
+      - "work_mem=128MB"
+      - "-c"
+      - "maintenance_work_mem=2GB"
 
 volumes:
-  usigrabber_pgdata:
+  usigrabber_helix_pgdata:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /mnt/helix/postgres
