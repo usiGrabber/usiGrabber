@@ -230,8 +230,7 @@ async def clean_instruments(
         value = generic.get("value")
 
         if not value:
-            # No value, keep as-is (unusual but possible)
-            cleaned.append(generic)
+            # No value. Throw this out because it overs no value
             continue
 
         # Check if there's already a specific instrument with matching name
