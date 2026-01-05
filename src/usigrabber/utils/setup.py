@@ -6,26 +6,22 @@ import sys
 from logging import FileHandler
 from pathlib import Path
 
-from dotenv import load_dotenv
-
 from usigrabber.utils import get_cache_dir
 
 
-def system_setup(is_main_process: bool, logger_name: str | None = None):
+def setup_logger(is_main_process: bool, logger_name: str | None = None):
     """
-    - Setups logger
-    - Loads env variables
+    Set up custom logger.
 
-    If you use "" for the logger_name we configure the root logger and
-    every log message will be formatted.
-
-    If you only want to format our logs, use "usigrabber" as the name.
+    :param is_main_process: Whether this is the main process.
+    :param logger_name: Name of the logger to configure.
+        If left to None, the root logger is used and
+        every log message will be formatted.
+        Use `usigrabber` to only format logs from usigrabber.
     """
 
     from usigrabber.utils.logging_helpers.formatter import CustomColorFormatter, JsonFormatter
     from usigrabber.utils.logging_helpers.resource_monitor import start_resource_monitoring
-
-    load_dotenv()
 
     base_logging_dir = Path(os.getenv("LOGGING_DIR", "logs"))
     main_run_logging_dir = base_logging_dir / "0"
@@ -64,7 +60,7 @@ def system_setup(is_main_process: bool, logger_name: str | None = None):
     file_handler.setFormatter(CustomColorFormatter(use_colors=False))
 
     # Deactivate the filter because it causes some confusion
-    # that might not be expected for a person that doesn't that this exists!
+    # that might not be expected for a person that doesn't know that this exists!
     # file_handler.addFilter(ExponentialBackoffFilter())
 
     json_handler = FileHandler(
