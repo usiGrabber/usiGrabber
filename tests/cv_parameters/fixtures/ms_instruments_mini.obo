@@ -1,0 +1,56 @@
+format-version: 1.4
+ontology: ms
+default-namespace: MS
+
+[Term]
+id: MS:1000031
+name: instrument model
+def: "Instrument model name not including the vendor's name." []
+
+[Term]
+id: MS:1000189
+name: Q-Tof Ultima
+def: "Waters Q-Tof Ultima." []
+is_a: MS:1000031 ! instrument model
+
+[Term]
+id: MS:1000447
+name: LTQ
+def: "Thermo Scientific LTQ." []
+is_a: MS:1000031 ! instrument model
+
+[Term]
+id: MS:1000449
+name: LTQ Orbitrap
+def: "Thermo Scientific LTQ Orbitrap." []
+is_a: MS:1000031 ! instrument model
+
+[Term]
+id: MS:1000632
+name: Q-Tof Premier
+def: "Waters Q-Tof Premier." []
+is_a: MS:1000031 ! instrument model
+
+[Term]
+id: MS:1000652
+name: 4800 Plus MALDI TOF/TOF
+def: "Applied Biosystems 4800 Plus MALDI TOF/TOF." []
+is_a: MS:1000031 ! instrument model
+
+[Term]
+id: MS:1000657
+name: QSTAR XL
+def: "Applied Biosystems QSTAR XL." []
+is_a: MS:1000031 ! instrument model
+
+[Term]
+id: MS:1001910
+name: Orbitrap Elite
+def: "Thermo Scientific Orbitrap Elite." []
+is_a: MS:1000031 ! instrument model
+
+[Term]
+id: MS:1001911
+name: Q Exactive
+def: "Thermo Scientific Q Exactive." []
+is_a: MS:1000031 ! instrument model
