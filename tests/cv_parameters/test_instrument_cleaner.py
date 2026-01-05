@@ -1,8 +1,10 @@
 """Tests for instrument data cleaning utilities."""
 
 import asyncio
+from pathlib import Path
 
 import pytest
+from pronto.ontology import Ontology
 
 from usigrabber.cv_parameters.instrument_cleaner import (
     InstrumentNameResolver,
@@ -12,6 +14,21 @@ from usigrabber.cv_parameters.instrument_cleaner import (
     clean_instruments,
     clean_instruments_sync,
 )
+
+# Path to mini ontology fixture for testing
+MINI_ONTOLOGY_PATH = Path(__file__).parent / "fixtures" / "ms_instruments_mini.obo"
+
+
+@pytest.fixture(scope="module")
+def mini_ontology() -> Ontology:
+    """Load the mini MS ontology for testing."""
+    return Ontology(MINI_ONTOLOGY_PATH)
+
+
+@pytest.fixture(scope="module")
+def resolver(mini_ontology: Ontology) -> InstrumentNameResolver:
+    """Create a resolver with the mini ontology."""
+    return InstrumentNameResolver(ontology=mini_ontology)
 
 
 def run_async(coro):
@@ -216,38 +233,36 @@ class TestCleanInstrumentsSync:
 class TestCleanInstrumentsAsync:
     """Tests for async instrument cleaning (includes Case 2 - resolution)."""
 
-    def test_removes_duplicate_generic_entry(self):
+    def test_removes_duplicate_generic_entry(self, resolver: InstrumentNameResolver):
         """Same as sync version - removes duplicates."""
         instruments = [
             {"accession": "MS:1000449", "name": "LTQ Orbitrap"},
             {"accession": "MS:1000031", "name": "instrument model", "value": "LTQ Orbitrap"},
         ]
 
-        result = run_async(clean_instruments(instruments))
+        result = run_async(clean_instruments(instruments, resolver=resolver))
 
         assert len(result) == 1
         assert result[0]["accession"] == "MS:1000449"
 
-    def test_handles_empty_list(self):
-        result = run_async(clean_instruments([]))
+    def test_handles_empty_list(self, resolver: InstrumentNameResolver):
+        result = run_async(clean_instruments([], resolver=resolver))
         assert result == []
 
-    @pytest.mark.slow
-    def test_resolves_known_instrument(self):
+    def test_resolves_known_instrument(self, resolver: InstrumentNameResolver):
         """When MS:1000031 has a known instrument name, resolve it."""
         instruments = [
             {"accession": "MS:1000031", "name": "instrument model", "value": "LTQ Orbitrap"},
         ]
 
-        result = run_async(clean_instruments(instruments))
+        result = run_async(clean_instruments(instruments, resolver=resolver))
 
         # Should resolve to MS:1000449
         assert len(result) == 1
         assert result[0]["accession"] == "MS:1000449"
         assert result[0]["name"] == "LTQ Orbitrap"
 
-    @pytest.mark.slow
-    def test_keeps_unresolvable_instrument(self):
+    def test_keeps_unresolvable_instrument(self, resolver: InstrumentNameResolver):
         """When instrument name cannot be resolved, keep the original entry."""
         instruments = [
             {
@@ -257,7 +272,7 @@ class TestCleanInstrumentsAsync:
             },
         ]
 
-        result = run_async(clean_instruments(instruments))
+        result = run_async(clean_instruments(instruments, resolver=resolver))
 
         # Should keep original since it cannot be resolved
         assert len(result) == 1
@@ -268,11 +283,8 @@ class TestCleanInstrumentsAsync:
 class TestInstrumentNameResolver:
     """Tests for the InstrumentNameResolver class."""
 
-    @pytest.mark.slow
-    def test_resolves_known_instrument(self):
+    def test_resolves_known_instrument(self, resolver: InstrumentNameResolver):
         """Should resolve a known instrument name."""
-        resolver = InstrumentNameResolver()
-
         result = run_async(resolver.resolve("LTQ Orbitrap"))
 
         assert result is not None
@@ -280,30 +292,23 @@ class TestInstrumentNameResolver:
         assert accession == "MS:1000449"
         assert name == "LTQ Orbitrap"
 
-    @pytest.mark.slow
-    def test_resolves_case_insensitive(self):
+    def test_resolves_case_insensitive(self, resolver: InstrumentNameResolver):
         """Resolution should be case-insensitive."""
-        resolver = InstrumentNameResolver()
-
         result = run_async(resolver.resolve("ltq orbitrap"))
 
         assert result is not None
         accession, _ = result
         assert accession == "MS:1000449"
 
-    @pytest.mark.slow
-    def test_returns_none_for_unknown(self):
+    def test_returns_none_for_unknown(self, resolver: InstrumentNameResolver):
         """Should return None for unknown instrument names."""
-        resolver = InstrumentNameResolver()
-
         result = run_async(resolver.resolve("Not A Real Instrument"))
 
         assert result is None
 
-    @pytest.mark.slow
-    def test_caches_ontology(self):
+    def test_caches_ontology(self, mini_ontology: Ontology):
         """Subsequent calls should use cached ontology."""
-        resolver = InstrumentNameResolver()
+        resolver = InstrumentNameResolver(ontology=mini_ontology)
 
         # First call initializes
         run_async(resolver.resolve("LTQ Orbitrap"))
@@ -315,33 +320,24 @@ class TestInstrumentNameResolver:
         assert result is not None
         assert result[0] == "MS:1001911"  # Q Exactive
 
-    @pytest.mark.slow
-    def test_fuzzy_match_qtof_premier(self):
+    def test_fuzzy_match_qtof_premier(self, resolver: InstrumentNameResolver):
         """Test fuzzy matching for Q-Tof Premier variations."""
-        resolver = InstrumentNameResolver()
-
         # "Qtof-Premier" should match "Q-Tof Premier" (MS:1000632)
         result = run_async(resolver.resolve("Qtof-Premier"))
 
         assert result is not None
         assert result[0] == "MS:1000632"
 
-    @pytest.mark.slow
-    def test_fuzzy_match_maldi_tof_tof(self):
+    def test_fuzzy_match_maldi_tof_tof(self, resolver: InstrumentNameResolver):
         """Test fuzzy matching for MALDI TOF-TOF variations."""
-        resolver = InstrumentNameResolver()
-
         # "4800 Plus MALDI TOF-TOF Analyzer" should match "4800 Plus MALDI TOF/TOF"
         result = run_async(resolver.resolve("4800 Plus MALDI TOF-TOF Analyzer"))
 
         assert result is not None
         assert result[0] == "MS:1000652"
 
-    @pytest.mark.slow
-    def test_fuzzy_match_with_vendor_parenthetical(self):
+    def test_fuzzy_match_with_vendor_parenthetical(self, resolver: InstrumentNameResolver):
         """Test matching when vendor name is in parentheses."""
-        resolver = InstrumentNameResolver()
-
         # "Q-Tof Global Ultima (Waters)" - parentheses should be ignored
         # This should NOT match "Q-Tof Ultima" because "Global" is significant
         result = run_async(resolver.resolve("Q-Tof Ultima (Waters)"))
@@ -389,61 +385,56 @@ class TestRealWorldExamples:
         assert len(result) == 1
         assert result[0]["accession"] == "MS:1000031"
 
-    @pytest.mark.slow
-    def test_resolve_ltq(self):
+    def test_resolve_ltq(self, resolver: InstrumentNameResolver):
         """Resolve 'LTQ' to MS:1000447 via ontology."""
         instruments = [
             {"accession": "MS:1000031", "name": "instrument model", "value": "LTQ"},
         ]
 
-        result = run_async(clean_instruments(instruments))
+        result = run_async(clean_instruments(instruments, resolver=resolver))
 
         # Should resolve to MS:1000447
         assert len(result) == 1
         assert result[0]["accession"] == "MS:1000447"
         assert result[0]["name"] == "LTQ"
 
-    @pytest.mark.slow
-    def test_resolve_qtof_premier(self):
+    def test_resolve_qtof_premier(self, resolver: InstrumentNameResolver):
         """Resolve 'Qtof-Premier' to MS:1000632 (Q-Tof Premier)."""
         instruments = [
             {"accession": "MS:1000031", "name": "instrument model", "value": "Qtof-Premier"},
         ]
 
-        result = run_async(clean_instruments(instruments))
+        result = run_async(clean_instruments(instruments, resolver=resolver))
 
         assert len(result) == 1
         assert result[0]["accession"] == "MS:1000632"
         assert result[0]["name"] == "Q-Tof Premier"
 
-    @pytest.mark.slow
-    def test_resolve_q_tof_premier(self):
+    def test_resolve_q_tof_premier(self, resolver: InstrumentNameResolver):
         """Resolve 'Q-TOF Premier' to MS:1000632 (Q-Tof Premier)."""
         instruments = [
             {"accession": "MS:1000031", "name": "instrument model", "value": "Q-TOF Premier"},
         ]
 
-        result = run_async(clean_instruments(instruments))
+        result = run_async(clean_instruments(instruments, resolver=resolver))
 
         assert len(result) == 1
         assert result[0]["accession"] == "MS:1000632"
         assert result[0]["name"] == "Q-Tof Premier"
 
-    @pytest.mark.slow
-    def test_resolve_qstar_xl(self):
+    def test_resolve_qstar_xl(self, resolver: InstrumentNameResolver):
         """Resolve 'QSTAR XL' to MS:1000657."""
         instruments = [
             {"accession": "MS:1000031", "name": "instrument model", "value": "QSTAR XL"},
         ]
 
-        result = run_async(clean_instruments(instruments))
+        result = run_async(clean_instruments(instruments, resolver=resolver))
 
         assert len(result) == 1
         assert result[0]["accession"] == "MS:1000657"
         assert result[0]["name"] == "QSTAR XL"
 
-    @pytest.mark.slow
-    def test_resolve_4800_maldi_tof_tof(self):
+    def test_resolve_4800_maldi_tof_tof(self, resolver: InstrumentNameResolver):
         """Resolve '4800 Plus MALDI TOF-TOF Analyzer' to MS:1000652."""
         instruments = [
             {
@@ -453,14 +444,13 @@ class TestRealWorldExamples:
             },
         ]
 
-        result = run_async(clean_instruments(instruments))
+        result = run_async(clean_instruments(instruments, resolver=resolver))
 
         assert len(result) == 1
         assert result[0]["accession"] == "MS:1000652"
         assert result[0]["name"] == "4800 Plus MALDI TOF/TOF"
 
-    @pytest.mark.slow
-    def test_resolve_q_tof_ultima_with_vendor(self):
+    def test_resolve_q_tof_ultima_with_vendor(self, resolver: InstrumentNameResolver):
         """Resolve 'Q-Tof Global Ultima (Waters)' - vendor parenthetical removed."""
         instruments = [
             {
@@ -470,14 +460,13 @@ class TestRealWorldExamples:
             },
         ]
 
-        result = run_async(clean_instruments(instruments))
+        result = run_async(clean_instruments(instruments, resolver=resolver))
 
         assert len(result) == 1
         assert result[0]["accession"] == "MS:1000189"
         assert result[0]["name"] == "Q-Tof Ultima"
 
-    @pytest.mark.slow
-    def test_unresolvable_keeps_original(self):
+    def test_unresolvable_keeps_original(self, resolver: InstrumentNameResolver):
         """When instrument cannot be resolved, keep original MS:1000031 entry."""
         instruments = [
             {
@@ -487,7 +476,7 @@ class TestRealWorldExamples:
             },
         ]
 
-        result = run_async(clean_instruments(instruments))
+        result = run_async(clean_instruments(instruments, resolver=resolver))
 
         # This descriptive name likely won't match any ontology term
         # so we keep the original
@@ -495,8 +484,7 @@ class TestRealWorldExamples:
         assert result[0]["accession"] == "MS:1000031"
         assert result[0]["value"] == "LC-ESI-linear iontrap tandem mass spectrometer"
 
-    @pytest.mark.slow
-    def test_duplicate_with_ltq_orbitrap(self):
+    def test_duplicate_with_ltq_orbitrap(self, resolver: InstrumentNameResolver):
         """
         Real case from issue: Both specific instrument AND generic with same name.
 
@@ -510,7 +498,7 @@ class TestRealWorldExamples:
             {"accession": "MS:1000031", "name": "instrument model", "value": "LTQ Orbitrap"},
         ]
 
-        result = run_async(clean_instruments(instruments))
+        result = run_async(clean_instruments(instruments, resolver=resolver))
 
         # Should remove the duplicate MS:1000031 entry
         assert len(result) == 1

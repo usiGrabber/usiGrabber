@@ -14,11 +14,14 @@ Case 2 - Resolve generic to specific:
 """
 
 import re
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from ontology_resolver.ontology_helper import OntologyHelper
 
 from usigrabber.utils import logger
+
+if TYPE_CHECKING:
+    from pronto.ontology import Ontology
 
 # The generic "instrument model" accession
 INSTRUMENT_MODEL_ACCESSION = "MS:1000031"
@@ -92,10 +95,15 @@ class InstrumentNameResolver:
 
     Builds a name-to-accession index from the MS ontology for fast lookups.
     Uses OntologyHelper to load the ontology from cache.
+
+    Args:
+        ontology: Optional pre-loaded ontology for testing. If not provided,
+                  the MS ontology will be loaded via OntologyHelper.
     """
 
-    def __init__(self):
+    def __init__(self, ontology: "Ontology | None" = None):
         self._ontology_helper = OntologyHelper()
+        self._preloaded_ontology = ontology
         # Exact match index: normalized_name -> (accession, original_name)
         self._name_to_accession: dict[str, tuple[str, str]] | None = None
         # Fuzzy match index: fuzzy_normalized_name -> (accession, original_name)
@@ -108,7 +116,10 @@ class InstrumentNameResolver:
             return
 
         try:
-            ms_ontology = await self._ontology_helper.get_ontology("MS")
+            if self._preloaded_ontology is not None:
+                ms_ontology = self._preloaded_ontology
+            else:
+                ms_ontology = await self._ontology_helper.get_ontology("MS")
 
             # Build name-to-accession indexes
             self._name_to_accession = {}
@@ -179,7 +190,9 @@ def _get_resolver() -> InstrumentNameResolver:
     return _resolver
 
 
-async def clean_instruments(instruments: list[dict[str, Any]]) -> list[dict[str, Any]]:
+async def clean_instruments(
+    instruments: list[dict[str, Any]], resolver: InstrumentNameResolver | None = None
+) -> list[dict[str, Any]]:
     """
     Clean instrument data by handling MS:1000031 "instrument model" entries.
 
@@ -189,6 +202,8 @@ async def clean_instruments(instruments: list[dict[str, Any]]) -> list[dict[str,
 
     Args:
         instruments: List of instrument CV parameter dicts from PRIDE API
+        resolver: Optional custom resolver for testing. If not provided,
+                  uses the global resolver.
 
     Returns:
         Cleaned list of instrument dicts
@@ -208,7 +223,8 @@ async def clean_instruments(instruments: list[dict[str, Any]]) -> list[dict[str,
             cleaned.append(instrument)
 
     # Second pass: process generic entries
-    resolver = _get_resolver()
+    if resolver is None:
+        resolver = _get_resolver()
 
     for generic in generic_entries:
         value = generic.get("value")
