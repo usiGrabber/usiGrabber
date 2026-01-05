@@ -5,6 +5,8 @@ This module provides utilities for building and working with USI strings
 according to the PSI specification.
 """
 
+from pyteomics.usi import USI
+
 from usigrabber.db.schema import PeptideSpectrumMatch
 
 
@@ -44,12 +46,13 @@ def build_usi(psm: PeptideSpectrumMatch) -> str | None:
     if psm.charge_state is None:
         return None
 
-    # Build USI string
-    # Format: mzspec:{project}:{ms_run}:{index_type}:{index_number}:{sequence}/{charge}
-    usi = (
-        f"mzspec:{psm.project.accession}:{psm.ms_run}:"
-        f"{psm.index_type.value}:{psm.index_number}:"
-        f"{psm.modified_peptide.peptide_sequence}/{psm.charge_state}"
+    return str(
+        USI(
+            protocol="mzspec",
+            dataset=psm.project.accession,
+            datafile=psm.ms_run,
+            scan_identifier_type=psm.index_type,
+            scan_identifier=str(psm.index_number),
+            interpretation=f"{psm.modified_peptide.peptide_sequence}/{psm.charge_state}",
+        )
     )
-
-    return usi
