@@ -13,14 +13,13 @@ Use context7 to retrieve documentation for packages.
 
 ### Environment Setup
 ```bash
-# Initial setup (requires uv: https://docs.astral.sh/uv/getting-started/installation/)
-./scripts/setup_dev/all.sh
-
 # Sync dependencies
 uv sync --locked
 ```
 
 ### Database Operations
+A postgres database is setup and available via psql (the environment variables are already set correctly.)
+
 ```bash
 # Initialize database tables
 uv run usigrabber db init
@@ -36,18 +35,6 @@ uv run usigrabber db reset --force
 
 # Drop all tables (WARNING: deletes all data)
 uv run usigrabber db drop --force
-```
-
-### Docker Database
-```bash
-# Start PostgreSQL container
-docker compose up -d
-
-# Stop and remove volumes
-docker compose down -v
-
-# Connect to database
-docker exec -it usigrabber_db psql -d usigrabber -U <username>
 ```
 
 ### Build Database
@@ -189,7 +176,7 @@ PSMs include USI fields (`index_type`, `index_number`, `ms_run`) for Universal S
 
 Engineers are not code factories - they provide trustable and maintainable code. When submitting PRs for data processing features:
 
-1. **Validate on real data**: Run the code against actual production data (e.g., all PRIDE projects via `experimental/fetch_pride_projects.py`) to measure real-world impact.
+1. **Validate on real data**: Run the code against actual production data (e.g., all PRIDE projects via `experimental/fetch_pride_projects.py`) to measure real-world impact. Always provide concrete proof via logs - do not simply state "validated with real data". Include the actual logs showing the successful execution in your PR comments or descriptions.
 
 2. **Provide statistics**: Include concrete numbers in PR descriptions or comments:
    - How many records/projects are affected
@@ -205,3 +192,7 @@ Example: For instrument cleaning, run analysis on all 36,786 PRIDE projects and 
 - Duplicates removed: X%
 - Resolved to specific accessions: Y%
 - Kept unresolved: Z% (with examples of why)
+
+### Creating PRs
+After you finished your work and have proof of correctness, you should open a PR via the `gh pr create [flags]`.
+

@@ -309,6 +309,11 @@ class PeptideSpectrumMatch(SQLModel, table=True):
         default=None,
         description="MS run identifier from raw file name. Part of USI specification.",
     )
+    is_usi_validated: bool | None = Field(
+        default=None,
+        index=True,
+        description="USI validation status: True (valid), False (invalid), None (not validated)",
+    )
 
     # Relationships
     project: Project | None = Relationship(back_populates="peptide_spectrum_matches")

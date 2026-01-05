@@ -1,2 +1,2 @@
 def main() -> None:
-	print("Hello from ontology-resolver!")
+    print("Hello from ontology-resolver!")
