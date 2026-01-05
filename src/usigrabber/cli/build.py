@@ -28,10 +28,6 @@ FILE_CATEGORIES = ["result", "search", "other"]
 
 CACHE_DIR = get_cache_dir()
 STANDARD_BACKENDS = [enum for enum in BackendEnum]
-MAX_FILESIZE_BYTES = 5 * 1024**3  # 5 GB
-PARALLEL_DOWNLOADS = int(os.getenv("PARALLEL_DOWNLOADS", "10"))
-# empty string for folders (no extension)
-FILETYPE_ALLOWLIST = {".mzid", "", ".mztab"}
 
 logger = logging.getLogger(__name__)
 
