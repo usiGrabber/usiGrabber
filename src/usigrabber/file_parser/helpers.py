@@ -255,7 +255,14 @@ def log_info(logger, stats, file_name: str) -> None:
             file_name: Name of the imported file
     """
     duration_str = f"{stats.duration_seconds:.1f}s" if stats.duration_seconds is not None else "N/A"
-    logger.info(f"Imported {stats.psm_count:,} PSMs from '{file_name}' ({duration_str})")
+    logger.info(
+        f"Imported {stats.psm_count:,} PSMs from '{file_name}' ({duration_str})",
+        extra={
+            "psm_count": stats.psm_count,
+            "file_name": file_name,
+            "duration": stats.duration_seconds,
+        },
+    )
 
 
 def remove_brackets_before_index(s: str, cut_index: int) -> str:
