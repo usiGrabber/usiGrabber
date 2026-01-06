@@ -1,4 +1,24 @@
 services:
+  loki:
+    image: grafana/loki:2.9.4
+    command: -config.file=/etc/loki/config.yaml
+    volumes:
+      - ./loki-config.yaml:/etc/loki/config.yaml:ro
+      - loki-data:/loki
+    ports:
+      - "3100:3100"
+
+  grafana:
+    image: grafana/grafana:10.2.3
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana-data:/var/lib/grafana
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    depends_on:
+      - loki
+
   db:
     image: postgres:18
     container_name: usigrabber_db
@@ -7,8 +27,9 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-usigrabber}
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      PGPORT: 5433
     ports:
-      - "5432:5432"
+      - "5433:5433"
     volumes:
       - usigrabber_helix_pgdata:/var/lib/postgresql
     healthcheck:
@@ -38,3 +59,5 @@ volumes:
       type: none
       o: bind
       device: /mnt/helix/postgres
+  loki-data:
+  grafana-data:
