@@ -19,12 +19,9 @@ import typer
 from tenacity import before_sleep_log, retry, stop_after_attempt, wait_random_exponential
 
 from usigrabber.backends.base import FileMetadata
+from usigrabber.utils import get_filetype_allowlist
 
 logger = logging.getLogger(__name__)
-
-# to be able to parse txt.zip files plese include {".txt", ""}
-# to be able to parse mzTab files please include {".mzTab"}
-FILETYPE_ALLOWLIST = {".mzid"}
 
 ARCHIVE_TYPES = {".zip", ".gz", ".tar", ".rar", ".7z"}
 PARALLEL_DOWNLOADS = int(os.getenv("PARALLEL_DOWNLOADS", "10"))
@@ -172,7 +169,8 @@ def extract_archive(
 
 
 async def get_interesting_files(files: list[FileMetadata], accession: str) -> tuple[list[str], str]:
-    all_files: dict[str, list[FileMetadata]] = {ext: [] for ext in FILETYPE_ALLOWLIST}
+    filetype_allowlist = get_filetype_allowlist()
+    all_files: dict[str, list[FileMetadata]] = {ext: [] for ext in filetype_allowlist}
     for file in files:
         file_url = file["filepath"]
         filename = os.path.basename(file_url)
@@ -182,12 +180,13 @@ async def get_interesting_files(files: list[FileMetadata], accession: str) -> tu
         while file_ext in ARCHIVE_TYPES:
             file_base, file_ext = os.path.splitext(file_base)
 
-        if (file_ext not in FILETYPE_ALLOWLIST) and ("txt.zip" not in str(filename)):
-            # txt.zip can be zipped itself, why we check for it specifically here
+        if file_ext not in filetype_allowlist:
             logger.debug(f"Skipping file {filename} with unsupported extension '{file_ext}'.")
             continue
+        if file_ext == "" and not filename.endswith("txt.zip"):
+            continue
         if file_ext == ".txt" and file_base not in INTERESTING_TXT_FILES:
-            logger.debug(f"Skipping file {filename} as it is not interesting.")
+            logger.debug(f"Skipping .txt file {filename} as it is not interesting.")
             continue
 
         all_files[file_ext].append(file)
@@ -240,6 +239,7 @@ def get_prioritized_files(
     # 2. Next prefer .mzTab files
     elif all_files.get(".mzTab", []):
         return all_files[".mzTab"], ".mzTab"
+
     # 3. Next prefer txt.zip/.txt files
     else:
         txt_zip_files = [

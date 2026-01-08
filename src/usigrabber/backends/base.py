@@ -20,6 +20,28 @@ class Files(TypedDict):
 class BaseBackend(ABC):
     @classmethod
     @abstractmethod
+    async def get_project(cls, project_accession: str) -> dict[str, Any]:
+        """
+        Raises exception if project is not found
+        """
+        raise NotImplementedError()
+
+    @classmethod
+    @abstractmethod
+    def get_project_accession(cls, project: dict[str, Any]) -> str:
+        raise NotImplementedError()
+
+    @classmethod
+    @abstractmethod
+    def is_project_complete(cls, project: dict[str, Any]) -> bool:
+        """
+        This checks if a project provides (roughly) the same data as a Pride "complete" project
+        """
+
+        raise NotImplementedError()
+
+    @classmethod
+    @abstractmethod
     async def get_new_projects(
         cls,
         existing_accessions: set[str],
@@ -53,3 +75,25 @@ class BaseBackend(ABC):
         Dump project data into the database.
         """
         ...
+
+    @classmethod
+    @abstractmethod
+    def validate_usi(cls, usi: str) -> bool:
+        """
+        Validate a USI (Universal Spectrum Identifier) by checking if the spectrum exists in the backend.
+
+        This method should handle all errors internally and return False if the spectrum
+        cannot be found or if any error occurs during validation.
+
+        Args:
+            usi: Universal Spectrum Identifier string in the format:
+                 mzspec:{collection}:{msRun}:{indexType}:{index}:{interpretation}
+
+        Returns:
+            True if the spectrum exists and can be retrieved, False otherwise
+
+        Example:
+            >>> PRIDEBackend.validate_usi("mzspec:PXD006066:file:scan:12345:PEPTIDE/2")
+            True
+        """
+        raise NotImplementedError()

@@ -6,16 +6,18 @@ import ijson
 import requests
 from async_http_client import AsyncHttpClient
 from ontology_resolver.ontology_helper import OntologyHelper
+from sqlalchemy.engine import Engine
 from sqlmodel import Session
 
 from usigrabber.backends.base import BaseBackend, FileMetadata, Files
 from usigrabber.cv_parameters.cv_engine import CVInjector, CVParam, CVTuple
+from usigrabber.cv_parameters.instrument_cleaner import clean_instruments
 from usigrabber.db import Project, ProjectCountry, ProjectKeyword, ProjectTag, Reference
 from usigrabber.db.schema import ProjectAffiliation, ProjectOtherOmicsLink
 from usigrabber.utils import get_cache_dir, logger, parse_date
 
 
-def parse_cv_param(cv_data: dict) -> CVParam | None:
+def parse_cv_param(cv_data: dict, ontology_helper: OntologyHelper) -> CVParam | None:
     """Parse and validate a CV parameter from PRIDE project data.
 
     Args:
@@ -29,11 +31,13 @@ def parse_cv_param(cv_data: dict) -> CVParam | None:
         logger.error(f"Pride CV Param accession is malformed: {cv_data}")
         return None
 
+    cv_accession = ontology_helper.sanitize_accession(cv_accession)
+
     cv_value = cv_data.get("value")
     return CVParam(accession=cv_accession, value=cv_value)
 
 
-def parse_cv_tuple(cv_data: dict) -> CVTuple | None:
+def parse_cv_tuple(cv_data: dict, ontology_helper: OntologyHelper) -> CVTuple | None:
     """Parse and validate a CV tuple from PRIDE project data.
 
     Args:
@@ -49,16 +53,20 @@ def parse_cv_tuple(cv_data: dict) -> CVTuple | None:
         logger.warning(f"Pride CV Tuple (value) is malformed: {cv_data}")
         return None
 
-    if "accession" not in cv_data["key"]:
-        logger.warning(f"Pride CV Tuple key missing accession: {cv_data}")
-        return None
-    if "accession" not in cv_data["value"]:
-        logger.warning(f"Pride CV Tuple value missing accession: {cv_data}")
+    if "accession" not in cv_data["key"] or not isinstance(cv_data["key"]["accession"], str):
+        logger.warning(f"Pride CV Tuple (key.accession) is missing or malformed: {cv_data}")
         return None
 
-    key = CVParam(accession=cv_data["key"]["accession"], value=cv_data["key"].get("value"))
+    if "accession" not in cv_data["value"] or not isinstance(cv_data["value"]["accession"], str):
+        logger.warning(f"Pride CV Tuple (value.accession) is missing or malformed: {cv_data}")
+        return None
+
+    key = CVParam(
+        accession=ontology_helper.sanitize_accession(cv_data["key"]["accession"]),
+        value=cv_data["key"].get("value"),
+    )
     value = CVParam(
-        accession=cv_data["value"]["accession"],
+        accession=ontology_helper.sanitize_accession(cv_data["value"]["accession"]),
         value=cv_data["value"].get("value"),
     )
 
@@ -68,12 +76,43 @@ def parse_cv_tuple(cv_data: dict) -> CVTuple | None:
 class PrideBackend(BaseBackend):
     BASE_URL: str = "https://www.ebi.ac.uk/pride/ws/archive/v3"
 
+    @staticmethod
+    def _convert_ftp_to_http(ftp_url: str) -> str:
+        """Convert FTP URL to HTTP URL for PRIDE archive.
+
+        Converts from: ftp://ftp.pride.ebi.ac.uk/pride/data/archive/<year>/<month>/<accession>/<filename>
+        To: https://ftp.pride.ebi.ac.uk/pride/data/archive/<year>/<month>/<accession>/<filename>
+        """
+        if ftp_url.startswith("ftp://ftp.pride.ebi.ac.uk"):
+            return ftp_url.replace("ftp://", "https://", 1)
+        return ftp_url
+
     @classmethod
     def check_availability(cls, accession: str) -> bool:
         url = f"{cls.BASE_URL}/status/{accession}"
         with requests.get(url) as response:
             response.raise_for_status()
             return response.text == "PUBLIC"
+
+    @classmethod
+    def get_project_accession(cls, project: dict[str, Any]) -> str:
+        return project["accession"]
+
+    @classmethod
+    async def get_project(cls, project_accession: str) -> dict[str, Any]:
+        projects = cls.get_new_projects(existing_accessions=set())
+        total_searched_projects = 0
+        async for project in projects:
+            total_searched_projects += 1
+            if project["accession"] == project_accession:
+                return project
+        raise ValueError(
+            f"No project found for accession: {project_accession} in {total_searched_projects} projects"
+        )
+
+    @classmethod
+    def is_project_complete(cls, project: dict[str, Any]) -> bool:
+        return project.get("submissionType") == "COMPLETE"
 
     @classmethod
     async def get_new_projects(
@@ -89,6 +128,9 @@ class PrideBackend(BaseBackend):
         if not file_path.exists():
             if is_debug:
                 raise FileNotFoundError(f"Debug projects file: {file_path} not found.")
+
+            # Ensure parent directory exists
+            file_path.parent.mkdir(parents=True, exist_ok=True)
 
             url = f"{cls.BASE_URL}/projects/all"
 
@@ -157,7 +199,7 @@ class PrideBackend(BaseBackend):
 
     @classmethod
     async def _parse_and_add_cv_params(
-        cls, project_accession: str, session: Session, project_data: dict
+        cls, project_accession: str, engine: Engine, backend: type[BaseBackend]
     ) -> None:
         ontology_helper = OntologyHelper()
 
@@ -172,17 +214,25 @@ class PrideBackend(BaseBackend):
             "identifiedPTMStrings",
         ]
 
-        async with CVInjector(project_accession, session) as injector:
+        project_data = await backend.get_project(project_accession)
+
+        # Clean instrument data to handle MS:1000031 cases
+        if "instruments" in project_data:
+            project_data["instruments"] = await clean_instruments(
+                project_data.get("instruments", [])
+            )
+
+        async with CVInjector(project_accession, engine) as injector:
             for json_key in cv_data_keys:
                 for cv_data in project_data.get(json_key, []):
                     if cv_data.get("@type") == "Tuple":
-                        cv_tuple = parse_cv_tuple(cv_data)
+                        cv_tuple = parse_cv_tuple(cv_data, ontology_helper)
                         if cv_tuple is None:
                             continue
                         await injector.add(cv_tuple)
 
                     elif cv_data.get("@type") == "CvParam":
-                        cv_param = parse_cv_param(cv_data)
+                        cv_param = parse_cv_param(cv_data, ontology_helper)
                         if cv_param is None:
                             continue
                         await injector.add(cv_param)
@@ -261,5 +311,73 @@ class PrideBackend(BaseBackend):
                 session.add(ProjectOtherOmicsLink(project_accession=project.accession, link=link))
 
         # 8. CV Params
-        if not os.getenv("NO_ONTOLOGY"):
-            await cls._parse_and_add_cv_params(project.accession, session, project_data)
+        # Skip ontologies if NO_ONTOLOGY is set or if we're in main build phase of multiprocessing
+        # (ontologies will be resolved in separate pass)
+        if not os.getenv("NO_ONTOLOGY") and not os.getenv("IS_IN_MULTIPROCESSING_MODE"):
+            logger.warning("Getting ontos in single processing mode is currently not supported.")
+
+    @classmethod
+    def validate_usi(cls, usi: str) -> bool:
+        """
+        Validate a USI by checking if the spectrum exists in PRIDE archive.
+
+        Uses pyteomics.usi.PRIDEBackend to retrieve spectrum data. Implements
+        retry logic with exponential backoff for rate limiting and network errors.
+
+        Args:
+            usi: Universal Spectrum Identifier string
+
+        Returns:
+            True if spectrum exists and can be retrieved, False otherwise
+        """
+        from urllib.error import HTTPError, URLError
+
+        from pyteomics.usi import PRIDEBackend
+        from tenacity import (
+            retry,
+            retry_if_exception_type,
+            stop_after_attempt,
+            wait_exponential,
+        )
+
+        @retry(
+            retry=retry_if_exception_type((HTTPError, URLError)),
+            stop=stop_after_attempt(5),
+            wait=wait_exponential(multiplier=1, min=1, max=10),
+            reraise=False,
+        )
+        def _validate_with_retry(usi_str: str) -> bool:
+            """Inner function with retry logic."""
+            try:
+                # Attempt to retrieve the spectrum
+                backend = PRIDEBackend()
+                spectrum = backend.get(usi_str)
+
+                # If we got here, the spectrum was found
+                return spectrum is not None
+
+            except HTTPError as e:
+                # HTTP 404 or 500 means spectrum not found - don't retry
+                if e.code in (404, 500):
+                    logger.debug(f"Spectrum not found for USI {usi_str}: HTTP {e.code}")
+                    return False
+                # HTTP 429 or other errors - let retry logic handle it
+                logger.warning(f"HTTP error {e.code} for USI {usi_str}, retrying...")
+                raise
+
+            except URLError as e:
+                # Network errors - retry
+                logger.warning(f"Network error for USI {usi_str}: {e}, retrying...")
+                raise
+
+            except Exception as e:
+                # Other errors - don't retry, just return False
+                logger.error(f"Unexpected error validating USI {usi_str}: {e}", exc_info=True)
+                return False
+
+        try:
+            return _validate_with_retry(usi)
+        except Exception:
+            # If retries exhausted or other error, return False
+            logger.error(f"Failed to validate USI {usi} after retries")
+            return False

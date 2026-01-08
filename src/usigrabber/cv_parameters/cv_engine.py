@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from typing import Self, assert_never
 
+from sqlalchemy.engine import Engine
 from sqlmodel import Session, and_, or_, select
 
 from usigrabber.db import CvParam as DBCVParam
@@ -13,7 +14,7 @@ class CVParam:
     """
     Accession with a format like: MS:1000463
     """
-    value: str | float | int | None = None
+    value: str | None = None
 
 
 @dataclass
@@ -30,8 +31,8 @@ class CVInjector:
     Currently, we accept tuples (key, value) but only add the value to the DB
     """
 
-    def __init__(self, project_accession: str, session: Session):
-        self._session = session
+    def __init__(self, project_accession: str, engine: Engine):
+        self._engine = engine
         self._project_accession = project_accession
         self._cv_param_buffer: list[CVParam] = []
         self._max_buffer_size = 200
@@ -54,7 +55,7 @@ class CVInjector:
         return False
 
     async def _flush_data_to_db(self) -> None:
-        assert self._session
+        assert self._engine
 
         # Early return if buffer is empty
         if not self._cv_param_buffer:
@@ -69,33 +70,40 @@ class CVInjector:
                     and_(DBCVParam.accession == cv.accession, DBCVParam.value == cv.value)
                 )
 
-        statement = select(DBCVParam).where(or_(*filters))
-        existing = self._session.exec(statement)
-        existing_params = list(existing.all())
+        with Session(self._engine) as session:
+            project = session.get(Project, self._project_accession)
 
-        # Map existing for fast lookup
-        existing_map = {(cv.accession, cv.value): cv for cv in existing_params}
-
-        # Step 3: Prepare CvParams to add
-        new_cvs = []
-        for cv in self._cv_param_buffer:
-            name, value = cv.accession, cv.value
-            db_value = str(value) if value is not None else None
-            key = (name, db_value)
-            if key not in existing_map:
-                cv_param = DBCVParam(
-                    accession=name, value=str(value) if value is not None else None
+            if not project:
+                raise ValueError(
+                    f"Project with accession {self._project_accession} not found while loading ontologies"
                 )
-                self._session.add(cv_param)
 
-                existing_map[key] = cv_param
-                new_cvs.append(cv_param)
-        self._session.flush()  # Assigns ID
+            statement = select(DBCVParam).where(or_(*filters))
+            existing = session.exec(statement)
+            existing_params = list(existing.all())
 
-        # Step 4: Link all cv_params to project
-        # Get the project and append cv_params to its cv_params list
-        project = self._session.get(Project, self._project_accession)
-        if project:
+            # Map existing for fast lookup
+            existing_map = {(cv.accession, cv.value): cv for cv in existing_params}
+
+            # Step 3: Prepare CvParams to add
+            new_cvs = []
+            for cv in self._cv_param_buffer:
+                name, value = cv.accession, cv.value
+                db_value = str(value) if value is not None else None
+                key = (name, db_value)
+                if key not in existing_map:
+                    cv_param = DBCVParam(
+                        accession=name, value=str(value) if value is not None else None
+                    )
+                    session.add(cv_param)
+
+                    existing_map[key] = cv_param
+                    new_cvs.append(cv_param)
+                    session.flush()  # Assigns ID
+
+            # Step 4: Link all cv_params to project
+            # Get the project and append cv_params to its cv_params list
+
             # Get existing cv_param IDs for this project to avoid duplicates
             existing_cv_param_ids = {cv.id for cv in project.cv_params}
             # Append only new cv_params
@@ -103,13 +111,15 @@ class CVInjector:
                 if cv_param.id not in existing_cv_param_ids:
                     project.cv_params.append(cv_param)
 
+            session.commit()
+
         self._cv_param_buffer = []
 
     async def add(self, data: CVTuple | CVParam):
-        if self._session is None or self._project_accession is None:
+        if self._project_accession is None:
             raise ValueError("You must use this as an async context manager!")
 
-        if len(self._cv_param_buffer) > self._max_buffer_size:
+        if len(self._cv_param_buffer) >= self._max_buffer_size:
             await self._flush_data_to_db()
         if isinstance(data, CVTuple):
             self._cv_param_buffer.append(data.value)

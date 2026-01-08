@@ -106,6 +106,7 @@ class ParsedMzidData(NamedTuple):
     peptide_evidence: list[PeptideEvidenceDict]
     psms: list[PeptideSpectrumMatchDict]
     psm_peptide_evidence_junctions: list[PSMPeptideEvidenceDict]
+    search_modifications: list[SearchModificationDict]
 
 
 class ParsedMztabData(NamedTuple):

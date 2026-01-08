@@ -1,9 +1,3 @@
-from usigrabber.cli import app
+from dotenv import load_dotenv
 
-
-def main():
-    app()
-
-
-if __name__ == "__main__":
-    main()
+load_dotenv()

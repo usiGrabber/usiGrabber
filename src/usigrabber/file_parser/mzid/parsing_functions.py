@@ -10,6 +10,7 @@ from pyteomics import mzid
 
 from usigrabber.db.schema import IndexType, MzidFile
 from usigrabber.file_parser.helpers import (
+    create_search_mod_log_str,
     extract_index_type_and_number,
     extract_score_values,
     extract_unimod_id_or_name,
@@ -24,11 +25,13 @@ from usigrabber.file_parser.models import (
     PeptideEvidenceDict,
     PeptideSpectrumMatchDict,
     PSMPeptideEvidenceDict,
+    SearchModificationDict,
 )
 from usigrabber.file_parser.uuid_helpers import (
     generate_deterministic_modification_uuid,
     generate_deterministic_peptide_uuid,
 )
+from usigrabber.utils import lookup_unimod_id_by_name
 from usigrabber.utils.file import parse_basename
 
 logger = logging.getLogger(__name__)
@@ -410,7 +413,9 @@ def parse_psms(
     peptide_id_map: dict[str, uuid.UUID],
     pe_id_map: dict[str, uuid.UUID],
     spectra_data_map: dict[str, tuple[str, IndexType | None]],
-) -> tuple[list[PeptideSpectrumMatchDict], list[PSMPeptideEvidenceDict]]:
+) -> tuple[
+    list[PeptideSpectrumMatchDict], list[PSMPeptideEvidenceDict], list[SearchModificationDict]
+]:
     """
     Parse SpectrumIdentificationResult elements.
 
@@ -425,77 +430,119 @@ def parse_psms(
                     Tuple of:
                     - List of PeptideSpectrumMatch records
                     - List of PSMPeptideEvidence junction records
+                    - List of SearchModification records
     """
 
     psm_batch: list[PeptideSpectrumMatchDict] = []
     junction_batch: list[PSMPeptideEvidenceDict] = []
+    search_mod_batch: list[SearchModificationDict] = []
 
-    for sir in reader.iterfind("SpectrumIdentificationResult"):
-        spectrum_id: str = sir.get("spectrumID", "")
+    list_protocol_map: dict[str, str] = {}
+    for si in reader.iterfind("SpectrumIdentification"):
+        sil_ref = si.get("spectrumIdentificationList_ref", "")
+        sip_ref = si.get("spectrumIdentificationProtocol_ref", "")
+        if sil_ref and sip_ref:
+            list_protocol_map[sil_ref] = sip_ref
 
-        # Extract USI-related fields from the SpectrumIdentificationResult
-        ms_run: str | None = None
-        index_type, index_number = extract_index_type_and_number(sir)
+    protocol_search_mods_map: dict[str, list[int]] = {}
+    for sip in reader.iterfind("SpectrumIdentificationProtocol"):
+        search_mods = sip.get("ModificationParams", {}).get("SearchModification", [])
+        mod_names = set()
+        for mod in search_mods:
+            # Get modification name which is the last key in the dict
+            mod_name = list(mod.keys())[-1]
+            mod_names.add(mod_name)
+        unimod_id_list = [lookup_unimod_id_by_name(mod_name) for mod_name in mod_names]
+        protocol_search_mods_map[sip.get("id", "")] = [
+            unimod_id for unimod_id in unimod_id_list if unimod_id is not None
+        ]
+    search_mod_counts = set[int]()
+    for mods in protocol_search_mods_map.values():
+        search_mod_counts.add(len(mods))
 
-        # Get list of spectrum identification items (PSMs)
-        sii_list: dict[str, Any] | list[dict[str, Any]] = sir.get("SpectrumIdentificationItem", [])
-        if not isinstance(sii_list, list):
-            sii_list = [sii_list]
+    for sil in reader.iterfind("SpectrumIdentificationList"):
+        for sir in sil.get("SpectrumIdentificationResult", []):
+            spectrum_id: str = sir.get("spectrumID", "")
 
-        for sii in sii_list:
-            # Look up modified peptide ID using mzID peptide reference
-            peptide_ref: str = sii.get("peptide_ref", "")
-            modified_peptide_id: uuid.UUID | None = peptide_id_map.get(peptide_ref)
+            # Extract USI-related fields from the SpectrumIdentificationResult
+            ms_run: str | None = None
+            index_type, index_number = extract_index_type_and_number(sir)
 
-            if not modified_peptide_id:
-                logger.warning(f"Peptide_ref '{peptide_ref}' not found in map")
-                continue
+            # Get list of spectrum identification items (PSMs)
+            sii_list: dict[str, Any] | list[dict[str, Any]] = sir.get(
+                "SpectrumIdentificationItem", []
+            )
+            if not isinstance(sii_list, list):
+                sii_list = [sii_list]
 
-            # Extract score values using helper function
-            score_values: dict[str, float] = extract_score_values(sii)
+            for sii in sii_list:
+                # Look up modified peptide ID using mzID peptide reference
+                peptide_ref: str = sii.get("peptide_ref", "")
+                modified_peptide_id: uuid.UUID | None = peptide_id_map.get(peptide_ref)
 
-            spectraData_ref = sir.get("spectraData_ref", "")
-            spectra_data = spectra_data_map.get(spectraData_ref)
-            if spectra_data:
-                ms_run = spectra_data[0]
-                if spectra_data[1]:
-                    index_type = spectra_data[1]
+                if not modified_peptide_id:
+                    logger.warning(f"Peptide_ref '{peptide_ref}' not found in map")
+                    continue
 
-            # Create PSM record
-            psm_id = uuid.uuid4()
-            psm: PeptideSpectrumMatchDict = {
-                "id": psm_id,
-                "project_accession": project_accession,
-                "mzid_file_id": mzid_file_id,
-                "modified_peptide_id": modified_peptide_id,
-                "spectrum_id": spectrum_id,
-                "charge_state": sii.get("chargeState"),
-                "experimental_mz": sii.get("experimentalMassToCharge"),
-                "calculated_mz": sii.get("calculatedMassToCharge"),
-                "score_values": score_values if score_values else None,
-                "rank": sii.get("rank"),
-                "pass_threshold": sii.get("passThreshold"),
-                "index_type": index_type,
-                "index_number": index_number,
-                "ms_run": ms_run,
-            }
-            psm_batch.append(psm)
+                # Extract score values using helper function
+                score_values: dict[str, float] = extract_score_values(sii)
 
-            # Link PSM to peptide evidence via junction table
-            pe_refs: dict[str, Any] | list[dict[str, Any]] = sii.get("PeptideEvidenceRef", [])
-            if not isinstance(pe_refs, list):
-                pe_refs = [pe_refs]
-            for pe_ref in pe_refs:
-                pe_ref_id: str = pe_ref.get("peptideEvidence_ref", "")
-                db_pe_id: uuid.UUID | None = pe_id_map.get(pe_ref_id)
+                spectraData_ref = sir.get("spectraData_ref", "")
+                spectra_data = spectra_data_map.get(spectraData_ref)
+                if spectra_data:
+                    ms_run = spectra_data[0]
+                    if spectra_data[1]:
+                        index_type = spectra_data[1]
 
-                if db_pe_id:
-                    junction_dict: PSMPeptideEvidenceDict = {
+                # Create PSM record
+                psm_id = uuid.uuid4()
+                psm: PeptideSpectrumMatchDict = {
+                    "id": psm_id,
+                    "project_accession": project_accession,
+                    "mzid_file_id": mzid_file_id,
+                    "modified_peptide_id": modified_peptide_id,
+                    "spectrum_id": spectrum_id,
+                    "charge_state": sii.get("chargeState"),
+                    "experimental_mz": sii.get("experimentalMassToCharge"),
+                    "calculated_mz": sii.get("calculatedMassToCharge"),
+                    "score_values": score_values if score_values else None,
+                    "rank": sii.get("rank"),
+                    "pass_threshold": sii.get("passThreshold"),
+                    "index_type": index_type,
+                    "index_number": index_number,
+                    "ms_run": ms_run,
+                }
+                psm_batch.append(psm)
+
+                for unimod_id in protocol_search_mods_map.get(
+                    list_protocol_map.get(sil.get("id", ""), ""), []
+                ):
+                    # create search modification record
+                    search_mod: SearchModificationDict = {
                         "id": uuid.uuid4(),
-                        "psm_id": psm_id,
-                        "peptide_evidence_id": db_pe_id,
+                        "psm_id": psm["id"],
+                        "unimod_id": unimod_id,
                     }
-                    junction_batch.append(junction_dict)
+                    search_mod_batch.append(search_mod)
+
+                # Link PSM to peptide evidence via junction table
+                pe_refs: dict[str, Any] | list[dict[str, Any]] = sii.get("PeptideEvidenceRef", [])
+                if not isinstance(pe_refs, list):
+                    pe_refs = [pe_refs]
+                for pe_ref in pe_refs:
+                    pe_ref_id: str = pe_ref.get("peptideEvidence_ref", "")
+                    db_pe_id: uuid.UUID | None = pe_id_map.get(pe_ref_id)
+
+                    if db_pe_id:
+                        junction_dict: PSMPeptideEvidenceDict = {
+                            "id": uuid.uuid4(),
+                            "psm_id": psm_id,
+                            "peptide_evidence_id": db_pe_id,
+                        }
+                        junction_batch.append(junction_dict)
 
     logger.debug(f"Parsed {len(psm_batch)} PSMs and {len(junction_batch)} junctions")
-    return psm_batch, junction_batch
+    logger.debug(
+        f"Each PSM is linked to {create_search_mod_log_str(search_mod_counts)} search modification(s)"
+    )
+    return psm_batch, junction_batch, search_mod_batch

@@ -7,6 +7,7 @@ from usigrabber.db.engine import logger
 from usigrabber.db.schema import IndexType
 from usigrabber.file_parser.helpers import (
     clean_mod_list_of_numbers,
+    create_search_mod_log_str,
     extract_mods,
     simple_mod_name,
 )
@@ -264,6 +265,7 @@ def parse_psms(
     psm_batch: list[PeptideSpectrumMatchDict] = []
     junction_batch: list[PSMPeptideEvidenceDict] = []
     search_mod_batch: list[SearchModificationDict] = []
+    search_mod_counts = set[int]()
 
     evidence = evidence.get(
         ["Sequence", "Raw file", "Charge", "m/z", "Mass", "MS/MS scan number"],
@@ -316,6 +318,7 @@ def parse_psms(
             for mod in modification_list
             if lookup_unimod_id_by_name(simple_mod_name(mod)) is not None
         ]
+        search_mod_counts.add(len(unimod_id_list))
 
         psm_id = uuid.uuid4()
         psm: PeptideSpectrumMatchDict = {
@@ -352,4 +355,7 @@ def parse_psms(
             junction_batch.append(junction)
 
     logger.debug(f"Parsed {len(psm_batch)} PSMs and {len(junction_batch)} junctions")
+    logger.debug(
+        f"Each PSM is linked to {create_search_mod_log_str(search_mod_counts)} search modification(s)"
+    )
     return psm_batch, junction_batch, search_mod_batch

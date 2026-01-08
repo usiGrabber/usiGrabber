@@ -91,4 +91,4 @@ def download_small_mzid_files(
 
 
 if __name__ == "__main__":
-    download_small_mzid_files()
+    download_small_mzid_files("data/all_files.json")
