@@ -5,10 +5,12 @@
 - uv: https://docs.astral.sh/uv/getting-started/installation/
 - Install recommended VS Code extensions
 
-2. Run the dev setup script
+2. Install dependencies and setup pre-commit hooks
 
 ```bash
-./scripts/setup_dev/all.sh
+uv sync
+
+uv run pre-commit install
 ```
 
 ## Build database
@@ -29,15 +31,31 @@ Arguments:
 The project requires a connection to an SQLite or PostgreSQL database for storing PRIDE proteomics data.
 
 ### Local docker container (PostgreSQL)
-We provide a simple [docker compose file](./compose.yaml) for running a PostgreSQL database in a container. By default, it stores the data in a local volume named `usigrabber_pgdata`. The container requires the following environment variables to be set in your `.env` or overriden in the compose file:
+We provide a simple [docker compose file](./compose.yaml) for running a PostgreSQL database in a container. By default, it stores the data in a Docker-managed volume named `pgdata`. The container requires the following environment variables to be set in your `.env` or overriden in the compose file:
 - `POSTGRES_USER`
 - `POSTGRES_PASSWORD`.
 
-See [Configuration](#configuration) and [`.env.sample`](./.env.sample) for more details. In order to start the container, run:
+See [Configuration](#configuration) and [`.env.sample`](./.env.sample) for more details.
+
+#### Running locally
+For local development, simply run:
 ```bash
 docker compose up -d
 ```
-in the root of this project. It will expose the database on port `5432`.
+
+#### Running on a cluster VM
+On the VM, use the override file to bind-mount the postgres data to `/mnt/helix/postgres`:
+```bash
+docker compose -f compose.yaml -f compose.helix.yaml up -d
+```
+
+**Tip:** To avoid typing the `-f` flags every time, you can set an environment variable:
+```bash
+export COMPOSE_FILE=compose.yaml:compose.helix.yaml
+docker compose up -d
+```
+
+The container exposes the database on port `5433`.
 
 You can directly interact with the database using
 ```bash
