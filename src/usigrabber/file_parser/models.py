@@ -73,6 +73,7 @@ class PeptideSpectrumMatchDict(TypedDict):
     index_type: IndexType | None
     index_number: int | None
     ms_run: str | None
+    ms_run_ext: str | None
 
 
 class PSMPeptideEvidenceDict(TypedDict):
