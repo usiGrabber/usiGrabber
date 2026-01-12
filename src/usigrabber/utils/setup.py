@@ -1,12 +1,15 @@
 # myapp/system_setup.py
 import logging
 import os
+import random
 import shutil
 import sys
 from logging import FileHandler
 from pathlib import Path
 
 from usigrabber.utils import get_cache_dir
+
+LOCAL_JOB_ID = f"local-{random.randint(0, 10**6)}"
 
 
 def setup_logger(is_main_process: bool, logger_name: str | None = None):
@@ -76,7 +79,30 @@ def setup_logger(is_main_process: bool, logger_name: str | None = None):
     logger.addHandler(file_handler)
     logger.addHandler(json_handler)
 
-    logging.info(f"Setup logging on worker: {process_suffix}")
+    if os.environ.get("LOKI_URL"):
+        from usigrabber.utils.logging_helpers.loki_handler import LokiHandler
+
+        if os.environ.get("SLURM_JOB_ID"):
+            job_id = f"slurm-{os.environ.get('SLURM_JOB_ID')}"
+        else:
+            job_id = LOCAL_JOB_ID
+
+        loki_url = f"http://{os.environ.get('LOKI_URL')}/loki/api/v1/push"
+        loki_handler = LokiHandler(
+            url=loki_url,
+            tags={"app": "usigrabber", "process": str(process_suffix), "job_id": job_id},
+            batch_size=100,
+            flush_interval=5.0,
+            include_metadata=True,  # Include log level, file, line, etc. in logs
+            use_structured_metadata=False,  # Append as JSON (Loki structured metadata disabled)
+        )
+        loki_handler.setLevel(logging.DEBUG)
+        logger.addHandler(loki_handler)
+        logger.info(f"Loki handler configured for {loki_url}")
+    else:
+        logger.warning("Env variable LOKI_URL not set. Only saving logs locally.")
+
+    logger.info(f"Setup logging on worker: {process_suffix}")
 
     # Start resource monitoring in background thread if enabled (only in worker processes)
     if not is_main_process:
