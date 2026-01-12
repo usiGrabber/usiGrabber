@@ -309,6 +309,10 @@ class PeptideSpectrumMatch(SQLModel, table=True):
         default=None,
         description="MS run identifier from raw file name. Part of USI specification.",
     )
+    ms_run_ext: str | None = Field(
+        default=None,
+        description="File extension of MS run. Part of USI specification.",
+    )
     is_usi_validated: bool | None = Field(
         default=None,
         index=True,

@@ -333,6 +333,7 @@ def parse_psms(
             "index_type": IndexType.scan,
             "index_number": scan_id,
             "ms_run": psm_elem.get("Raw file", None),
+            "ms_run_ext": "raw",
         }
         psm_batch.append(psm)
 
