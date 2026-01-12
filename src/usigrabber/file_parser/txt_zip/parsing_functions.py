@@ -128,14 +128,13 @@ def parse_modification_list(modifications, modified_sequence) -> list[Modificati
     for mod_name, locations_residues in mod_dict.items():
         for location, residue in locations_residues:
             unimod_id = lookup_unimod_id_by_name(mod_name)
-            mod_name = None if unimod_id else mod_name
             mod_uuid = generate_deterministic_modification_uuid(
                 unimod_id, mod_name, location, residue
             )
             mod_record: ModificationDict = {
                 "id": mod_uuid,
                 "unimod_id": unimod_id,
-                "name": mod_name,
+                "name": mod_name if unimod_id is None else None,
                 "location": location,
                 "modified_residue": residue,
             }

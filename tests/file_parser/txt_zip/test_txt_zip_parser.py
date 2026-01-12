@@ -22,6 +22,8 @@ def test_txt_zip_parser_basic():
 
     assert len(parsed_data.modified_peptides) == 6
     assert len(parsed_data.modifications) == 3
+    for mods in parsed_data.modifications:
+        assert mods["unimod_id"] is not None or mods["name"] is not None
     assert len(parsed_data.peptide_evidence) == 4
     assert len(parsed_data.psms) == 17
     assert len(parsed_data.psm_peptide_evidence_junctions) == 17
@@ -65,6 +67,8 @@ def test_txt_zip_parser():
 
     assert len(peptide_modifications) > 0, "Should parse peptide modifications from the file"
     assert len(peptide_modifications) == 22, "Expected 22 peptide modifications"
+    for mods in peptide_modifications:
+        assert mods["unimod_id"] is not None or mods["name"] is not None
 
     # Find a specific modified peptide
     # peptides.txt, line 673 + evidence.txt line 1145:
