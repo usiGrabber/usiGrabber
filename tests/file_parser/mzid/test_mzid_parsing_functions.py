@@ -2,6 +2,8 @@
 Unit tests for individual mzID parsing functions.
 """
 
+import os
+
 from usigrabber.db.schema import IndexType
 from usigrabber.file_parser.mzid.parsing_functions import (
     parse_db_sequences,
@@ -221,5 +223,7 @@ def test_parse_spectra_data(full_mzid_path) -> None:
     assert len(spectra_data) == 1
 
     ms_run_name, spectrum_id_format = spectra_data["SD_1"]
+    ms_run_name, ms_run_ext = os.path.splitext(ms_run_name)
     assert ms_run_name == "OTE0019_York_060813_JH16"
+    assert ms_run_ext == ".mgf"
     assert spectrum_id_format == IndexType.index

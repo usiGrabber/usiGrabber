@@ -184,7 +184,8 @@ def test_usi_fields_extraction(full_mzid_path):
         sample_ms_run_psm = psms_with_ms_run[0]
         assert sample_ms_run_psm["ms_run"] is not None
         assert len(sample_ms_run_psm["ms_run"]) > 0, "MS run should not be empty string"
-        # MS run should not contain .raw extension
-        assert ".raw" not in sample_ms_run_psm["ms_run"].lower(), (
-            "MS run should have .raw extension removed"
+        # MS run should not contain .mgf extension
+        assert ".mgf" not in sample_ms_run_psm["ms_run"].lower(), (
+            "MS run should have extension removed"
         )
+        assert sample_ms_run_psm["ms_run_ext"] == "mgf"

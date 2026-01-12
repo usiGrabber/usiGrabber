@@ -70,10 +70,13 @@ def parse_spectra_data(mzid_path: Path) -> dict[str, tuple[str, IndexType | None
             continue
         basename = parse_basename(ms_run_name)
         ms_run_name, ext = os.path.splitext(basename)
+        prev_ext = ""
 
         # keep stripping extensions until none left
         while ext != "":
+            prev_ext = ext
             ms_run_name, ext = os.path.splitext(ms_run_name)
+        ms_run_name += prev_ext  # add back last extension
 
         # Extract SpectrumIDFormat accession from nested cvParam
         spectrum_id_format: str | None = None
@@ -466,6 +469,7 @@ def parse_psms(
 
             # Extract USI-related fields from the SpectrumIdentificationResult
             ms_run: str | None = None
+            ms_run_ext: str | None = None
             index_type, index_number = extract_index_type_and_number(sir)
 
             # Get list of spectrum identification items (PSMs)
@@ -490,7 +494,8 @@ def parse_psms(
                 spectraData_ref = sir.get("spectraData_ref", "")
                 spectra_data = spectra_data_map.get(spectraData_ref)
                 if spectra_data:
-                    ms_run = spectra_data[0]
+                    ms_run, ms_run_ext = os.path.splitext(spectra_data[0])
+                    ms_run_ext = ms_run_ext.lstrip(".") if ms_run_ext else None
                     if spectra_data[1]:
                         index_type = spectra_data[1]
 
@@ -511,6 +516,7 @@ def parse_psms(
                     "index_type": index_type,
                     "index_number": index_number,
                     "ms_run": ms_run,
+                    "ms_run_ext": ms_run_ext,
                 }
                 psm_batch.append(psm)
 
