@@ -152,7 +152,17 @@ class FutureHolder:
         Processes the first completed future.
         """
         futures = list(self._futures.keys())
-        done_futures, waiting_futures = wait(futures, return_when=FIRST_COMPLETED)
+        TIMEOUT = 10 * 60
+        try:
+            done_futures, waiting_futures = wait(
+                futures, timeout=TIMEOUT, return_when=FIRST_COMPLETED
+            )
+
+        except TimeoutError:
+            logger.error(
+                f"waiting for one completed project timed out after {TIMEOUT}s", exc_info=True
+            )
+            done_futures = []
 
         for future in done_futures:
             future_wrapper = self._futures[future]
