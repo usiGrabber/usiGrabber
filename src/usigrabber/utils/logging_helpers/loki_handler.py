@@ -1,11 +1,11 @@
 """Custom Loki logging handler with proper error handling."""
-import json
+
 import logging
 import sys
 import threading
 import time
 from collections import deque
-from typing import Any, Deque
+from typing import Any
 
 import requests
 
@@ -50,7 +50,7 @@ class LokiHandler(logging.Handler):
         self.include_metadata = include_metadata
         self.use_structured_metadata = use_structured_metadata
 
-        self._buffer: Deque[tuple[int, str, dict[str, str]]] = deque()
+        self._buffer: deque[tuple[int, str, dict[str, str]]] = deque()
         self._lock = threading.Lock()
         self._stop_event = threading.Event()
         self._flush_thread = threading.Thread(target=self._flush_worker, daemon=True)
@@ -88,11 +88,28 @@ class LokiHandler(logging.Handler):
                 if hasattr(record, "__dict__"):
                     for key, value in record.__dict__.items():
                         if key not in [
-                            "name", "msg", "args", "created", "filename", "funcName",
-                            "levelname", "levelno", "lineno", "module", "msecs",
-                            "pathname", "process", "processName", "relativeCreated",
-                            "thread", "threadName", "exc_info", "exc_text", "stack_info",
-                            "taskName", "getMessage",
+                            "name",
+                            "msg",
+                            "args",
+                            "created",
+                            "filename",
+                            "funcName",
+                            "levelname",
+                            "levelno",
+                            "lineno",
+                            "module",
+                            "msecs",
+                            "pathname",
+                            "process",
+                            "processName",
+                            "relativeCreated",
+                            "thread",
+                            "threadName",
+                            "exc_info",
+                            "exc_text",
+                            "stack_info",
+                            "taskName",
+                            "getMessage",
                         ]:
                             structured_metadata[key] = str(value)
 
@@ -106,46 +123,31 @@ class LokiHandler(logging.Handler):
         except Exception as e:
             self._log_error(f"Error in LokiHandler.emit: {e}")
 
-    def _flush_worker(self) -> None:
-        """Background worker that periodically flushes the buffer."""
-        while not self._stop_event.is_set():
-            time.sleep(self.flush_interval)
-            with self._lock:
-                if self._buffer:
-                    self._flush_buffer()
-
     def _flush_buffer(self) -> None:
-        """
-        Flush buffered logs to Loki.
-
-        Must be called with self._lock held.
-        """
         if not self._buffer:
             return
 
-        # Prepare payload in Loki's expected format
         values = []
+
         for ts, msg, metadata in self._buffer:
-            if self.use_structured_metadata and metadata:
-                # Send metadata as Loki structured metadata (requires Loki config)
-                values.append([str(ts), msg, metadata])
-            elif metadata:
-                # Append metadata as logfmt (key=value pairs) for easy parsing in Grafana
-                # Use logfmt format which Grafana can automatically parse with | logfmt
-                logfmt_parts = []
-                for key, value in metadata.items():
-                    # Escape quotes and backslashes in values
-                    escaped_value = str(value).replace('\\', '\\\\').replace('"', '\\"')
-                    # Quote values that contain spaces or special characters
-                    if ' ' in escaped_value or '=' in escaped_value or '"' in str(value):
-                        logfmt_parts.append(f'{key}="{escaped_value}"')
-                    else:
-                        logfmt_parts.append(f'{key}={escaped_value}')
-                logfmt_str = ' '.join(logfmt_parts)
-                values.append([str(ts), f"{msg} | {logfmt_str}"])
-            else:
-                # No metadata
-                values.append([str(ts), msg])
+            # Always treat the message as structured logfmt
+            logfmt_fields = {}
+
+            # Message first (this is the key fix)
+            logfmt_fields["msg"] = msg
+
+            # Add metadata fields
+            if metadata:
+                logfmt_fields.update(metadata)
+
+            # Build logfmt string
+            parts = []
+            for key, value in logfmt_fields.items():
+                escaped = str(value).replace("\\", "\\\\").replace('"', '\\"')
+                parts.append(f'{key}="{escaped}"')
+
+            log_line = " ".join(parts)
+            values.append([str(ts), log_line])
 
         payload = {
             "streams": [
@@ -156,16 +158,21 @@ class LokiHandler(logging.Handler):
             ]
         }
 
-        # Clear buffer before sending to avoid duplicates if send fails
-        batch_size = len(self._buffer)
         self._buffer.clear()
 
-        # Send outside the lock to avoid blocking other threads
         threading.Thread(
             target=self._send_to_loki,
-            args=(payload, batch_size),
-            daemon=True
+            args=(payload, len(values)),
+            daemon=True,
         ).start()
+
+    def _flush_worker(self) -> None:
+        """Background worker that periodically flushes the buffer."""
+        while not self._stop_event.is_set():
+            time.sleep(self.flush_interval)
+            with self._lock:
+                if self._buffer:
+                    self._flush_buffer()
 
     def _send_to_loki(self, payload: dict[str, Any], batch_size: int) -> None:
         """
