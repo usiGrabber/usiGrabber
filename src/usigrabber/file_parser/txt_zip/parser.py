@@ -69,35 +69,89 @@ class TxtZipFileParser(BaseFileParser):
     def persist(self, engine: Engine, parsed: ParsedTxtZipData, stats: ImportStats):
         """Persist parsed txt data to the database with debug logging."""
         logger.debug(f"Persisting txt data to database for file '{stats.file_name}'")
+        import time
 
         try:
             insert_func = get_db_insert_function(engine)
             with engine.begin() as conn:
                 if parsed.modified_peptides:
+                    # Sort by primary key to minimize deadlocks
+                    sorted_peptides = sorted(parsed.modified_peptides, key=lambda x: x["id"])
                     # Use INSERT OR IGNORE (SQLite) or INSERT ON CONFLICT DO NOTHING (PostgreSQL)
                     # for cross-file deduplication based on primary key
                     stmt = insert_func(ModifiedPeptide).on_conflict_do_nothing()
-                    conn.execute(stmt, parsed.modified_peptides)
-                    stats.peptide_count = len(parsed.modified_peptides)
+                    db_start = time.time()
+                    conn.execute(stmt, sorted_peptides)
+                    db_time = time.time() - db_start
+                    stats.peptide_count = len(sorted_peptides)
+                    logger.info(
+                        f"[{stats.file_name}] ModifiedPeptide: {db_time - db_start:.3f}s total"
+                    )
+
                 if parsed.modifications:
+                    # Sort by primary key to minimize deadlocks
+                    sorted_modifications = sorted(parsed.modifications, key=lambda x: x["id"])
                     # Use INSERT OR IGNORE (SQLite) or INSERT ON CONFLICT DO NOTHING (PostgreSQL)
                     # for cross-file deduplication based on unique constraint
                     stmt = insert_func(Modification).on_conflict_do_nothing()
-                    conn.execute(stmt, parsed.modifications)
-                    stats.modification_count = len(parsed.modifications)
+                    db_start = time.time()
+                    conn.execute(stmt, sorted_modifications)
+                    db_time = time.time() - db_start
+                    stats.modification_count = len(sorted_modifications)
+                    logger.info(
+                        f"[{stats.file_name}] Modification: {db_time - db_start:.3f}s total"
+                    )
+
                 if parsed.modified_peptide_modification_junctions:
+                    # Sort by composite primary key to minimize deadlocks
+                    sorted_junctions = sorted(
+                        parsed.modified_peptide_modification_junctions,
+                        key=lambda x: (x["modified_peptide_id"], x["modification_id"]),
+                    )
                     # Use INSERT OR IGNORE (SQLite) or INSERT ON CONFLICT DO NOTHING (PostgreSQL)
                     # for cross-file deduplication based on composite primary key
                     stmt = insert_func(ModifiedPeptideModificationJunction).on_conflict_do_nothing()
-                    conn.execute(stmt, parsed.modified_peptide_modification_junctions)
+                    db_start = time.time()
+                    conn.execute(stmt, sorted_junctions)
+                    db_time = time.time() - db_start
+                    logger.info(
+                        f"[{stats.file_name}] ModifiedPeptideModificationJunction: {db_time - db_start:.3f}s total"
+                    )
+
                 if parsed.peptide_evidence:
-                    conn.execute(insert(PeptideEvidence), parsed.peptide_evidence)
-                    stats.peptide_evidence_count = len(parsed.peptide_evidence)
+                    # Sort by primary key to minimize deadlocks
+                    sorted_evidence = sorted(parsed.peptide_evidence, key=lambda x: x["id"])
+                    db_start = time.time()
+                    conn.execute(insert(PeptideEvidence), sorted_evidence)
+                    db_time = time.time() - db_start
+                    stats.peptide_evidence_count = len(sorted_evidence)
+                    logger.info(
+                        f"[{stats.file_name}] PeptideEvidence: {db_time - db_start:.3f}s total "
+                    )
+
                 if parsed.psms:
-                    conn.execute(insert(PeptideSpectrumMatch), parsed.psms)
-                    stats.psm_count = len(parsed.psms)
+                    # Sort by primary key to minimize deadlocks
+                    sorted_psms = sorted(parsed.psms, key=lambda x: x["id"])
+                    db_start = time.time()
+                    conn.execute(insert(PeptideSpectrumMatch), sorted_psms)
+                    db_time = time.time() - db_start
+                    stats.psm_count = len(sorted_psms)
+                    logger.info(
+                        f"[{stats.file_name}] PeptideSpectrumMatch: {db_time - db_start:.3f}s total"
+                    )
+
                 if parsed.psm_peptide_evidence_junctions:
-                    conn.execute(insert(PSMPeptideEvidence), parsed.psm_peptide_evidence_junctions)
+                    # Sort by primary key to minimize deadlocks
+                    sorted_pe_junctions = sorted(
+                        parsed.psm_peptide_evidence_junctions, key=lambda x: x["id"]
+                    )
+                    db_start = time.time()
+                    conn.execute(insert(PSMPeptideEvidence), sorted_pe_junctions)
+                    db_time = time.time() - db_start
+                    logger.info(
+                        f"[{stats.file_name}] PSMPeptideEvidence: {db_time - db_start:.3f}s total"
+                    )
+
                 if parsed.search_modifications:
                     stmt = insert_func(SearchModification).on_conflict_do_nothing()
                     conn.execute(
