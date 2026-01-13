@@ -35,7 +35,7 @@ We recommend using a postgres database for local development and production depl
 2. Start the database using Docker Compose.
 - `docker compose up -d`
 
-Hint: If you are running on the usigraber VM use this command instead to bind-mount the postgres data to `/mnt/helix/postgres`:
+Hint: If you are running on the master project VM, use this command instead to bind-mount the postgres data to `/mnt/helix/postgres`:
 
 ```bash
 docker compose -f compose.yaml -f compose.helix.yaml up -d
