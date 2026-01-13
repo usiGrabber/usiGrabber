@@ -57,15 +57,19 @@ DB_URL=sqlite:///./database.db
 
 ## Commands for building the usigrabber database
 
-Use the following command to start building the usigrabber database:
+Use the following command to start building the usigrabber with ten sample projects:
 ```bash
-uv run usigrabber build
+uv run usigrabber build --projects-file ./sample_projects.json
 ```
 
-Arguments:
-- `--projects-file`: Path to a JSON file with sampled projects for testing. Can also be set via `PROJECTS_FILE` environment variable. If not provided, projects are fetched from the PRIDE API and cached locally.
+Remove the argument to use all available projects from PRIDE or provide your own list of projects in a JSON file. You can get one from the [PRIDE API](https://www.ebi.ac.uk/pride/ws/archive/v3/webjars/swagger-ui/index.html#/projects/getProjects).
 
-### Other Commands
+Check out the help message for more options like resetting the database before building, skipping ontology downloads, or adjusting the number of parallel workers:
+```bash
+uv run usigrabber build --help
+```
+
+### Other useful commands
 
 ```bash
 
@@ -74,6 +78,7 @@ uv run usigrabber db seed
 
 # View database info
 uv run usigrabber db info
+
 # Reset database (drop + recreate + seed)
 uv run usigrabber db reset --force
 
@@ -86,11 +91,10 @@ uv run usigrabber db drop --force
 
 # Profile database build
 uv run pyinstrument -o db_build_profile.html $(which usigrabber) build
-
 ```
 
+## Miscellaneous
 
-
-## Working with mzIdentML Files
+### Obtaining example mzIdentML files
 
 Example mzIdentML (.mzid) files for testing and development can be obtained from the HUPO-PSI mzIdentML repository: https://github.com/HUPO-PSI/mzIdentML/tree/master/examples
