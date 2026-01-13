@@ -30,17 +30,12 @@ STANDARD_BACKENDS = [enum for enum in BackendEnum]
 logger = logging.getLogger(__name__)
 
 
-class ObservabilityConfiguration(BaseModel):
-    debug: bool
-
-
 class OntologyConfiguration(BaseModel):
     skip_ontos: bool
     ontology_workers: int
 
 
 class BuildConfiguration(BaseModel):
-    observability: ObservabilityConfiguration
     cache_dir: Path
     ontologies: OntologyConfiguration
     max_workers: int
@@ -48,10 +43,18 @@ class BuildConfiguration(BaseModel):
 
 @app.command()
 def build(
-    debug: Annotated[
-        bool,
-        typer.Option(help="Run in debug mode with verbose output.", envvar="DEBUG"),
-    ] = False,
+    projects_file: Annotated[
+        Path | None,
+        typer.Option(
+            help="Path to a JSON file with sampled projects for testing. If not provided, projects are fetched from the PRIDE API.",
+            envvar="PROJECTS_FILE",
+            exists=True,
+            dir_okay=False,
+            file_okay=True,
+            readable=True,
+            resolve_path=True,
+        ),
+    ] = None,
     reset: Annotated[bool, typer.Option(help="Reset the database before building.")] = False,
     backends: Annotated[
         list[BackendEnum],
@@ -104,13 +107,12 @@ def build(
         os.environ["NO_ONTOLOGY"] = "1"
     if os.getenv("NO_ONTOLOGY"):
         logger.warning("Ontology lookup is disabled.")
-    if debug:
-        os.environ["DEBUG"] = "1"
-    if os.getenv("DEBUG"):
-        logger.info("Running in DEBUG mode.")
+    if projects_file:
+        os.environ["PROJECTS_FILE"] = str(projects_file)
+    if os.getenv("PROJECTS_FILE"):
+        logger.info(f"Using projects file: {os.getenv('PROJECTS_FILE')}")
 
     config = BuildConfiguration(
-        observability=ObservabilityConfiguration(debug=debug),
         cache_dir=cache_dir,
         ontologies=OntologyConfiguration(
             skip_ontos=no_ontology,
@@ -146,9 +148,7 @@ async def build_all_projects(
     )
 
     if config.max_workers == 1:
-        await build_all_projects_in_single_process(
-            backends, config, existing_accessions, engine=engine
-        )
+        await build_all_projects_in_single_process(backends, existing_accessions, engine=engine)
     else:
         await build_all_projects_in_process_pool(backends, config, existing_accessions)
 

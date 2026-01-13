@@ -1,5 +1,6 @@
 import os
 from collections.abc import AsyncGenerator
+from pathlib import Path
 from typing import Any
 
 import ijson
@@ -119,16 +120,15 @@ class PrideBackend(BaseBackend):
         cls,
         existing_accessions: set[str],
     ) -> AsyncGenerator[dict[str, Any], None]:
-        file_path = get_cache_dir() / "pride" / "all_projects.json"
-        is_debug = os.getenv("DEBUG")
-        if is_debug:
-            file_name = os.getenv("DEBUG_PROJECTS_FILENAME", "sampled_projects.json")
-            file_path = get_cache_dir() / "pride" / file_name
+        projects_file = os.getenv("PROJECTS_FILE")
+        if projects_file:
+            file_path = Path(projects_file)
+            if not file_path.exists():
+                raise FileNotFoundError(f"Projects file not found: {file_path}")
+        else:
+            file_path = get_cache_dir() / "pride" / "all_projects.json"
         # if file doesnt exist, download it
         if not file_path.exists():
-            if is_debug:
-                raise FileNotFoundError(f"Debug projects file: {file_path} not found.")
-
             # Ensure parent directory exists
             file_path.parent.mkdir(parents=True, exist_ok=True)
 
