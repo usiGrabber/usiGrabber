@@ -68,7 +68,6 @@ async def iterate_projects(
 
 async def build_all_projects_in_single_process(
     backends: list[BackendEnum],
-    config: "BuildConfiguration",
     existing_accessions: set[str],
     engine: Engine,
 ) -> None:

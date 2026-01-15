@@ -8,14 +8,13 @@
             "program": "${workspaceFolder}/src/usigrabber/__init__.py",
             "args": [
                 "build",
-                "--debug" // technically optional due to envvar, but explicit is better
+                "--projects-file", "${workspaceFolder}/sample_projects.json"
                 // "--reset", // reset the database before building
             ],
             "cwd": "${workspaceFolder}",
             "console": "integratedTerminal",
             "justMyCode": true,
             "env": {
-                "DEBUG": "1",
                 "LOGLEVEL": "DEBUG",
                 //"DB_ECHO_SQL": "1",
                 "DB_URL": "sqlite://", // in-memory database for testing

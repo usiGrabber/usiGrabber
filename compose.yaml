@@ -54,10 +54,5 @@ services:
 
 volumes:
   usigrabber_helix_pgdata:
-    driver: local
-    driver_opts:
-      type: none
-      o: bind
-      device: /mnt/helix/postgres
   loki-data:
   grafana-data:

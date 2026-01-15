@@ -1,0 +1,1515 @@
+[
+  {
+    "accession": "PXD001357",
+    "title": "Direct evidence of milk consumption from ancient human dental calculus, St Helena",
+    "additionalAttributes": [],
+    "projectDescription": "This study investigated the consumption of milk products in the archaeological record, utilizing human dental calculus as a reservoir of dietary proteins from archaeological samples from across Eurasia. Protein extraction and generation of tryptic peptides from dental calculus was performed using a filter-aided sample preparation (FASP) protocol, modified for ancient samples, on 92 samples of archaeological dental calculus. Samples were extracted at three laboratories; the Functional Genomics Centre Zürich (FGCZ), the Centre for GeoGenetics at the National History Museum of Denmark, and BioArCh at the University of York. Sample extracts were sequenced (LC-MS/MS) using an LTQ-Orbitrap Velos (FGCZ), a Q-Exactive Hybrid Quadrupole Orbitrap and an LTQ-Orbitrap Elite (Central Proteomics Facility, Target Discovery Institute, Oxford).",
+    "sampleProcessingProtocol": "Tryptic peptides were extracted from decalcified dental calculus using a filter-aided sample preparation (FASP) protocol modified for degraded samples. Samples from St Helena were analyzed by tandem mass spectrometry at the Central Proteomics Facility, Target Discovery Institute, Oxford using a Q-Exactive and a LTQ Orbitrap Elite tandem mass spectrometer. Q-Exactive analysis was performed after UPLC separation on an EASY-Spray column (50 cm x 75 µm ID, PepMap RSLC C18, 2 µm) connected to a Dionex Ultimate 3000 nUPLC (all Thermo Scientific) using a gradient of 2-40% Acetonitrile in 0.1% Formic Acid and a flow rate of 250nl/min @40°C. MS spectra were acquired at a resolution of 70000 @200 m/z using an ion target of 3E6 between 380 and 1800 m/z. MS/MS spectra of up to f15 precursor masses at a signal threshold of 1E5 counts and a dynamic exclusion for 7 seconds were acquired at a resolution of 17500 using an ion target of 1E5 and a maximal injection time of 50 ms. Precursor masses were isolated with an isolation window of 1.6 Da and fragmented with 28% normalized collision energy. Orbitrap Elite analysis was performed under similar LC conditions using a nAcquity UPLC (1.7um BEH130 C18, 75um x 250mm). MS spectra were acquired at a resolution of 120000 @ 400m/z using an ion target of 5E5 between 300 and 1800 m/z. MS/MS spectra of up to 200 precursor masses at a signal threshold of 1000 counts and a dynamic exclusion for 15 seconds were acquired in the linear ion trap using rapid scan and an ion target of 5E4. Precursor masses were isolated with an isolation window of 1.5 Da and fragmented with 35% normalized collision energy.",
+    "dataProcessingProtocol": "Raw MS/MS spectra were converted to searchable Mascot generic format using Proteowizard version 3.0.4743 using the 200 most intense peaks in each MS/MS spectrum. MS/MS ion database searching was performed on Mascot (Matrix ScienceTM, version 2.4.01), against all available sequences in UniProt and the Human Oral Microbiome Database (HOMD)34. Searches were performed against a decoy database to generate false discovery rates. Peptide tolerance was 10ppm, and with a semi-tryptic search with up to two missed cleavages. MS/MS ion tolerance was set to 0.07 Da. Based on previous observations of ancient proteome degradation, we set post-translational modifications were as carbamidomethylation (fixed modification) and acetyl (protein N-term), deamidated (NQ), glutamine to pyroglutamate, methionine oxidation and hydroxylation of proline (variable modifications). Mascot search results were filtered using an ion score cut-off of 25 and significance threshold of p<0.05. BLAST was used to verify matches to β-lactoglobulin, and taxonomic assignment is reported based on the consensus peptide assignments for each individual.",
+    "projectTags": [
+      "Technical",
+      "Metaproteomics"
+    ],
+    "keywords": [
+      "Human",
+      "Beta-lactoglobulin",
+      "Dental calculus",
+      "Dental plaque",
+      "Lc-ms/ms"
+    ],
+    "doi": "10.6019/PXD001357",
+    "submissionType": "COMPLETE",
+    "license": "EBI terms of use",
+    "submissionDate": "2014-10-15",
+    "publicationDate": "2015-02-25",
+    "submitters": [
+      {
+        "title": "Dr",
+        "firstName": "Jessica",
+        "lastName": "Hendy",
+        "identifier": "10490130",
+        "affiliation": "University of York",
+        "email": "jessica.hendy@york.ac.uk",
+        "country": "United Kingdom",
+        "orcid": "0000-0002-3718-1058",
+        "name": "Jessica Hendy",
+        "id": "10490130"
+      }
+    ],
+    "labPIs": [
+      {
+        "title": "Dr",
+        "firstName": "Matthew",
+        "lastName": "Collins",
+        "identifier": "11740100",
+        "affiliation": "BioArCh, University of York, UK",
+        "email": "matthew.collins@york.ac.uk",
+        "country": "",
+        "orcid": "",
+        "name": "Matthew Collins",
+        "id": "11740100"
+      }
+    ],
+    "instruments": [
+      {
+        "@type": "CvParam",
+        "cvLabel": "MS",
+        "accession": "MS:1001910",
+        "name": "LTQ Orbitrap Elite",
+        "value": ""
+      },
+      {
+        "@type": "CvParam",
+        "cvLabel": "MS",
+        "accession": "MS:1001911",
+        "name": "Q Exactive",
+        "value": ""
+      }
+    ],
+    "softwares": [
+      {
+        "@type": "CvParam",
+        "cvLabel": "MS",
+        "accession": "MS:1001207",
+        "name": "Mascot"
+      }
+    ],
+    "experimentTypes": [
+      {
+        "@type": "CvParam",
+        "cvLabel": "PRIDE",
+        "accession": "PRIDE:0000429",
+        "name": "Shotgun proteomics"
+      }
+    ],
+    "quantificationMethods": [],
+    "countries": [
+      "United Kingdom"
+    ],
+    "sampleAttributes": [
+      {
+        "@type": "Tuple",
+        "key": {
+          "cvLabel": "EFO",
+          "accession": "EFO:0000635",
+          "name": "organism part"
+        },
+        "value": [
+          {
+            "cvLabel": "BTO",
+            "accession": "BTO:0000338",
+            "name": "dental plaque",
+            "value": ""
+          }
+        ]
+      },
+      {
+        "@type": "Tuple",
+        "key": {
+          "cvLabel": "EFO",
+          "accession": "OBI:0100026",
+          "name": "organism"
+        },
+        "value": [
+          {
+            "cvLabel": "NEWT",
+            "accession": "NEWT:9606",
+            "name": "Homo sapiens (Human)",
+            "value": ""
+          }
+        ]
+      }
+    ],
+    "organisms": [
+      {
+        "@type": "CvParam",
+        "cvLabel": "NEWT",
+        "accession": "NEWT:9606",
+        "name": "Homo sapiens (human)",
+        "value": ""
+      }
+    ],
+    "organismParts": [
+      {
+        "@type": "CvParam",
+        "cvLabel": "BTO",
+        "accession": "BTO:0000338",
+        "name": "Dental plaque",
+        "value": ""
+      }
+    ],
+    "diseases": [],
+    "references": [
+      {
+        "referenceLine": "Warinner C, Hendy J, Speller C, Cappellini E, Fischer R, Trachsel C, Arneborg J, Lynnerup N, Craig OE, Swallow DM, Fotakis A, Christensen RJ, Olsen JV, Liebert A, Montalva N, Fiddyment S, Charlton S, Mackie M, Canci A, Bouwman A, Rühli F, Gilbert MT, Collins MJ. Direct evidence of milk consumption from ancient human dental calculus. Sci Rep. 2014 Nov 27;4:7104",
+        "pubmedID": 25429530,
+        "doi": "10.1038/srep07104"
+      }
+    ],
+    "identifiedPTMStrings": [
+      {
+        "@type": "CvParam",
+        "cvLabel": "UNIMOD",
+        "accession": "UNIMOD:28",
+        "name": "Gln->pyro-Glu",
+        "value": ""
+      },
+      {
+        "@type": "CvParam",
+        "cvLabel": "UNIMOD",
+        "accession": "UNIMOD:7",
+        "name": "Deamidated",
+        "value": ""
+      },
+      {
+        "@type": "CvParam",
+        "cvLabel": "UNIMOD",
+        "accession": "UNIMOD:4",
+        "name": "Carbamidomethyl",
+        "value": ""
+      },
+      {
+        "@type": "CvParam",
+        "cvLabel": "UNIMOD",
+        "accession": "UNIMOD:35",
+        "name": "Oxidation",
+        "value": ""
+      },
+      {
+        "@type": "CvParam",
+        "cvLabel": "UNIMOD",
+        "accession": "UNIMOD:1",
+        "name": "Acetyl",
+        "value": ""
+      }
+    ],
+    "totalFileDownloads": 17853,
+    "otherOmicsLinks": [
+      "pride.project:PXD001360",
+      "pride.project:PXD001362",
+      "px:PXD001361",
+      "pride.project:PXD001361",
+      "px:PXD001360",
+      "px:PXD001359",
+      "pride.project:PXD001359",
+      "px:PXD001362"
+    ]
+  },
+  {
+    "accession": "PXD000035",
+    "title": "Surface Proteins of Listeria monocytogenes",
+    "additionalAttributes": [],
+    "projectDescription": "Listeria monocytogenes cells (strain LI0521) were digested with trypsin for the identification of surface proteins. The supernatant was filter-sterilized and subjected to identification by LC-MS/MS. Concurrently secreted or shed proteins were identified by isolating filter-sterilized supernatants following incubation of L. monocytogenes cells in buffer without trypsin. This was followed by trypsin digest of the sterilized supernatant and identification by LC-MS/MS.",
+    "sampleProcessingProtocol": "Not available",
+    "dataProcessingProtocol": "Not available",
+    "projectTags": [],
+    "keywords": [
+      "Lc-msms",
+      "Listeria monocytogenes surface proteins"
+    ],
+    "doi": "10.6019/PXD000035",
+    "submissionType": "COMPLETE",
+    "license": "EBI terms of use",
+    "submissionDate": "2012-09-24",
+    "publicationDate": "2013-08-27",
+    "submitters": [
+      {
+        "title": "Dr",
+        "firstName": "Min",
+        "lastName": "Lin",
+        "identifier": "760114",
+        "affiliation": "Food Safety Research Branch",
+        "email": "cathy.xyzhang@yahoo.ca",
+        "country": "Canada",
+        "orcid": "",
+        "name": "Min Lin",
+        "id": "760114"
+      }
+    ],
+    "labPIs": [
+      {
+        "title": "Dr",
+        "firstName": "Min",
+        "lastName": "Lin",
+        "identifier": "3017646",
+        "affiliation": "Food Safety Research Branch",
+        "email": "cathy.xyzhang@yahoo.ca",
+        "country": "",
+        "orcid": "",
+        "name": "Min Lin",
+        "id": "3017646"
+      }
+    ],
+    "instruments": [
+      {
+        "@type": "CvParam",
+        "cvLabel": "MS",
+        "accession": "MS:1001781",
+        "name": "Synapt HDMS"
+      },
+      {
+        "@type": "CvParam",
+        "cvLabel": "MS",
+        "accession": "MS:1001775",
+        "name": "MALDI Synapt HDMS"
+      }
+    ],
+    "softwares": [],
+    "experimentTypes": [
+      {
+        "@type": "CvParam",
+        "cvLabel": "PRIDE",
+        "accession": "PRIDE:0000428",
+        "name": "Bottom-up proteomics"
+      }
+    ],
+    "quantificationMethods": [],
+    "countries": [
+      "Canada"
+    ],
+    "sampleAttributes": [
+      {
+        "@type": "Tuple",
+        "key": {
+          "cvLabel": "EFO",
+          "accession": "OBI:0100026",
+          "name": "organism"
+        },
+        "value": [
+          {
+            "cvLabel": "NEWT",
+            "accession": "NEWT:1639",
+            "name": "Listeria monocytogenes"
+          }
+        ]
+      }
+    ],
+    "organisms": [
+      {
+        "@type": "CvParam",
+        "cvLabel": "NEWT",
+        "accession": "NEWT:1639",
+        "name": "Listeria monocytogenes"
+      }
+    ],
+    "organismParts": [],
+    "diseases": [],
+    "references": [
+      {
+        "referenceLine": "Zhang CX, Creskey MC, Cyr TD, Brooks B, Huang H, Pagotto F, Lin M; Proteomic Identification of Listeria monocytogenes Surface-Associated Proteins., Proteomics, 2013 Aug 23, ",
+        "pubmedID": 23970489,
+        "doi": "10.1002/pmic.201200449"
+      }
+    ],
+    "identifiedPTMStrings": [
+      {
+        "@type": "CvParam",
+        "cvLabel": "MOD",
+        "accession": "MOD:00425",
+        "name": "monohydroxylated residue"
+      },
+      {
+        "@type": "CvParam",
+        "cvLabel": "MOD",
+        "accession": "MOD:00674",
+        "name": "amidated residue"
+      },
+      {
+        "@type": "CvParam",
+        "cvLabel": "MOD",
+        "accession": "MOD:00397",
+        "name": "iodoacetamide derivatized residue"
+      },
+      {
+        "@type": "CvParam",
+        "cvLabel": "MOD",
+        "accession": "MOD:00400",
+        "name": "deamidated residue"
+      }
+    ],
+    "totalFileDownloads": 1826
+  },
+  {
+    "accession": "PXD000030",
+    "title": "Annexin A1 interacting proteins in chronic myeloid leukemia KCL22 cells",
+    "additionalAttributes": [],
+    "projectDescription": "In the present study, we used a functional proteomic approach to identify Annexin A1 (Anxa1) interacting proteins in the Philadelphia-positive KCL22 cell line. We focused on Anxa1 because it is one of the major proteins upregulated in imatinib-sensitive KCL22S cells versus imatinib-resistant KCL22R. Our proteomic strategy revealed 21 interactors. Bioinformatic analysis showed that most of these proteins are involved in cell death processes. Among the proteins identified, we studied the interaction of Anxa1 with two phosphatases, Shp1 and Shp2, which were recently identified as biomarkers of imatinib sensitivity in patients affected by chronic myeloid leukemia. Our data open new perspectives in the search for annexin-mediated signaling pathways and may shed light on mechanisms of resistance to imatinib that are unrelated to Bcr-Abl activity. For data analysis, we used the MASCOT software (version 2.4) Peptide Mass Fingerprinting search program (http://www.matrixscience.com) selecting NCBInr aug2010 database (11592891 sequences) (http://www.ncbi. nlm.nih.gov), and the following six parameters: specificity of the proteolytic enzyme used for hydrolysis (trypsin); up to 1 missed cleavage; cysteines such as S-carbamidomethylcysteines; unmodified N- and C-terminal ends; unmodified and oxidized methionines; putative Gln-induced pyroGlu formation; a precursor peptide maximum mass tolerance of 400 ppm, and a maximum fragment mass tolerance of 0.6 Da. Using the probability-based Mowse score, the ion score is 10 x Log(p), p being the probability that an eventual match is a random occurrence. All MS/MS spectra with a MASCOT score of or higher than 41 (p =< 0.05) had a good S/N, so the interpretation of the data was unambiguous. MS/MS spectra of peptides that had a MASCOT score below 41 were inspected manually and included in the statistics only in the presence of at least four continuous y or b ions.",
+    "sampleProcessingProtocol": "Not available",
+    "dataProcessingProtocol": "Not available",
+    "projectTags": [],
+    "keywords": [
+      "Annexin a1",
+      "Protein interaction",
+      "Chronic myeloid leukemia"
+    ],
+    "doi": "10.6019/PXD000030",
+    "submissionType": "COMPLETE",
+    "license": "EBI terms of use",
+    "submissionDate": "2012-09-19",
+    "publicationDate": "2013-08-13",
+    "submitters": [
+      {
+        "title": "Dr",
+        "firstName": "Irene",
+        "lastName": "Colavita",
+        "identifier": "760138",
+        "affiliation": "Proteomics",
+        "email": "colavita@ceinge.unina.it",
+        "country": "Italy",
+        "orcid": "",
+        "name": "Irene Colavita",
+        "id": "760138"
+      }
+    ],
+    "labPIs": [
+      {
+        "title": "Dr",
+        "firstName": "Irene",
+        "lastName": "Colavita",
+        "identifier": "3017642",
+        "affiliation": "Proteomics",
+        "email": "colavita@ceinge.unina.it",
+        "country": "",
+        "orcid": "",
+        "name": "Irene Colavita",
+        "id": "3017642"
+      }
+    ],
+    "instruments": [
+      {
+        "@type": "CvParam",
+        "cvLabel": "MS",
+        "accession": "MS:1000202",
+        "name": "ultraflex TOF/TOF"
+      }
+    ],
+    "softwares": [],
+    "experimentTypes": [
+      {
+        "@type": "CvParam",
+        "cvLabel": "PRIDE",
+        "accession": "PRIDE:0000428",
+        "name": "Bottom-up proteomics"
+      }
+    ],
+    "quantificationMethods": [],
+    "countries": [
+      "Italy"
+    ],
+    "sampleAttributes": [
+      {
+        "@type": "Tuple",
+        "key": {
+          "cvLabel": "EFO",
+          "accession": "OBI:0100026",
+          "name": "organism"
+        },
+        "value": [
+          {
+            "cvLabel": "NEWT",
+            "accession": "NEWT:9606",
+            "name": "Homo sapiens (Human)"
+          }
+        ]
+      }
+    ],
+    "organisms": [
+      {
+        "@type": "CvParam",
+        "cvLabel": "NEWT",
+        "accession": "NEWT:9606",
+        "name": "Homo sapiens (human)"
+      }
+    ],
+    "organismParts": [],
+    "diseases": [],
+    "references": [
+      {
+        "referenceLine": "Colavita I, Esposito N, Quintarelli C, Nigro E, Pane F, Ruoppolo M, Salvatore F; Identification of Annexin A1 interacting proteins in chronic myeloid leukemia KCL22 cells., Proteomics, 2013 Aug, 13, 16, 2414-8, ",
+        "pubmedID": 23754495,
+        "doi": "10.1002/pmic.201200444"
+      }
+    ],
+    "identifiedPTMStrings": [
+      {
+        "@type": "CvParam",
+        "cvLabel": "MOD",
+        "accession": "MOD:00425",
+        "name": "monohydroxylated residue"
+      },
+      {
+        "@type": "CvParam",
+        "cvLabel": "MOD",
+        "accession": "MOD:01160",
+        "name": "deaminated residue"
+      },
+      {
+        "@type": "CvParam",
+        "cvLabel": "MOD",
+        "accession": "MOD:00397",
+        "name": "iodoacetamide derivatized residue"
+      }
+    ],
+    "totalFileDownloads": 5333
+  },
+  {
+    "accession": "PXD000027",
+    "title": "maize leaf ESI-Q-TOF MS -  Comparative analysis of salt-responsive phosphoproteins in maize leaves using Ti(4+)--IMAC enrichment and ESI-Q-TOF MS",
+    "additionalAttributes": [],
+    "projectDescription": "Comparative analysis of salt-responsive phosphoproteins in maize leaves using Ti4+-IMAC enrichment and ESI-Q-TOF MS",
+    "sampleProcessingProtocol": "Not available",
+    "dataProcessingProtocol": "Not available",
+    "projectTags": [],
+    "keywords": [
+      "Esi-q-tof ms",
+      "Maize(cv. nongda 108)",
+      "Leaf"
+    ],
+    "doi": "10.6019/PXD000027",
+    "submissionType": "COMPLETE",
+    "license": "EBI terms of use",
+    "submissionDate": "2012-09-12",
+    "publicationDate": "2012-12-14",
+    "submitters": [
+      {
+        "title": "Miss",
+        "firstName": "Yufeng",
+        "lastName": "Hu",
+        "identifier": "670152",
+        "affiliation": "Department of Environmental Sciences & Engineering",
+        "email": "yufenghu86@gmail.com",
+        "country": "United States",
+        "orcid": "",
+        "name": "Yufeng Hu",
+        "id": "670152"
+      }
+    ],
+    "labPIs": [
+      {
+        "title": "Dr",
+        "firstName": "Yufeng",
+        "lastName": "Hu",
+        "identifier": "3017640",
+        "affiliation": "Department of Environmental Sciences & Engineering",
+        "email": "yufenghu86@gmail.com",
+        "country": "",
+        "orcid": "",
+        "name": "Yufeng Hu",
+        "id": "3017640"
+      }
+    ],
+    "instruments": [
+      {
+        "@type": "CvParam",
+        "cvLabel": "MS",
+        "accession": "MS:1001782",
+        "name": "Synapt MS"
+      }
+    ],
+    "softwares": [],
+    "experimentTypes": [
+      {
+        "@type": "CvParam",
+        "cvLabel": "PRIDE",
+        "accession": "PRIDE:0000428",
+        "name": "Bottom-up proteomics"
+      }
+    ],
+    "quantificationMethods": [],
+    "countries": [
+      "United States"
+    ],
+    "sampleAttributes": [
+      {
+        "@type": "Tuple",
+        "key": {
+          "cvLabel": "EFO",
+          "accession": "EFO:0000635",
+          "name": "organism part"
+        },
+        "value": [
+          {
+            "cvLabel": "BTO",
+            "accession": "BTO:0000713",
+            "name": "leaf"
+          }
+        ]
+      },
+      {
+        "@type": "Tuple",
+        "key": {
+          "cvLabel": "EFO",
+          "accession": "OBI:0100026",
+          "name": "organism"
+        },
+        "value": [
+          {
+            "cvLabel": "NEWT",
+            "accession": "NEWT:4577",
+            "name": "Zea mays (Maize)"
+          }
+        ]
+      }
+    ],
+    "organisms": [
+      {
+        "@type": "CvParam",
+        "cvLabel": "NEWT",
+        "accession": "NEWT:4577",
+        "name": "Zea mays (maize)"
+      }
+    ],
+    "organismParts": [
+      {
+        "@type": "CvParam",
+        "cvLabel": "BTO",
+        "accession": "BTO:0000713",
+        "name": "Leaf"
+      }
+    ],
+    "diseases": [],
+    "references": [
+      {
+        "referenceLine": "Hu Y, Guo S, Li X, Ren X; Comparative analysis of salt-responsive phosphoproteins in maize leaves using Ti(4+)--IMAC enrichment and ESI-Q-TOF MS., Electrophoresis, 2013 Feb, 34, 4, 485-92, ",
+        "pubmedID": 23172588,
+        "doi": "10.1002/elps.201200381"
+      }
+    ],
+    "identifiedPTMStrings": [
+      {
+        "@type": "CvParam",
+        "cvLabel": "MOD",
+        "accession": "MOD:00425",
+        "name": "monohydroxylated residue"
+      },
+      {
+        "@type": "CvParam",
+        "cvLabel": "MOD",
+        "accession": "MOD:00696",
+        "name": "phosphorylated residue"
+      },
+      {
+        "@type": "CvParam",
+        "cvLabel": "MOD",
+        "accession": "MOD:00397",
+        "name": "iodoacetamide derivatized residue"
+      }
+    ],
+    "totalFileDownloads": 958
+  },
+  {
+    "accession": "PXD000045",
+    "title": "LC-MS/MS of cultured Mycobacterium tuberculosis in a hypoxia/reaeration timecourse",
+    "additionalAttributes": [],
+    "projectDescription": "Mycobacterium tuberculosis samples were collected during oxygen starvation and reaeration. The samples were solubized with urea, digested with trypsin, then desalted with a C18 96-well plate prior to LC-MS/MS analysis.",
+    "sampleProcessingProtocol": "Not available",
+    "dataProcessingProtocol": "Not available",
+    "projectTags": [],
+    "keywords": [
+      "Lc-msms",
+      "Mycobacterium tuberculosis",
+      "Hypoxia"
+    ],
+    "doi": "10.6019/PXD000045",
+    "submissionType": "COMPLETE",
+    "license": "EBI terms of use",
+    "submissionDate": "2012-10-02",
+    "publicationDate": "2013-06-25",
+    "submitters": [
+      {
+        "title": "Mr",
+        "firstName": "Gingras",
+        "lastName": "Olivier",
+        "identifier": "760120",
+        "affiliation": "Bioinformatic",
+        "email": "ogingras@caprion.com",
+        "country": "Canada",
+        "orcid": "",
+        "name": "Gingras Olivier",
+        "id": "760120"
+      }
+    ],
+    "labPIs": [
+      {
+        "title": "Dr",
+        "firstName": "Gingras",
+        "lastName": "Olivier",
+        "identifier": "3017653",
+        "affiliation": "Bioinformatic",
+        "email": "ogingras@caprion.com",
+        "country": "",
+        "orcid": "",
+        "name": "Gingras Olivier",
+        "id": "3017653"
+      }
+    ],
+    "instruments": [
+      {
+        "@type": "CvParam",
+        "cvLabel": "MS",
+        "accession": "MS:1000449",
+        "name": "LTQ Orbitrap"
+      }
+    ],
+    "softwares": [],
+    "experimentTypes": [
+      {
+        "@type": "CvParam",
+        "cvLabel": "PRIDE",
+        "accession": "PRIDE:0000428",
+        "name": "Bottom-up proteomics"
+      }
+    ],
+    "quantificationMethods": [],
+    "countries": [
+      "Canada"
+    ],
+    "sampleAttributes": [
+      {
+        "@type": "Tuple",
+        "key": {
+          "cvLabel": "EFO",
+          "accession": "OBI:0100026",
+          "name": "organism"
+        },
+        "value": [
+          {
+            "cvLabel": "NEWT",
+            "accession": "NEWT:1773",
+            "name": "Mycobacterium tuberculosis"
+          }
+        ]
+      }
+    ],
+    "organisms": [
+      {
+        "@type": "CvParam",
+        "cvLabel": "NEWT",
+        "accession": "NEWT:1773",
+        "name": "Mycobacterium tuberculosis"
+      }
+    ],
+    "organismParts": [],
+    "diseases": [],
+    "references": [
+      {
+        "referenceLine": "Galagan JE, Minch K, Peterson M, Lyubetskaya A, Azizi E, Sweet L, Gomes A, Rustad T, Dolganov G, Glotova I, Abeel T, Mahwinney C, Kennedy AD, Allard R, Brabant W, Krueger A, Jaini S, Honda B, Yu WH, Hickey MJ, Zucker J, Garay C, Weiner B, Sisk P, Stolte C, Winkler JK, Van de Peer Y, Iazzetti P, Camacho D, Dreyfuss J, Liu Y, Dorhoi A, Mollenkopf HJ, Drogaris P, Lamontagne J, Zhou Y, Piquenot J, Park ST, Raman S, Kaufmann SH, Mohney RP, Chelsky D, Moody DB, Sherman DR, Schoolnik GK; The Mycobacterium tuberculosis regulatory network and hypoxia., Nature, 2013 Jul 11, 499, 7457, 178-83, ",
+        "pubmedID": 23823726,
+        "doi": "10.1038/nature12337"
+      }
+    ],
+    "identifiedPTMStrings": [
+      {
+        "@type": "CvParam",
+        "cvLabel": "MOD",
+        "accession": "MOD:00394",
+        "name": "acetylated residue",
+        "value": "42.010565"
+      },
+      {
+        "@type": "CvParam",
+        "cvLabel": "MOD",
+        "accession": "MOD:01084",
+        "name": "iodoacetic acid derivatized amino-terminal residue",
+        "value": "58.005479"
+      },
+      {
+        "@type": "CvParam",
+        "cvLabel": "MOD",
+        "accession": "MOD:00425",
+        "name": "monohydroxylated residue",
+        "value": "15.994915"
+      }
+    ],
+    "totalFileDownloads": 1845
+  },
+  {
+    "accession": "PXD001362",
+    "title": "Direct evidence of milk consumption from ancient human dental calculus, UK",
+    "additionalAttributes": [],
+    "projectDescription": "This study investigated the consumption of milk products in the archaeological record, utilizing human dental calculus as a reservoir of dietary proteins from archaeological samples from across Eurasia. Protein extraction and generation of tryptic peptides from dental calculus was performed using a filter-aided sample preparation (FASP) protocol, modified for ancient samples, on 92 samples of archaeological dental calculus. Samples were extracted at three laboratories; the Functional Genomics Centre Zürich (FGCZ), the Centre for GeoGenetics at the National History Museum of Denmark, and BioArCh at the University of York. Sample extracts were sequenced (LC-MS/MS) using an LTQ-Orbitrap Velos (FGCZ), a Q-Exactive Hybrid Quadrupole Orbitrap and an LTQ-Orbitrap Elite (Central Proteomics Facility, Target Discovery Institute, Oxford).",
+    "sampleProcessingProtocol": "Tryptic peptides were extracted from decalcified dental calculus using a filter-aided sample preparation (FASP) protocol modified for degraded samples. Samples from Britain were analyzed by tandem mass spectrometry at the Central Proteomics Facility, Target Discovery Institute, Oxford on Q-Exactive and Orbitrap Elite tandem mass spectrometers. Q-Exactive analysis was performed after UPLC separation on an EASY-Spray column (50 cm x 75 µm ID, PepMap RSLC C18, 2 µm) connected to a Dionex Ultimate 3000 nUPLC (all Thermo Scientific) using a gradient of 2-40% Acetonitrile in 0.1% Formic Acid and a flow rate of 250nl/min @40°C. MS spectra were acquired at a resolution of 70000 @200 m/z using an ion target of 3E6 between 380 and 1800 m/z. MS/MS spectra of up to f15 precursor masses at a signal threshold of 1E5 counts and a dynamic exclusion for 7 seconds were acquired at a resolution of 17500 using an ion target of 1E5 and a maximal injection time of 50 ms. Precursor masses were isolated with an isolation window of 1.6 Da and fragmented with 28% normalized collision energy. Orbitrap Elite analysis was performed under similar LC conditions as above using a nAcquity UPLC (1.7um BEH130 C18, 75um x 250mm). MS spectra were acquired at a resolution of 120000 @ 400m/z using an ion target of 5E5 between 300 and 1800 m/z. MS/MS spectra of up to 200 precursor masses at a signal threshold of 1000 counts and a dynamic exclusion for 15 seconds were acquired in the linear ion trap using rapid scan and an ion target of 5E4. Precursor masses were isolated with an isolation window of 1.5 Da and fragmented with 35% normalized collision energy.",
+    "dataProcessingProtocol": "Raw MS/MS spectra were converted to searchable Mascot generic format using Proteowizard version 3.0.4743 using the 200 most intense peaks in each MS/MS spectrum. MS/MS ion database searching was performed on Mascot (Matrix ScienceTM, version 2.4.01), against all available sequences in UniProt and the Human Oral Microbiome Database (HOMD)34. Searches were performed against a decoy database to generate false discovery rates. Peptide tolerance was 10ppm, and with a semi-tryptic search with up to two missed cleavages. MS/MS ion tolerance was set to 0.07 Da. Based on previous observations of ancient proteome degradation, we set post-translational modifications were as carbamidomethylation (fixed modification) and acetyl (protein N-term), deamidated (NQ), glutamine to pyroglutamate, methionine oxidation and hydroxylation of proline (variable modifications). Mascot search results were filtered using an ion score cut-off of 25 and significance threshold of p<0.05. BLAST was used to verify matches to β-lactoglobulin, and taxonomic assignment is reported based on the consensus peptide assignments for each individual.",
+    "projectTags": [
+      "Technical",
+      "Metaproteomics"
+    ],
+    "keywords": [
+      "Human",
+      "Beta-lactoglobulin",
+      "Dental calculus",
+      "Dental plaque",
+      "Lc-ms/ms"
+    ],
+    "doi": "10.6019/PXD001362",
+    "submissionType": "COMPLETE",
+    "license": "EBI terms of use",
+    "submissionDate": "2014-09-26",
+    "publicationDate": "2015-02-26",
+    "submitters": [
+      {
+        "title": "Dr",
+        "firstName": "Jessica",
+        "lastName": "Hendy",
+        "identifier": "10490130",
+        "affiliation": "University of York",
+        "email": "jessica.hendy@york.ac.uk",
+        "country": "United Kingdom",
+        "orcid": "0000-0002-3718-1058",
+        "name": "Jessica Hendy",
+        "id": "10490130"
+      }
+    ],
+    "labPIs": [
+      {
+        "title": "Dr",
+        "firstName": "Matthew",
+        "lastName": "Collins",
+        "identifier": "9850100",
+        "affiliation": "BioArCh, University of York, UK",
+        "email": "matthew.collins@york.ac.uk",
+        "country": "",
+        "orcid": "",
+        "name": "Matthew Collins",
+        "id": "9850100"
+      }
+    ],
+    "instruments": [
+      {
+        "@type": "CvParam",
+        "cvLabel": "MS",
+        "accession": "MS:1001910",
+        "name": "LTQ Orbitrap Elite",
+        "value": ""
+      },
+      {
+        "@type": "CvParam",
+        "cvLabel": "MS",
+        "accession": "MS:1001742",
+        "name": "LTQ Orbitrap Velos",
+        "value": ""
+      },
+      {
+        "@type": "CvParam",
+        "cvLabel": "MS",
+        "accession": "MS:1001911",
+        "name": "Q Exactive",
+        "value": ""
+      }
+    ],
+    "softwares": [
+      {
+        "@type": "CvParam",
+        "cvLabel": "MS",
+        "accession": "MS:1001207",
+        "name": "Mascot"
+      }
+    ],
+    "experimentTypes": [
+      {
+        "@type": "CvParam",
+        "cvLabel": "PRIDE",
+        "accession": "PRIDE:0000429",
+        "name": "Shotgun proteomics"
+      }
+    ],
+    "quantificationMethods": [],
+    "countries": [
+      "United Kingdom"
+    ],
+    "sampleAttributes": [
+      {
+        "@type": "Tuple",
+        "key": {
+          "cvLabel": "EFO",
+          "accession": "EFO:0000635",
+          "name": "organism part"
+        },
+        "value": [
+          {
+            "cvLabel": "BTO",
+            "accession": "BTO:0000338",
+            "name": "dental plaque",
+            "value": ""
+          }
+        ]
+      },
+      {
+        "@type": "Tuple",
+        "key": {
+          "cvLabel": "EFO",
+          "accession": "OBI:0100026",
+          "name": "organism"
+        },
+        "value": [
+          {
+            "cvLabel": "NEWT",
+            "accession": "NEWT:9606",
+            "name": "Homo sapiens (Human)",
+            "value": ""
+          }
+        ]
+      }
+    ],
+    "organisms": [
+      {
+        "@type": "CvParam",
+        "cvLabel": "NEWT",
+        "accession": "NEWT:9606",
+        "name": "Homo sapiens (human)",
+        "value": ""
+      }
+    ],
+    "organismParts": [
+      {
+        "@type": "CvParam",
+        "cvLabel": "BTO",
+        "accession": "BTO:0000338",
+        "name": "Dental plaque",
+        "value": ""
+      }
+    ],
+    "diseases": [],
+    "references": [
+      {
+        "referenceLine": "Warinner C, Hendy J, Speller C, Cappellini E, Fischer R, Trachsel C, Arneborg J, Lynnerup N, Craig OE, Swallow DM, Fotakis A, Christensen RJ, Olsen JV, Liebert A, Montalva N, Fiddyment S, Charlton S, Mackie M, Canci A, Bouwman A, Rühli F, Gilbert MT, Collins MJ. Direct evidence of milk consumption from ancient human dental calculus. Sci Rep. 2014 Nov 27;4:7104",
+        "pubmedID": 25429530,
+        "doi": "10.1038/srep07104"
+      }
+    ],
+    "identifiedPTMStrings": [
+      {
+        "@type": "CvParam",
+        "cvLabel": "UNIMOD",
+        "accession": "UNIMOD:28",
+        "name": "Gln->pyro-Glu",
+        "value": ""
+      },
+      {
+        "@type": "CvParam",
+        "cvLabel": "UNIMOD",
+        "accession": "UNIMOD:7",
+        "name": "Deamidated",
+        "value": ""
+      },
+      {
+        "@type": "CvParam",
+        "cvLabel": "UNIMOD",
+        "accession": "UNIMOD:4",
+        "name": "Carbamidomethyl",
+        "value": ""
+      },
+      {
+        "@type": "CvParam",
+        "cvLabel": "UNIMOD",
+        "accession": "UNIMOD:35",
+        "name": "Oxidation",
+        "value": ""
+      },
+      {
+        "@type": "CvParam",
+        "cvLabel": "UNIMOD",
+        "accession": "UNIMOD:1",
+        "name": "Acetyl",
+        "value": ""
+      }
+    ],
+    "totalFileDownloads": 22480,
+    "otherOmicsLinks": [
+      "pride.project:PXD001360",
+      "px:PXD001361",
+      "pride.project:PXD001361",
+      "px:PXD001360",
+      "px:PXD001359",
+      "pride.project:PXD001357",
+      "pride.project:PXD001359",
+      "px:PXD001357"
+    ]
+  },
+  {
+    "accession": "PXD001359",
+    "title": "Direct evidence of milk consumption from ancient human dental calculus, northern southwest Asia",
+    "additionalAttributes": [],
+    "projectDescription": "This study investigated the consumption of milk products in the archaeological record, utilizing human dental calculus as a reservoir of dietary proteins from archaeological samples from across Eurasia. Protein extraction and generation of tryptic peptides from dental calculus was performed using a filter-aided sample preparation (FASP) protocol, modified for ancient samples, on 92 samples of archaeological dental calculus. Samples were extracted at three laboratories; the Functional Genomics Centre Zürich (FGCZ), the Centre for GeoGenetics at the National History Museum of Denmark, and BioArCh at the University of York. Sample extracts were sequenced (LC-MS/MS) using an LTQ-Orbitrap Velos (FGCZ), a Q-Exactive Hybrid Quadrupole Orbitrap and an LTQ-Orbitrap Elite (Central Proteomics Facility, Target Discovery Institute, Oxford).",
+    "sampleProcessingProtocol": "Tryptic peptides were extracted from decalcified dental calculus using a filter-aided sample preparation (FASP) protocol modified for degraded samples. Samples from Armenia, and Russia were analyzed by tandem mass spectrometry at the Novo Nordisk Foundation Center for Protein Research at the University of Copenhagen, Denmark using a Q-Exactive mass spectrometer. The LC-MS system consisted of an EASY-nLC™system (Thermo Scientific, Odense, Denmark) connected to the Q-Exactive (Thermo Scientific, Bremen, Germany) through a nano electrospray ion source. 5 uL of each peptide sample was auto-sampled onto and directly separated in a 15cm analytical column (75 μm inner diameter) in-house packed with 3μm C18 beads (Reprosil-AQ Pur, Dr. Maisch) with a 130 minute linear gradient from 5% to 25% acetonitrile followed by a steeper linear 20 minute gradient from 25% to 40% acetonitrile. Throughout the gradients a fixed concentration of 0.5% acetic acid and a flow rate of 250 nL/min were set. A final washout and column re-equilibration added an additional 20 minutes to each acquisition. The effluent from the HPLC was directly electrosprayed into the mass spectrometer by applying 2.0 kV through a platinum-based liquid-junction. The Q-Exactive was operated in data-dependent mode to automatically switch between full scan MS and MS/MS acquisition. Software control was Tune version 2.2-1646 and Excalibur version 2.2.42, and the settings were adjusted for ‘sensitive’ acquisition. Briefly, each full scan MS was followed by up to 10 MS/MS events. The isolation window was set at 2.5 Th and a dynamic exclusion of 90 seconds was used to avoid repeated sequencing. Only precursor charge states above 1 and below 6 were considered for fragmentation. A minimum intensity threshold for triggering fragment MS/MS was set at 1e5. Full scan MS were recorded at resolution of 70,000 at m/z 200 in a mass range of 300-1750 m/z with a target value of 1e6 and a maximum injection time of 30 ms. Fragment MS/MS were recorded with a fixed ion injection time set to 108 ms through a target value set to 2e5 and recorded at a resolution of 35,000 with a fixed first mass set to 100 m/z. Normalized collision energy was 25%.",
+    "dataProcessingProtocol": "Raw MS/MS spectra were converted to searchable Mascot generic format using Proteowizard version 3.0.4743 using the 200 most intense peaks in each MS/MS spectrum. MS/MS ion database searching was performed on Mascot (Matrix ScienceTM, version 2.4.01), against all available sequences in UniProt and the Human Oral Microbiome Database (HOMD)34. Searches were performed against a decoy database to generate false discovery rates. Peptide tolerance was 10ppm, and with a semi-tryptic search with up to two missed cleavages. MS/MS ion tolerance was set to 0.07 Da. Based on previous observations of ancient proteome degradation, we set post-translational modifications were as carbamidomethylation (fixed modification) and acetyl (protein N-term), deamidated (NQ), glutamine to pyroglutamate, methionine oxidation and hydroxylation of proline (variable modifications). Mascot search results were filtered using an ion score cut-off of 25 and significance threshold of p<0.05. BLAST was used to verify matches to β-lactoglobulin, and taxonomic assignment is reported based on the consensus peptide assignments for each individual.",
+    "projectTags": [
+      "Technical",
+      "Metaproteomics"
+    ],
+    "keywords": [
+      "Human",
+      "Beta-lactoglobulin",
+      "Dental calculus",
+      "Dental plaque",
+      "Lc-ms/ms"
+    ],
+    "doi": "10.6019/PXD001359",
+    "submissionType": "COMPLETE",
+    "license": "EBI terms of use",
+    "submissionDate": "2014-09-24",
+    "publicationDate": "2015-02-26",
+    "submitters": [
+      {
+        "title": "Dr",
+        "firstName": "Jessica",
+        "lastName": "Hendy",
+        "identifier": "10490130",
+        "affiliation": "University of York",
+        "email": "jessica.hendy@york.ac.uk",
+        "country": "United Kingdom",
+        "orcid": "0000-0002-3718-1058",
+        "name": "Jessica Hendy",
+        "id": "10490130"
+      }
+    ],
+    "labPIs": [
+      {
+        "title": "Dr",
+        "firstName": "Matthew",
+        "lastName": "Collins",
+        "identifier": "9810100",
+        "affiliation": "BioArCh, University of York, UK",
+        "email": "matthew.collins@york.ac.uk",
+        "country": "",
+        "orcid": "",
+        "name": "Matthew Collins",
+        "id": "9810100"
+      }
+    ],
+    "instruments": [
+      {
+        "@type": "CvParam",
+        "cvLabel": "MS",
+        "accession": "MS:1001911",
+        "name": "Q Exactive",
+        "value": ""
+      }
+    ],
+    "softwares": [
+      {
+        "@type": "CvParam",
+        "cvLabel": "MS",
+        "accession": "MS:1001207",
+        "name": "Mascot"
+      }
+    ],
+    "experimentTypes": [
+      {
+        "@type": "CvParam",
+        "cvLabel": "PRIDE",
+        "accession": "PRIDE:0000429",
+        "name": "Shotgun proteomics"
+      }
+    ],
+    "quantificationMethods": [],
+    "countries": [
+      "United Kingdom"
+    ],
+    "sampleAttributes": [
+      {
+        "@type": "Tuple",
+        "key": {
+          "cvLabel": "EFO",
+          "accession": "EFO:0000635",
+          "name": "organism part"
+        },
+        "value": [
+          {
+            "cvLabel": "BTO",
+            "accession": "BTO:0000338",
+            "name": "dental plaque",
+            "value": ""
+          }
+        ]
+      },
+      {
+        "@type": "Tuple",
+        "key": {
+          "cvLabel": "EFO",
+          "accession": "OBI:0100026",
+          "name": "organism"
+        },
+        "value": [
+          {
+            "cvLabel": "NEWT",
+            "accession": "NEWT:9606",
+            "name": "Homo sapiens (Human)",
+            "value": ""
+          }
+        ]
+      }
+    ],
+    "organisms": [
+      {
+        "@type": "CvParam",
+        "cvLabel": "NEWT",
+        "accession": "NEWT:9606",
+        "name": "Homo sapiens (human)",
+        "value": ""
+      }
+    ],
+    "organismParts": [
+      {
+        "@type": "CvParam",
+        "cvLabel": "BTO",
+        "accession": "BTO:0000338",
+        "name": "Dental plaque",
+        "value": ""
+      }
+    ],
+    "diseases": [],
+    "references": [
+      {
+        "referenceLine": "Warinner C, Hendy J, Speller C, Cappellini E, Fischer R, Trachsel C, Arneborg J, Lynnerup N, Craig OE, Swallow DM, Fotakis A, Christensen RJ, Olsen JV, Liebert A, Montalva N, Fiddyment S, Charlton S, Mackie M, Canci A, Bouwman A, Rühli F, Gilbert MT, Collins MJ. Direct evidence of milk consumption from ancient human dental calculus. Sci Rep. 2014 Nov 27;4:7104",
+        "pubmedID": 25429530,
+        "doi": "10.1038/srep07104"
+      }
+    ],
+    "identifiedPTMStrings": [
+      {
+        "@type": "CvParam",
+        "cvLabel": "UNIMOD",
+        "accession": "UNIMOD:28",
+        "name": "Gln->pyro-Glu",
+        "value": ""
+      },
+      {
+        "@type": "CvParam",
+        "cvLabel": "UNIMOD",
+        "accession": "UNIMOD:4",
+        "name": "Carbamidomethyl",
+        "value": ""
+      },
+      {
+        "@type": "CvParam",
+        "cvLabel": "UNIMOD",
+        "accession": "UNIMOD:35",
+        "name": "Oxidation",
+        "value": ""
+      },
+      {
+        "@type": "CvParam",
+        "cvLabel": "UNIMOD",
+        "accession": "UNIMOD:1",
+        "name": "Acetyl",
+        "value": ""
+      }
+    ],
+    "totalFileDownloads": 2778,
+    "otherOmicsLinks": [
+      "pride.project:PXD001360",
+      "pride.project:PXD001362",
+      "px:PXD001361",
+      "pride.project:PXD001361",
+      "px:PXD001360",
+      "pride.project:PXD001357",
+      "px:PXD001357",
+      "px:PXD001362"
+    ]
+  },
+  {
+    "accession": "PXD000026",
+    "title": "Analysis of E2F2 interacting proteins",
+    "additionalAttributes": [],
+    "projectDescription": "In an attempt to identify proteins interacting with transcription factor E2F2, proteins extracted from HA-E2F2 overexpressing HEK293T cells were were subjected to immunoprecipitation (IP) with an anti-HA antibody or, as a negative control (NegCt), with an anti-T antibody. Immunoprecipitated proteins were eluted, digested with trypsin, and the resulting peptides were analyzed by LC-MS/MS. The whole procedure was repeated several times in an attempt to gauge reproducibility (nine replicates of the anti-HA IP and six replicates of the control IP).",
+    "sampleProcessingProtocol": "Not available",
+    "dataProcessingProtocol": "Not available",
+    "projectTags": [],
+    "keywords": [
+      "E2f2",
+      "Immunoprecipitation",
+      "Lc-ms/ms"
+    ],
+    "doi": "10.6019/PXD000026",
+    "submissionType": "COMPLETE",
+    "license": "EBI terms of use",
+    "submissionDate": "2012-09-11",
+    "publicationDate": "2013-01-18",
+    "submitters": [
+      {
+        "title": "Dr",
+        "firstName": "Nerea",
+        "lastName": "Osinalde",
+        "identifier": "740148",
+        "affiliation": "Biochemistry and Molecular Biology",
+        "email": "nerea.osinalde@ehu.es",
+        "country": "Spain",
+        "orcid": "",
+        "name": "Nerea Osinalde",
+        "id": "740148"
+      }
+    ],
+    "labPIs": [
+      {
+        "title": "Dr",
+        "firstName": "Nerea",
+        "lastName": "Osinalde",
+        "identifier": "3017639",
+        "affiliation": "Biochemistry and Molecular Biology",
+        "email": "nerea.osinalde@ehu.es",
+        "country": "",
+        "orcid": "",
+        "name": "Nerea Osinalde",
+        "id": "3017639"
+      }
+    ],
+    "instruments": [
+      {
+        "@type": "CvParam",
+        "cvLabel": "MS",
+        "accession": "MS:1000188",
+        "name": "Q-Tof micro"
+      }
+    ],
+    "softwares": [],
+    "experimentTypes": [
+      {
+        "@type": "CvParam",
+        "cvLabel": "PRIDE",
+        "accession": "PRIDE:0000428",
+        "name": "Bottom-up proteomics"
+      }
+    ],
+    "quantificationMethods": [],
+    "countries": [
+      "Spain"
+    ],
+    "sampleAttributes": [
+      {
+        "@type": "Tuple",
+        "key": {
+          "cvLabel": "EFO",
+          "accession": "EFO:0000635",
+          "name": "organism part"
+        },
+        "value": [
+          {
+            "cvLabel": "CL",
+            "accession": "CL:1000497",
+            "name": "kidney cell"
+          },
+          {
+            "cvLabel": "BTO",
+            "accession": "BTO:0002181",
+            "name": "HEK-293T cell"
+          }
+        ]
+      },
+      {
+        "@type": "Tuple",
+        "key": {
+          "cvLabel": "EFO",
+          "accession": "OBI:0100026",
+          "name": "organism"
+        },
+        "value": [
+          {
+            "cvLabel": "NEWT",
+            "accession": "NEWT:9606",
+            "name": "Homo sapiens (Human)"
+          }
+        ]
+      }
+    ],
+    "organisms": [
+      {
+        "@type": "CvParam",
+        "cvLabel": "NEWT",
+        "accession": "NEWT:9606",
+        "name": "Homo sapiens (human)"
+      }
+    ],
+    "organismParts": [
+      {
+        "@type": "CvParam",
+        "cvLabel": "BTO",
+        "accession": "BTO:0002181",
+        "name": "Hek-293t cell"
+      },
+      {
+        "@type": "CvParam",
+        "cvLabel": "CL",
+        "accession": "CL:1000497",
+        "name": "Kidney cell"
+      }
+    ],
+    "diseases": [],
+    "references": [
+      {
+        "referenceLine": "Osinalde N, Olea M, Mitxelena J, Aloria K, Rodriguez JA, Fullaondo A, Arizmendi JM, Zubiaga AM; The nuclear protein ALY binds to and modulates the activity of transcription factor E2F2., Mol Cell Proteomics, 2013 May, 12, 5, 1087-98, ",
+        "pubmedID": 23297349,
+        "doi": "10.1074/mcp.M112.024158"
+      }
+    ],
+    "identifiedPTMStrings": [
+      {
+        "@type": "CvParam",
+        "cvLabel": "MOD",
+        "accession": "MOD:00397",
+        "name": "iodoacetamide derivatized residue"
+      }
+    ],
+    "totalFileDownloads": 4585
+  },
+  {
+    "accession": "PXD000047",
+    "title": "Endogenous Purification Reveals GREB1 as a Key Estrogen Receptor Regulatory Factor",
+    "additionalAttributes": [],
+    "projectDescription": "Estrogen receptor-alpha (ER) is the driving transcription factor in most breast cancers, and its associated proteins can influence drug response, but direct methods for identifying interacting proteins have been limited. We purified endogenous ER using an approach termed RIME (rapid immunoprecipitation mass spectrometry of endogenous proteins) and discovered the interactome under agonist- and antagonist-liganded conditions in breast cancer cells, revealing transcriptional networks in breast cancer. The most estrogen-enriched ER interactor is GREB1, a potential clinical biomarker with no known function. GREB1 is shown to be a chromatin-bound ER coactivator and is essential for ER-mediated transcription, because it stabilizes interactions between ER and additional cofactors. We show a GREB1-ER interaction in three xenograft tumors, and using a directed protein-protein approach, we find GREB1-ER interactions in half of ER+ primary breast cancers. This finding is supported by histological expression of GREB1, which shows that GREB1 is expressed in half of ER+ cancers, and predicts good clinical outcome. These findings reveal an unexpected role for GREB1 as an estrogen-specific ER cofactor that is expressed in drug-sensitive contexts.        Additional information: All microarray data have been deposited in the GEO database with the accession number GSE37386. All ChIP-seq data have been deposited in the GEO database with the accession number GSE41561.         RawMSdata files were processed using Proteome Discoverer v.1.3 (Thermo Scientific). Processed files were searched against the SwissProt human database using the Mascot search engine version 2.3.0. Searches were done with tryptic specificity allowing up to one miscleavage and a tolerance on mass measurement of 10 ppm in MS mode and 0.6 Da for MS/MS ions. Structure modifications allowed were oxidized methionine, and deamidation of asparagine and glutamine residues, which were searched as variable modifications. Using a reversed decoy database, false discovery rate (FDR) was less than 1%. Detailed results including peptide sequences, peptide scores, ion scores, expect values, and Mascot scores have been included in Table S1. SILAC data were analyzed using Proteome Discoverer v.1.3. This analysis only uses unique peptides for ratio analysis. The resulting fold-change ratios for proteins found in both replicates were then converted into log fold-change ratios as represented in the figures. In a few instances where protein ratios were absent due to signal from only one of the two channels, these were ranked highest in the log fold-change table following manual inspection of the raw data (MS and MS/MS) to confirm specificity to a single label.",
+    "sampleProcessingProtocol": "Not available",
+    "dataProcessingProtocol": "Not available",
+    "projectTags": [],
+    "keywords": [
+      "Rime"
+    ],
+    "doi": "10.6019/PXD000047",
+    "submissionType": "COMPLETE",
+    "license": "EBI terms of use",
+    "submissionDate": "2012-10-05",
+    "publicationDate": "2013-08-09",
+    "submitters": [
+      {
+        "title": "Mr",
+        "firstName": "Hisham",
+        "lastName": "Mohammed",
+        "identifier": "680100",
+        "affiliation": "Oncology",
+        "email": "hisham.mohammed@cancer.org.uk",
+        "country": "United Kingdom",
+        "orcid": "",
+        "name": "Hisham Mohammed",
+        "id": "680100"
+      }
+    ],
+    "labPIs": [
+      {
+        "title": "Dr",
+        "firstName": "Hisham",
+        "lastName": "Mohammed",
+        "identifier": "3017655",
+        "affiliation": "Oncology",
+        "email": "hisham.mohammed@cancer.org.uk",
+        "country": "",
+        "orcid": "",
+        "name": "Hisham Mohammed",
+        "id": "3017655"
+      }
+    ],
+    "instruments": [
+      {
+        "@type": "CvParam",
+        "cvLabel": "MS",
+        "accession": "MS:1000449",
+        "name": "LTQ Orbitrap"
+      }
+    ],
+    "softwares": [],
+    "experimentTypes": [
+      {
+        "@type": "CvParam",
+        "cvLabel": "PRIDE",
+        "accession": "PRIDE:0000428",
+        "name": "Bottom-up proteomics"
+      }
+    ],
+    "quantificationMethods": [],
+    "countries": [
+      "United Kingdom"
+    ],
+    "sampleAttributes": [
+      {
+        "@type": "Tuple",
+        "key": {
+          "cvLabel": "EFO",
+          "accession": "OBI:0100026",
+          "name": "organism"
+        },
+        "value": [
+          {
+            "cvLabel": "NEWT",
+            "accession": "NEWT:9606",
+            "name": "Homo sapiens (Human)"
+          }
+        ]
+      }
+    ],
+    "organisms": [
+      {
+        "@type": "CvParam",
+        "cvLabel": "NEWT",
+        "accession": "NEWT:9606",
+        "name": "Homo sapiens (human)"
+      }
+    ],
+    "organismParts": [],
+    "diseases": [],
+    "references": [
+      {
+        "referenceLine": "Mohammed H, D'Santos C, Serandour AA, Ali HR, Brown GD, Atkins A, Rueda OM, Holmes KA, Theodorou V, Robinson JL, Zwart W, Saadi A, Ross-Innes CS, Chin SF, Menon S, Stingl J, Palmieri C, Caldas C, Carroll JS; Endogenous purification reveals GREB1 as a key estrogen receptor regulatory factor., Cell Rep, 2013 Feb 21, 3, 2, 342-9, ",
+        "pubmedID": 23403292,
+        "doi": "10.1016/j.celrep.2013.01.010"
+      }
+    ],
+    "identifiedPTMStrings": [
+      {
+        "@type": "CvParam",
+        "cvLabel": "MOD",
+        "accession": "MOD:00425",
+        "name": "monohydroxylated residue"
+      },
+      {
+        "@type": "CvParam",
+        "cvLabel": "MOD",
+        "accession": "MOD:00400",
+        "name": "deamidated residue"
+      }
+    ],
+    "totalFileDownloads": 2513
+  },
+  {
+    "accession": "PXD002694",
+    "title": "Direct and Absolute Quantification of over 1800 Yeast Proteins via Selected Reaction Monitoring HUB_MAN C4PR_LIV",
+    "additionalAttributes": [],
+    "projectDescription": "Defining intracellular protein concentration is critical in molecular systems biology. Although strategies for determining relative protein changes are available, defining robust absolute values in copies per cell has proven significantly more challenging. Here we present a reference dataset quantifying over 1800 S. cerevisiae proteins by direct means using protein-specific stable-isotope labelled internal standards and selected reaction monitoring (SRM) mass spectrometry, far exceeding any previous study. This was achieved by careful design of over 100 QconCAT recombinant proteins as standards, defining 1167 proteins in terms of copies per cell and upper limits on a further 668, with robust CVs routinely less than 20%. The SRM-derived proteome is compared with existing quantitative data sets, highlighting the disparities between methodologies. Coupled with a quantification of the transcriptome by RNA-seq taken from the same cells, these data enable revised estimates of several fundamental molecular parameters: a total protein count of ~100 million molecules-per-cell, a median of ~1000 proteins-per-transcript, and a linear model of protein translation explaining 70% of the variance in translation rate. This work contributes a ‘gold-standard’ reference yeast proteome (including 531 proteins with high quality, dual peptide quantification) that can be widely used in systems models and for other comparative studies.",
+    "sampleProcessingProtocol": "Yeast (EUROSCARF accession number Y11335) was grown in defined minimal C-limiting (F1) medium using 10 g.l-1 of glucose as the sole carbon source. The F1 medium was supplemented with 0.5 mM arg and 1 mM lys. 4 cultures were grown in chemostat mode at a dilution rate of 0.1 h-1 and 15ml aliquots of the culture were centrifuged (4000 rpm; 4 °C; 10 minutes). The supernatant discarded, the pellet flash frozen in liquid N2 and stored at -80 °C for protein extraction. Cell counts performed using an automated cell counter. Proteins extracted by re-suspending the biomass pellets in 250 μl of 50 mM ambic containing 1 tablet of Roche complete-mini protease inhibitors (+ EDTA) per 10 ml. 200ul Acid washed glass beads were added. The pellet was bead-beated for 15 bursts of 30 sec with 1 min cool down between cycles. The biomass was centrifuged for 10 minutes 13,000 rpm at 4 °C; the supernatant was removed and stored on ice. Fresh ambic (250 µl) with protease inhibitors was added and pellet was re-suspended by vortexing. The bottom of the extraction vial was pierced with a hot needle, the vial placed on a fresh tube and quickly centrifuged (5 minutes at 4000 rpm at 4 °C). The flow-through and the supernatant fraction were combined, the exact volume measured and protein amount determined by standard Bradford assay. Protein extracts were aliquoted and stored at -80°C prior to subsequent digestion. Yeast lysate representing protein from 21.5 million cells was dispensed and made to 150 µl by addition of 25mM ambic. Proteins were denatured by 10 µl of 1% (w/v) RapiGest™ in 25mM ambic and incubation at 80 °C 10 minutes. The sample was reduced (10 µl of 60mM DTT, incubation at 60 °C for 10 minutes) and alkylated (10 µl of 180 mM IAM, 30 minutes at RT in dark). Trypsin (2 µg in 10 µl) was added and incubated at 37 °C. After 4.5 hours an additional 10 µl of trypsin was added and digestion left overnight. Digestion termination and RapiGest™ removal by acidification (3 µl of TFA for 45 minutes at 37 °C) and centrifugation (15,000 g 15 minutes). “QeX” dataset was based on a 1D RP separation of the yeast digest using an Ultimate 3000 RSLC™ nano system coupled to a QExactive™ mass spectrometer. The sample (5 µL: 400,000 cells and 50fmol glycogen phosphorylase (Uniprot P00489)) was loaded onto the trapping column (PepMap100, C18, 75 μm X 20 mm) for 7 min at a flow rate of 4 μL/min with 0.1% (v/v) FA. The sample was resolved on the analytical column (Easy-Spray C18 75 µm x 500 mm 2 µm column) using a gradient of 97% A (0.1% FA) 3% B (99.9%  MeCN 0.1% FA) to 60% A 40% B over 240 min at a flow rate of 300 nL min-1. The DDA program consisted of a 70,000 resolution full-scan MS scan (AGC set to 1e6 ions with a max fill time of 250ms) the 10 most abundant peaks were selected for MS/MS (17,000 resolution scan, AGC of 5e4 ions and max fill time of 250ms, an ion selection window of 3 m/z, a normalised collision energy of 30 and a 30 second dynamic exclusion window). The “SAX fractionation” dataset used the on-tip pre-fractionation approach described by Wisniewski et al (2011). Initially 130 µg of yeast preparation were brought to 250µL in a solution containing 4% SDS, 100mM Tris/HCl pH 7.6, 0.1M DTT and incubated at 95C for 5 min. DNA in the sample was sheared by sonication (3 10s pulses) and the lysate clarified by centrifugation at 17,136g for 5 min. The sample volume was brought to 400 µL with 100mM Tris/HCl pH 7.6, cooled on ice, and 100 µL of 100% TCA added to precipitate protein. Precipitation was carried out overnight on ice after which the precipitate was washed twice with ice-cold acetone, dried, re-suspended in a solution containing 8M urea, 0.1M Tris-HCl (pH 8.5) and 0.1M DTT, and the protein reduced for 10 min at 60°C. Alkylation was then performed by adding IAM in 0.1M Tris-HCl (pH 8.5) to a final concentration of 50mM and incubation of the sample for 30 min in the dark at RT. Further 0.1 M Tris-HCl (pH 8.5) was added, to dilute the urea to 6M, after which LysC was added at 1:50 enzyme:protein ratio, and the mixture incubated for 4h at 37C. Following this, the urea was further diluted down to 1.5M with 25mM ambic before adding trypsin (1:50 enzyme:protein ratio) for an overnight incubation at 37°C. The next day, the peptide digest was desalted using a C18 Macro spin column (eluting with 70% acetonitrile), dried using a SpeedVac. Briefly, peptides were separated on a SAX \"column\" (10 layers of a 3 M Empore Anion Exchange disk in a 200 µL micro pipette tip). Peptides were loaded on the column in 200 µL of Britton and Robinson buffer composed of 20 mM CH3COOH, 20 mM H3PO4, 20 mM H3BO3, and NaOH, at pH 11. For elution of fractions, Britton and Robinson buffer solutions titrated to pH 8, 6, 5, 4 and 2 using NaOH were used. Eluted peptides were desalted using C18 StageTip plugs as described by Rappsilber et al. (2007). Each elution was then dried using a SpeedVac, re-suspended in 0.05% TFA. LC-MSMS was performed on previous system.",
+    "dataProcessingProtocol": "The data was processed with Progenesis (v4.1 Nonlinear Dynamics, Newcastle upon Tyne, UK). Samples were aligned according to retention time using a combination of manual and automatic alignment. Default peak picking parameters were applied and features with charges from 1+ to 4+ featuring three or more isotope peaks were retained. Database searching was performed using MASCOT (Matrix Science). A Mascot Generic File was created by Progenesis and searched against the reference proteome set of S.cerevisiae from Uniprot (6560 proteins) with the sequence of rabbit glycogen phosphorylase (UniProt: P00489) added. A fixed carbamidomethyl modification for cysteine and variable oxidation modification for methionine were specified. A precursor mass tolerance of 10 ppm and a fragment ion mass tolerance of 20 mmu were applied. At a p value of 0.05, the built in MASCOT decoy search reported a peptide FDR of 0.5%. Label-free absolute quantification was performed following the “Top3” methodology described by Silva et al. (2006). The SAX dataset was processed with MaxQuant (v. 1.3.0.5, Cox and Mann, 2008) using the Andromedia search engine (Cox et al 2011). The sequence database was the reference proteome set of S.cerevisiae from Uniprot (6560 proteins). A fixed carbamidomethyl modification for cysteine and variable oxidation modification for methionine were specified. A precursor mass tolerance of 10 ppm and a fragment ion mass tolerance of 20 mmu were applied and a 1% FDR threshold at both peptide and protein level. All other parameters were left at default settings. Label-free absolute quantification was performed following the “Top3” methodology described by Silva et al. (2006) but instead of using an internal standard for calibration, the total content of a yeast cell was assumed to be 60 million molecules.",
+    "projectTags": [
+      "Biological",
+      "Peptide observability",
+      "Machine learning",
+      "Benchmarking"
+    ],
+    "keywords": [
+      "Absolute quantification; selected reaction monitoring; srm; stable-isotope labelling; yeast; tandem quadrupole; qconcat"
+    ],
+    "doi": "10.6019/PXD002694",
+    "submissionType": "COMPLETE",
+    "license": "EBI terms of use",
+    "submissionDate": "2015-08-10",
+    "publicationDate": "2015-12-11",
+    "submitters": [
+      {
+        "title": "Dr",
+        "firstName": "Philip",
+        "lastName": "Brownridge",
+        "identifier": "19980104",
+        "affiliation": "University of Liverpool",
+        "email": "philipjb@liv.ac.uk",
+        "country": "United Kingdom",
+        "orcid": "0000-0003-0105-6594",
+        "name": "Philip Brownridge",
+        "id": "19980104"
+      }
+    ],
+    "labPIs": [
+      {
+        "title": "Dr",
+        "firstName": "Rob",
+        "lastName": "Beynon",
+        "identifier": "27910100",
+        "affiliation": "Head of Biochemistry  Centre for Proteome Research G44, Biosciences Building| Institute of Integrative Biology University of Liverpool Crown Street   Liverpool  L69 7ZB",
+        "email": "rbeynon@liverpool.ac.uk",
+        "country": "",
+        "orcid": "",
+        "name": "Rob Beynon",
+        "id": "27910100"
+      }
+    ],
+    "instruments": [
+      {
+        "@type": "CvParam",
+        "cvLabel": "MS",
+        "accession": "MS:1001911",
+        "name": "Q Exactive"
+      }
+    ],
+    "softwares": [
+      {
+        "@type": "CvParam",
+        "cvLabel": "MS",
+        "accession": "MS:1001207",
+        "name": "Mascot"
+      },
+      {
+        "@type": "CvParam",
+        "cvLabel": "MS",
+        "accession": "MS:1001583",
+        "name": "MaxQuant"
+      }
+    ],
+    "experimentTypes": [
+      {
+        "@type": "CvParam",
+        "cvLabel": "PRIDE",
+        "accession": "PRIDE:0000429",
+        "name": "Shotgun proteomics"
+      }
+    ],
+    "quantificationMethods": [
+      {
+        "@type": "CvParam",
+        "cvLabel": "MS",
+        "accession": "MS:1001902",
+        "name": "MaxQuant:LFQ intensity"
+      },
+      {
+        "@type": "CvParam",
+        "cvLabel": "MS",
+        "accession": "MS:1002518",
+        "name": "Progenesis:protein group normalised abundance"
+      }
+    ],
+    "countries": [
+      "United Kingdom"
+    ],
+    "sampleAttributes": [
+      {
+        "@type": "Tuple",
+        "key": {
+          "cvLabel": "EFO",
+          "accession": "OBI:0100026",
+          "name": "organism"
+        },
+        "value": [
+          {
+            "cvLabel": "NEWT",
+            "accession": "NEWT:4932",
+            "name": "Saccharomyces cerevisiae (Baker's yeast)"
+          }
+        ]
+      }
+    ],
+    "organisms": [
+      {
+        "@type": "CvParam",
+        "cvLabel": "NEWT",
+        "accession": "NEWT:4932",
+        "name": "Saccharomyces cerevisiae (baker's yeast)"
+      }
+    ],
+    "organismParts": [],
+    "diseases": [],
+    "references": [
+      {
+        "referenceLine": "Lawless C, Holman SW, Brownridge P, Lanthaler K, Harman VM, Watkins R, Hammond DE, Miller RL, Sims PF, Grant CM, Eyers CE, Beynon RJ, Hubbard SJ. Direct and Absolute Quantification of over 1800 Yeast Proteins via Selected Reaction Monitoring. Mol Cell Proteomics. 2016 Jan 10. pii: mcp.M115.054288",
+        "pubmedID": 26750110
+      }
+    ],
+    "identifiedPTMStrings": [
+      {
+        "@type": "CvParam",
+        "cvLabel": "UNIMOD",
+        "accession": "UNIMOD:4",
+        "name": "Carbamidomethyl"
+      },
+      {
+        "@type": "CvParam",
+        "cvLabel": "UNIMOD",
+        "accession": "UNIMOD:35",
+        "name": "Oxidation"
+      }
+    ],
+    "totalFileDownloads": 12469
+  }
+]

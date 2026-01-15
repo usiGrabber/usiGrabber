@@ -1,66 +1,83 @@
+# usi grabber
+
+This project provides the tools to build the usigrabber database which stores proteomics data from PRIDE and allows to query for USIs.
+
 ## Setup
 
 1. Install prerequisites
 
 - uv: https://docs.astral.sh/uv/getting-started/installation/
-- Install recommended VS Code extensions
+- Install recommended VS Code extensions (see `.vscode/extensions.json`)
+- Install Docker: https://docs.docker.com/get-docker/ (optional, but recommended)
 
-2. Run the dev setup script
-
-```bash
-./scripts/setup_dev/all.sh
-```
-
-## Build database
-
-You can build the database using the CLI:
+2. Install dependencies and setup pre-commit hooks
 
 ```bash
-uv run usigrabber build
+uv sync
+
+uv run pre-commit install
 ```
 
-Arguments:
-- `--debug`: Enable debug mode. Defaults to `False`. Can also be set via `DEBUG` environment variable.
-  - This will attempt to use a smaller sample dataset for faster testing. This sample dataset should be located under the directory specified by the `--cache-dir` flag or the `CACHE_DIR` environment variable (default: `./cache`). The file should be named `sampled_projects.json`.
+3. Configure environment variables
+- Copy `.env.sample` to `.env` and modify as needed or described in the sections below.
 
+## Database setup
 
-## Database management
+We recommend using a postgres database for local development and production deployments. However, you can also skip to ["Using sqlite for quick testing"](#using-sqlite-for-quick-testing-not-recommended-for-production) if you want a super quick testing setup.
 
-The project requires a connection to an SQLite or PostgreSQL database for storing PRIDE proteomics data.
+### Setup and start postgres database
 
-### Local docker container (PostgreSQL)
-We provide a simple [docker compose file](./compose.yaml) for running a PostgreSQL database in a container. By default, it stores the data in a local volume named `usigrabber_pgdata`. The container requires the following environment variables to be set in your `.env` or overriden in the compose file:
+1. Adjust the following environment variables in your `.env` file or use the defaults:
 - `POSTGRES_USER`
-- `POSTGRES_PASSWORD`.
+- `POSTGRES_PASSWORD`
+- `DB_URL`
 
-See [Configuration](#configuration) and [`.env.sample`](./.env.sample) for more details. In order to start the container, run:
+2. Start the database using Docker Compose.
+- `docker compose up -d`
+
+Hint: If you are running on the master project VM, use this command instead to bind-mount the postgres data to `/mnt/helix/postgres`:
+
 ```bash
-docker compose up -d
+docker compose -f compose.yaml -f compose.helix.yaml up -d
 ```
-in the root of this project. It will expose the database on port `5432`.
 
-You can directly interact with the database using
-```bash
-docker exec -it usigrabber_db psql -d usigrabber -U <ENTER USERNAME HERE>
+3. Initialize the database:
+- `uv run usigrabber db init`
+
+4. Use tools like pgAdmin to interact with the database if needed or use the command line instructions below for some simple commands.
+
+### Using sqlite for quick testing (not recommended for production)
+
+1. Adjust the `DB_URL` environment variable in your `.env` file to use sqlite, e.g.:
 ```
-or via the usigraber database CLI commands (see below).
+DB_URL=sqlite:///./database.db
+```
+2. Initialize the database:
+- `uv run usigrabber db init`
 
-### Quick Start
+## Commands for building the usigrabber database
+
+Use the following command to start building the usigrabber with ten sample projects:
+```bash
+uv run usigrabber build --projects-file ./sample_projects.json
+```
+
+Remove the argument to use all available projects from PRIDE or provide your own list of projects in a JSON file. You can get one from the [PRIDE API](https://www.ebi.ac.uk/pride/ws/archive/v3/webjars/swagger-ui/index.html#/projects/getProjects).
+
+Check out the help message for more options like resetting the database before building, skipping ontology downloads, or adjusting the number of parallel workers:
+```bash
+uv run usigrabber build --help
+```
+
+### Other useful commands
 
 ```bash
-# Initialize database (create all tables)
-uv run usigrabber db init
 
 # Seed with sample data
 uv run usigrabber db seed
 
 # View database info
 uv run usigrabber db info
-```
-
-### Other Commands
-
-```bash
 
 # Reset database (drop + recreate + seed)
 uv run usigrabber db reset --force
@@ -74,14 +91,10 @@ uv run usigrabber db drop --force
 
 # Profile database build
 uv run pyinstrument -o db_build_profile.html $(which usigrabber) build
-
 ```
 
-### Configuration
+## Miscellaneous
 
-We provide a sample environment file at [`.env.sample`](./.env.sample).
-Copy this file to `.env` and modify the settings as needed.
-
-## Working with mzIdentML Files
+### Obtaining example mzIdentML files
 
 Example mzIdentML (.mzid) files for testing and development can be obtained from the HUPO-PSI mzIdentML repository: https://github.com/HUPO-PSI/mzIdentML/tree/master/examples
