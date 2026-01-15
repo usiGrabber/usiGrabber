@@ -8,7 +8,7 @@
             "program": "${workspaceFolder}/src/usigrabber/__init__.py",
             "args": [
                 "build",
-                "--projects-file", "${workspaceFolder}/cache/pride/sampled_projects.json"
+                "--projects-file", "${workspaceFolder}/sample_projects.json"
                 // "--reset", // reset the database before building
             ],
             "cwd": "${workspaceFolder}",
