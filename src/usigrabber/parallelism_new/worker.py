@@ -37,6 +37,7 @@ def do_work(job_id: int) -> int:
 
     logger.info("Completed work for job %d, result=%d", job_id, result)
     if job_id % 3 == 0:
+        logger.debug("Job %d is a multiple of 3.", job_id)
         logger.error(
             "Job %d encountered an issue.",
             job_id,

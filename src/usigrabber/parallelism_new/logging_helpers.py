@@ -4,6 +4,16 @@ import multiprocessing
 import os
 from pathlib import Path
 
+
+def get_bool_env(key: str, default: bool = False) -> bool:
+    value = os.getenv(key, str(default)).lower()
+    return value in ("1", "true", "yes", "on")
+
+
+APP_NAME = "usiGrabber"
+USE_PLAIN_LOGGING = get_bool_env("USIGRABBER_USE_PLAIN_LOGGING", False)
+CONSOLE_LOG_LEVEL = "DEBUG"
+
 # Set up logging directory
 LOG_PATH = Path("logs/logging-mp")
 LOG_PATH.mkdir(exist_ok=True, parents=True)
@@ -61,7 +71,7 @@ class WorkerLogging:
         pid = os.getpid()
         logging.config.dictConfig(cls.configure_logging_dict(q, job_id))
         return MergingLoggerAdapter(
-            logging.getLogger(f"worker.{job_id}"),
+            logging.getLogger(f"{APP_NAME}.worker.{job_id}"),
             {"job_id": job_id, "pid": pid},
         )
 
@@ -82,8 +92,7 @@ class ListenerLogging:
             "formatters": {
                 "detailed": {
                     "class": "logging.Formatter",
-                    # "format": "%(asctime)s %(name)-10s %(job_id)-5s %(levelname)-8s %(pid) -10s %(message)s",
-                    "format": "%(asctime)s %(name)-10s %(levelname)-8s %(message)s",
+                    "format": "%(asctime)s %(job_id)d %(levelname)s %(message)s",
                 },
                 "simple": {
                     "class": "logging.Formatter",
@@ -96,35 +105,43 @@ class ListenerLogging:
                 },
             },
             "handlers": {
+                # console handler using rich for pretty printing
                 "console": {
+                    "()": "rich.logging.RichHandler",
+                    "rich_tracebacks": True,
+                    "markup": True,
+                    "level": CONSOLE_LOG_LEVEL,
+                },
+                # unused console handler without rich
+                "console_plain": {
                     "class": "logging.StreamHandler",
                     "formatter": "simple",
-                    "level": "WARNING",
+                    "level": CONSOLE_LOG_LEVEL,
                 },
+                # file handler for all logs
                 "file": {
                     "class": "logging.FileHandler",
                     "filename": LOG_PATH / "mplog.log",
                     "mode": "w",
                     "formatter": "detailed",
+                    "level": "INFO",
                 },
-                "foofile": {
+                # file handler for specific worker
+                "worker3": {
                     "class": "logging.FileHandler",
-                    "filename": LOG_PATH / "mplog-foo.log",
+                    "filename": LOG_PATH / "mplog-worker3.log",
                     "mode": "w",
                     "formatter": "detailed",
+                    "level": "DEBUG",  # detailed logs for specific worker
                 },
-                "jsonfile": {
-                    "class": "logging.FileHandler",
-                    "filename": LOG_PATH / "mplog.json",
-                    "mode": "w",
-                    "formatter": "json",
-                },
+                # json file handler for all logs
                 "file_json": {
                     "class": "logging.handlers.RotatingFileHandler",
                     "formatter": "json",
                     "filename": LOG_PATH / "mplog.json",
-                    "maxBytes": 10 * (1024**2),  # 10 MB
+                    "maxBytes": 1 * (1024**2),  # 1 MB
                     "backupCount": 5,
+                    "level": "INFO",
                 },
                 "errors": {
                     "class": "logging.FileHandler",
@@ -134,6 +151,17 @@ class ListenerLogging:
                     "level": "ERROR",
                 },
             },
-            "loggers": {"foo": {"handlers": ["foofile"]}},
-            "root": {"handlers": ["console", "file", "errors", "jsonfile"], "level": "DEBUG"},
+            # configure root logger
+            "root": {
+                "handlers": [
+                    "console" if not USE_PLAIN_LOGGING else "console_plain",
+                    "file",
+                    "errors",
+                    "file_json",
+                ],
+                # "level": "INFO",  # configure levels on individual handlers instead
+            },
+            "loggers": {
+                f"{APP_NAME}.worker.3": {"handlers": ["worker3"]},
+            },
         }
