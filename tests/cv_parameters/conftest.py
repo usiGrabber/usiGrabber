@@ -1,5 +1,3 @@
-import os
-
 import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.engine import Engine
@@ -11,12 +9,9 @@ from usigrabber.db.schema import Base, create_db_and_tables
 
 @pytest.fixture
 def engine():
-    """Create a PostgreSQL test database for testing."""
-    db_url = os.getenv("TEST_DB_URL") or os.getenv("DB_URL")
-    if not db_url:
-        pytest.skip("No database URL configured (TEST_DB_URL or DB_URL)")
+    """Create a sqlite in memory test database engine."""
 
-    engine = create_engine(db_url)
+    engine = create_engine("sqlite:///:memory:")
 
     # Drop and recreate all tables for a clean test environment
     Base.metadata.drop_all(engine)

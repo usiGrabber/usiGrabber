@@ -37,18 +37,21 @@ def build_postgres_url() -> str:
 def load_db_engine(debug_sql: bool = False) -> Engine:
     db_url = os.getenv("DB_URL", "")
 
-    if not db_url or not (db_url.startswith("postgresql://") or db_url.startswith("postgres://")):
-        raise ValueError(
-            "DB_URL must be set and start with postgresql:// or postgres://. "
-            "SQLite is no longer supported."
-        )
-
-    url = build_postgres_url()
-    logger.info("Using PostgreSQL database at %s", urlparse(url).hostname)
+    if not db_url:
+        raise ValueError("DB_URL must be set")
 
     # Use DB_ECHO_SQL from environment if not explicitly set
     echo_sql = debug_sql or os.getenv("DB_ECHO_SQL")
     if echo_sql:
         logger.info("SQL echo is enabled.")
 
-    return create_engine(url, echo=bool(echo_sql))
+    if db_url.startswith("sqlite"):
+        logger.info("Using SQLite database: %s", db_url)
+        return create_engine(db_url, echo=bool(echo_sql))
+
+    if db_url.startswith("postgres"):
+        url = build_postgres_url()
+        logger.info("Using PostgreSQL database at %s", urlparse(url).hostname)
+        return create_engine(url, echo=bool(echo_sql))
+
+    raise ValueError(f"DB_URL must start with postgres or sqlite. Got: {db_url[:20]}...")

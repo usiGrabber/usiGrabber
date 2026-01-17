@@ -1,5 +1,4 @@
 import logging
-import os
 from collections.abc import Generator
 from pathlib import Path
 from typing import Any
@@ -31,12 +30,9 @@ def load_env(request):
 
 @pytest.fixture(name="engine")
 def engine_fixture() -> Generator[Engine, Any, None]:
-    """Create a PostgreSQL test database engine."""
-    db_url = os.getenv("TEST_DB_URL") or os.getenv("DB_URL")
-    if not db_url:
-        pytest.skip("No database URL configured (TEST_DB_URL or DB_URL)")
+    """Create a sqlite in memory test database engine."""
 
-    engine = create_engine(db_url)
+    engine = create_engine("sqlite:///:memory:")
 
     # Drop and recreate all tables for a clean test environment
     Base.metadata.drop_all(engine)
@@ -51,6 +47,6 @@ def engine_fixture() -> Generator[Engine, Any, None]:
 @pytest.fixture(name="session")
 def seeded_session(engine: Engine) -> Generator[Session, Any, None]:
     seed_minimal_data(engine)
-    logger.info("Using seeded PostgreSQL database for testing.")
+    logger.info("Using seeded database for testing.")
     with Session(engine) as session:
         yield session

@@ -15,8 +15,11 @@ from sqlalchemy import (
     String,
     Text,
     UniqueConstraint,
+    Uuid,
 )
-from sqlalchemy.dialects.postgresql import UUID as PG_UUID
+from sqlalchemy import (
+    Enum as SAEnum,
+)
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 
@@ -40,6 +43,7 @@ class Base(DeclarativeBase):
     type_annotation_map = {
         dict: JSON,
         dict[str, Any]: JSON,
+        uuid.UUID: Uuid,
     }
 
 
@@ -205,9 +209,7 @@ class MzidFile(Base):
 
     __tablename__ = "mzid_files"
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        PG_UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     project_accession: Mapped[str] = mapped_column(ForeignKey("projects.accession"))
     file_name: Mapped[str] = mapped_column(String, nullable=False)
     file_path: Mapped[str | None] = mapped_column(String, default=None)
@@ -235,10 +237,10 @@ class ModifiedPeptideModificationJunction(Base):
     __tablename__ = "modified_peptide_modification_junction"
 
     modified_peptide_id: Mapped[uuid.UUID] = mapped_column(
-        PG_UUID(as_uuid=True), ForeignKey("modified_peptides.id"), primary_key=True
+        ForeignKey("modified_peptides.id"), primary_key=True
     )
     modification_id: Mapped[uuid.UUID] = mapped_column(
-        PG_UUID(as_uuid=True), ForeignKey("modifications.id"), primary_key=True
+        ForeignKey("modifications.id"), primary_key=True
     )
 
 
@@ -247,7 +249,7 @@ class ModifiedPeptide(Base):
 
     __tablename__ = "modified_peptides"
 
-    id: Mapped[uuid.UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True)
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
     peptide_sequence: Mapped[str] = mapped_column(String, nullable=False)
 
     # Relationships
@@ -265,7 +267,7 @@ class Modification(Base):
 
     __tablename__ = "modifications"
 
-    id: Mapped[uuid.UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True)
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
     unimod_id: Mapped[int | None] = mapped_column(Integer, default=None)
     name: Mapped[str | None] = mapped_column(String, default=None)
     location: Mapped[int | None] = mapped_column(Integer, default=None)
@@ -292,18 +294,12 @@ class PeptideSpectrumMatch(Base):
 
     __tablename__ = "peptide_spectrum_matches"
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        PG_UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     project_accession: Mapped[str] = mapped_column(ForeignKey("projects.accession"))
     mzid_file_id: Mapped[uuid.UUID | None] = mapped_column(
-        PG_UUID(as_uuid=True),
-        ForeignKey("mzid_files.id"),
-        default=None,
+        ForeignKey("mzid_files.id"), default=None
     )
-    modified_peptide_id: Mapped[uuid.UUID] = mapped_column(
-        PG_UUID(as_uuid=True), ForeignKey("modified_peptides.id")
-    )
+    modified_peptide_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("modified_peptides.id"))
     spectrum_id: Mapped[str | None] = mapped_column(String, default=None)
     charge_state: Mapped[int | None] = mapped_column(Integer, default=None)
     experimental_mz: Mapped[float | None] = mapped_column(Float, default=None)
@@ -311,7 +307,7 @@ class PeptideSpectrumMatch(Base):
     score_values: Mapped[dict | None] = mapped_column(JSON, default=None)
     rank: Mapped[int | None] = mapped_column(Integer, default=None)
     pass_threshold: Mapped[bool | None] = mapped_column(Boolean, default=None)
-    index_type: Mapped[IndexType | None] = mapped_column(default=None)
+    index_type: Mapped[IndexType | None] = mapped_column(SAEnum(IndexType), default=None)
     index_number: Mapped[int | None] = mapped_column(Integer, default=None)
     ms_run: Mapped[str | None] = mapped_column(String, default=None)
     ms_run_ext: Mapped[str | None] = mapped_column(String, default=None)
@@ -334,9 +330,7 @@ class PeptideEvidence(Base):
 
     __tablename__ = "peptide_evidence"
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        PG_UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     protein_accession: Mapped[str | None] = mapped_column(String, default=None)
     is_decoy: Mapped[bool | None] = mapped_column(Boolean, default=None)
     start_position: Mapped[int | None] = mapped_column(Integer, default=None)
@@ -361,15 +355,9 @@ class PSMPeptideEvidence(Base):
 
     __tablename__ = "psm_peptide_evidence"
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        PG_UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
-    psm_id: Mapped[uuid.UUID] = mapped_column(
-        PG_UUID(as_uuid=True), ForeignKey("peptide_spectrum_matches.id")
-    )
-    peptide_evidence_id: Mapped[uuid.UUID] = mapped_column(
-        PG_UUID(as_uuid=True), ForeignKey("peptide_evidence.id")
-    )
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    psm_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("peptide_spectrum_matches.id"))
+    peptide_evidence_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("peptide_evidence.id"))
 
     # Relationships
     psm: Mapped["PeptideSpectrumMatch"] = relationship(back_populates="psm_peptide_evidences")
@@ -381,13 +369,9 @@ class PSMPeptideEvidence(Base):
 class SearchModification(Base):
     __tablename__ = "search_modifications"
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        PG_UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
-    psm_id: Mapped[uuid.UUID] = mapped_column(
-        PG_UUID(as_uuid=True), ForeignKey("peptide_spectrum_matches.id")
-    )
-    unimod_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    psm_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("peptide_spectrum_matches.id"))
+    unimod_id: Mapped[int] = mapped_column(nullable=False)
 
     # Relationships
     peptide_spectrum_match: Mapped["PeptideSpectrumMatch"] = relationship(
