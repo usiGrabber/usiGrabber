@@ -1,5 +1,6 @@
 """CLI commands for database management."""
 
+from pathlib import Path
 from urllib.parse import urlparse
 
 import typer
@@ -117,13 +118,34 @@ def info(echo_sql: bool = False):
     console.print("\nDatabase Information", style="bold blue")
 
     db_url = str(engine.url)
-    # PostgreSQL: show connection info
-    parsed = urlparse(db_url)
-    console.print("Type: PostgreSQL")
-    console.print(f"Host: {parsed.hostname}")
-    console.print(f"Port: {parsed.port}")
-    console.print(f"Database: {parsed.path.lstrip('/')}")
-    console.print(f"User: {parsed.username}")
+    if db_url.startswith("sqlite:///"):
+        # SQLite: show file path and check existence
+        db_path = db_url.replace("sqlite:///", "")
+        db_exists = Path(db_path).exists()
+        console.print("Type: SQLite")
+        console.print(f"Location: {db_path}")
+        console.print(f"Exists: {'Yes' if db_exists else 'No'}")
+
+        if not db_exists:
+            console.print(
+                "\nDatabase file not found. Run 'init' to create it.",
+                style="yellow",
+            )
+            raise typer.Exit(0)
+
+        # Get file size
+        file_size_bytes = Path(db_path).stat().st_size
+        file_size_mb = file_size_bytes / (1024 * 1024)
+        console.print(f"Size: {file_size_mb:.2f} MB")
+    else:
+        # PostgreSQL: show connection info
+
+        parsed = urlparse(db_url)
+        console.print("Type: PostgreSQL")
+        console.print(f"Host: {parsed.hostname}")
+        console.print(f"Port: {parsed.port}")
+        console.print(f"Database: {parsed.path.lstrip('/')}")
+        console.print(f"User: {parsed.username}")
 
     # Check if tables exist
     inspector = inspect(engine)
