@@ -23,8 +23,8 @@ class IndexType(str, Enum):
 class CvJunctionTable(SQLModel, table=True):
     __tablename__ = "project_cv_params"
 
-    cv_param_id: int = Field(foreign_key="cv_params.id", primary_key=True, index=True)
-    project_accession: str = Field(foreign_key="projects.accession", primary_key=True, index=True)
+    cv_param_id: int = Field(foreign_key="cv_params.id", primary_key=True)
+    project_accession: str = Field(foreign_key="projects.accession", primary_key=True)
 
 
 class CvParam(SQLModel, table=True):
@@ -42,7 +42,7 @@ class Project(SQLModel, table=True):
 
     __tablename__ = "projects"
 
-    accession: str = Field(primary_key=True, index=True)
+    accession: str = Field(primary_key=True)
     title: str
     project_description: str | None = Field(default=None, alias="projectDescription")
     sample_processing_protocol: str | None = Field(default=None, alias="sampleProcessingProtocol")
@@ -84,7 +84,7 @@ class Reference(SQLModel, table=True):
     __tablename__ = "references"
 
     id: int | None = Field(default=None, primary_key=True)
-    project_accession: str = Field(foreign_key="projects.accession", index=True)
+    project_accession: str = Field(foreign_key="projects.accession")
     reference_line: str | None = Field(default=None, alias="referenceLine")
     pubmed_id: int | None = Field(default=None, alias="pubmedID")
     doi: str | None = None
@@ -104,7 +104,7 @@ class ProjectKeyword(SQLModel, table=True):
     __tablename__ = "project_keywords"
 
     id: int | None = Field(default=None, primary_key=True)
-    project_accession: str = Field(foreign_key="projects.accession", index=True)
+    project_accession: str = Field(foreign_key="projects.accession")
     keyword: str
 
     # Relationships
@@ -117,7 +117,7 @@ class ProjectTag(SQLModel, table=True):
     __tablename__ = "project_tags"
 
     id: int | None = Field(default=None, primary_key=True)
-    project_accession: str = Field(foreign_key="projects.accession", index=True)
+    project_accession: str = Field(foreign_key="projects.accession")
     tag: str
 
     # Relationships
@@ -130,7 +130,7 @@ class ProjectCountry(SQLModel, table=True):
     __tablename__ = "project_countries"
 
     id: int | None = Field(default=None, primary_key=True)
-    project_accession: str = Field(foreign_key="projects.accession", index=True)
+    project_accession: str = Field(foreign_key="projects.accession")
     country: str
 
     # Relationships
@@ -143,7 +143,7 @@ class ProjectAffiliation(SQLModel, table=True):
     __tablename__ = "project_affiliations"
 
     id: int | None = Field(default=None, primary_key=True)
-    project_accession: str = Field(foreign_key="projects.accession", index=True)
+    project_accession: str = Field(foreign_key="projects.accession")
     affiliation: str
 
     # Relationships
@@ -156,7 +156,7 @@ class ProjectOtherOmicsLink(SQLModel, table=True):
     __tablename__ = "project_other_omics_links"
 
     id: int | None = Field(default=None, primary_key=True)
-    project_accession: str = Field(foreign_key="projects.accession", index=True)
+    project_accession: str = Field(foreign_key="projects.accession")
     link: str
 
     # Relationships
@@ -174,7 +174,7 @@ class MzidFile(SQLModel, table=True):
     __tablename__ = "mzid_files"
 
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
-    project_accession: str = Field(foreign_key="projects.accession", index=True)
+    project_accession: str = Field(foreign_key="projects.accession")
     file_name: str
     file_path: str | None = None
     software_name: str | None = None
@@ -187,12 +187,10 @@ class MzidFile(SQLModel, table=True):
     )
     threshold_type: str | None = Field(
         default=None,
-        index=True,
         description="Type of threshold used (e.g., 'FDR', 'q-value', 'e-value', 'Mascot:identity')",
     )
     threshold_value: float | None = Field(
         default=None,
-        index=True,
         description="Threshold value (e.g., 0.01 for 1% FDR)",
     )
     creation_date: datetime | None = None
@@ -212,10 +210,8 @@ class MzidFile(SQLModel, table=True):
 class ModifiedPeptideModificationJunction(SQLModel, table=True):
     __tablename__ = "modified_peptide_modification_junction"
 
-    modified_peptide_id: uuid.UUID = Field(
-        foreign_key="modified_peptides.id", primary_key=True, index=True
-    )
-    modification_id: uuid.UUID = Field(foreign_key="modifications.id", primary_key=True, index=True)
+    modified_peptide_id: uuid.UUID = Field(foreign_key="modified_peptides.id", primary_key=True)
+    modification_id: uuid.UUID = Field(foreign_key="modifications.id", primary_key=True)
 
 
 class ModifiedPeptide(SQLModel, table=True):
@@ -271,15 +267,14 @@ class PeptideSpectrumMatch(SQLModel, table=True):
     __tablename__ = "peptide_spectrum_matches"
 
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
-    project_accession: str = Field(foreign_key="projects.accession", index=True)
+    project_accession: str = Field(foreign_key="projects.accession")
     mzid_file_id: uuid.UUID | None = Field(
         default=None,
         foreign_key="mzid_files.id",
-        index=True,
         description="Optional: can be NULL for non-mzID sources",
     )
-    modified_peptide_id: uuid.UUID = Field(foreign_key="modified_peptides.id", index=True)
-    spectrum_id: str | None = Field(index=True, description="Spectrum identifier/index")
+    modified_peptide_id: uuid.UUID = Field(foreign_key="modified_peptides.id")
+    spectrum_id: str | None = Field(description="Spectrum identifier/index")
     charge_state: int | None
     experimental_mz: float | None = Field(description="Experimental m/z value")
     calculated_mz: float | None = Field(description="Calculated m/z value")
@@ -315,7 +310,6 @@ class PeptideSpectrumMatch(SQLModel, table=True):
     )
     is_usi_validated: bool | None = Field(
         default=None,
-        index=True,
         description="USI validation status: True (valid), False (invalid), None (not validated)",
     )
 
@@ -368,8 +362,8 @@ class PSMPeptideEvidence(SQLModel, table=True):
     __tablename__ = "psm_peptide_evidence"
 
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
-    psm_id: uuid.UUID = Field(foreign_key="peptide_spectrum_matches.id", index=True)
-    peptide_evidence_id: uuid.UUID = Field(foreign_key="peptide_evidence.id", index=True)
+    psm_id: uuid.UUID = Field(foreign_key="peptide_spectrum_matches.id")
+    peptide_evidence_id: uuid.UUID = Field(foreign_key="peptide_evidence.id")
 
     # Relationships
     psm: "PeptideSpectrumMatch" = Relationship(back_populates="psm_peptide_evidences")
@@ -380,7 +374,7 @@ class SearchModification(SQLModel, table=True):
     __tablename__ = "search_modifications"
 
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
-    psm_id: uuid.UUID = Field(foreign_key="peptide_spectrum_matches.id", index=True)
+    psm_id: uuid.UUID = Field(foreign_key="peptide_spectrum_matches.id")
     unimod_id: int = Field()
 
     # Relationships
