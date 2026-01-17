@@ -27,8 +27,8 @@ def main():
 
     # 2. Configure the Executor
     # Note: We pass functions FROM the tasks module
-    with mp.Pool(processes=10, initializer=worker.init_worker_queue, initargs=(queue,)) as pool:
-        it = pool.imap_unordered(worker.do_work, range(1000))
+    with mp.Pool(processes=2, initializer=worker.init_worker_queue, initargs=(queue,)) as pool:
+        it = pool.imap_unordered(worker.do_work, range(10))
 
         # This "drains" the generator immediately but lazily
         # maxlen=0 means it stores nothing in memory
