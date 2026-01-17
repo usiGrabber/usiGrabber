@@ -2,8 +2,9 @@
 
 from datetime import date, datetime
 
+from sqlalchemy import select
 from sqlalchemy.engine.base import Engine
-from sqlmodel import Session, select
+from sqlalchemy.orm import Session
 
 from usigrabber.db.schema import (
     IndexType,
@@ -35,33 +36,35 @@ def seed_minimal_data(engine: Engine) -> None:
     with Session(engine) as session:
         # Check if data already exists
 
-        existing = session.exec(select(Project).where(Project.accession == "PXD000001")).first()
+        existing = session.execute(
+            select(Project).where(Project.accession == "PXD000001")
+        ).scalar_one_or_none()
         if existing:
-            print("⚠️  Seed data already exists. Skipping...")
+            print("Warning: Seed data already exists. Skipping...")
             return
 
         # 1. Create Projects
         project1 = Project(
             accession="PXD000001",
             title="Proteomics Analysis of Human Cancer Cell Lines",
-            projectDescription="Comprehensive proteomics study of human cancer ...",
-            sampleProcessingProtocol="Cells lysed, proteins extracted and ...",
-            dataProcessingProtocol="Data analyzed with MaxQuant and Perseus.",
-            submissionType="COMPLETE",
-            submissionDate=date(2023, 1, 15),
-            publicationDate=date(2023, 6, 1),
-            totalFileDownloads=523,
+            project_description="Comprehensive proteomics study of human cancer ...",
+            sample_processing_protocol="Cells lysed, proteins extracted and ...",
+            data_processing_protocol="Data analyzed with MaxQuant and Perseus.",
+            submission_type="COMPLETE",
+            submission_date=date(2023, 1, 15),
+            publication_date=date(2023, 6, 1),
+            total_file_downloads=523,
             fully_processed=True,
         )
 
         project2 = Project(
             accession="PXD000002",
             title="Mouse Brain Development Proteome",
-            projectDescription="Temporal proteomics analysis of mouse brain ...",
-            submissionType="PARTIAL",
-            submissionDate=date(2023, 3, 10),
-            publicationDate=date(2023, 8, 15),
-            totalFileDownloads=187,
+            project_description="Temporal proteomics analysis of mouse brain ...",
+            submission_type="PARTIAL",
+            submission_date=date(2023, 3, 10),
+            publication_date=date(2023, 8, 15),
+            total_file_downloads=187,
             fully_processed=False,
         )
 
@@ -72,14 +75,14 @@ def seed_minimal_data(engine: Engine) -> None:
         references = [
             Reference(
                 project_accession="PXD000001",
-                referenceLine="Smith J, et al. Proteomics of cancer cells. Nature.",
-                pubmedID=12345678,
+                reference_line="Smith J, et al. Proteomics of cancer cells. Nature.",
+                pubmed_id=12345678,
                 doi="10.1038/nature.2023.001",
             ),
             Reference(
                 project_accession="PXD000002",
-                referenceLine="Doe J, et al. Brain development proteome. Cell. 2023",
-                pubmedID=87654321,
+                reference_line="Doe J, et al. Brain development proteome. Cell. 2023",
+                pubmed_id=87654321,
                 doi="10.1016/cell.2023.002",
             ),
         ]
@@ -221,6 +224,9 @@ def seed_minimal_data(engine: Engine) -> None:
         )
         session.add_all([evidence1, evidence2, evidence3])
 
+        # Flush to ensure IDs are generated for PSMs and evidence
+        session.flush()
+
         # 5. Link PSMs to protein evidence through junction table
         psm_evidence1 = PSMPeptideEvidence(psm_id=psm1.id, peptide_evidence_id=evidence1.id)
         psm_evidence2 = PSMPeptideEvidence(psm_id=psm2.id, peptide_evidence_id=evidence2.id)
@@ -237,4 +243,4 @@ if __name__ == "__main__":
     engine = load_db_engine()
     create_db_and_tables(engine)
     seed_minimal_data(engine)
-    print("✅ Database seeded successfully!")
+    print("Database seeded successfully!")

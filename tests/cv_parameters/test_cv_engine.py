@@ -2,8 +2,9 @@
 
 import asyncio
 
+from sqlalchemy import select
 from sqlalchemy.engine import Engine
-from sqlmodel import Session, select
+from sqlalchemy.orm import Session
 
 from usigrabber.cv_parameters.cv_engine import (
     CVInjector,
@@ -32,7 +33,7 @@ def test_cv_injector_creates_cv_params(engine: Engine, sample_project: Project):
     # Verify cv_params were created
     with Session(engine) as session:
         statement = select(DBCVParam)
-        cv_params = session.exec(statement).all()
+        cv_params = session.execute(statement).scalars().all()
         assert len(cv_params) == 2
 
         # Verify values
@@ -81,7 +82,7 @@ def test_cv_injector_reuses_existing_cv_params(engine: Engine, sample_project: P
     # Verify only one cv_param exists
     with Session(engine) as session:
         statement = select(DBCVParam)
-        cv_params = session.exec(statement).all()
+        cv_params = session.execute(statement).scalars().all()
         assert len(cv_params) == 1
 
 
@@ -172,8 +173,8 @@ def test_cv_injector_shared_cv_param_across_projects(engine: Engine):
     """Test that the same cv_param can be linked to multiple projects."""
     # Create two projects
     with Session(engine) as session:
-        project1 = Project(accession="PXD000001", title="Project 1", submissionType="COMPLETE")
-        project2 = Project(accession="PXD000002", title="Project 2", submissionType="COMPLETE")
+        project1 = Project(accession="PXD000001", title="Project 1", submission_type="COMPLETE")
+        project2 = Project(accession="PXD000002", title="Project 2", submission_type="COMPLETE")
         session.add(project1)
         session.add(project2)
         session.commit()
@@ -193,7 +194,7 @@ def test_cv_injector_shared_cv_param_across_projects(engine: Engine):
     # Verify only one cv_param exists in database
     with Session(engine) as session:
         statement = select(DBCVParam)
-        cv_params = session.exec(statement).all()
+        cv_params = session.execute(statement).scalars().all()
         assert len(cv_params) == 1
 
         # Verify both projects link to the same cv_param

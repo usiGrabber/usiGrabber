@@ -14,11 +14,9 @@ from string import digits
 from typing import Any
 
 from sqlalchemy.dialects.postgresql import insert as pg_insert
-from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.engine import Engine
 
 from usigrabber.db.schema import IndexType
-from usigrabber.file_parser.errors import UnsupportedDatabaseError
 from usigrabber.utils import logger, lookup_unimod_id_by_name
 
 
@@ -494,13 +492,14 @@ def get_txt_triples(files: list[Path]):
 def get_db_insert_function(
     engine: Engine,
 ) -> Callable[..., Any]:
-    # Detect database type to use appropriate insert dialect
+    # PostgreSQL only - SQLite is no longer supported
     db_dialect = engine.dialect.name
-    if db_dialect not in {"postgresql", "sqlite"}:
-        raise UnsupportedDatabaseError(f"Unsupported database dialect: {db_dialect}")
+    if db_dialect != "postgresql":
+        raise ValueError(
+            f"Unsupported database dialect: {db_dialect}. Only PostgreSQL is supported."
+        )
 
-    # Select appropriate insert function based on database type
-    return pg_insert if db_dialect == "postgresql" else sqlite_insert
+    return pg_insert
 
 
 def create_search_mod_log_str(search_mod_counts: set[int]) -> str:

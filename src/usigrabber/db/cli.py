@@ -1,13 +1,12 @@
 """CLI commands for database management."""
 
-from pathlib import Path
 from urllib.parse import urlparse
 
 import typer
 from rich.console import Console
 from rich.table import Table
-from sqlalchemy import inspect
-from sqlmodel import Session, select
+from sqlalchemy import func, inspect, select
+from sqlalchemy.orm import Session
 
 from usigrabber.db import (
     CvParam,
@@ -24,7 +23,7 @@ from usigrabber.db import (
     load_db_engine,
     seed_minimal_data,
 )
-from usigrabber.db.schema import Modification, ModifiedPeptide
+from usigrabber.db.schema import Base, Modification, ModifiedPeptide
 
 app = typer.Typer(help="Database management commands")
 console = Console()
@@ -37,7 +36,7 @@ def init(echo_sql: bool = False):
 
     Example: python -m usigrabber.db.cli init
     """
-    console.print("🗄️  Initializing database...", style="bold blue")
+    console.print("Initializing database...", style="bold blue")
 
     engine = load_db_engine(debug_sql=echo_sql)
     create_db_and_tables(engine)
@@ -46,7 +45,7 @@ def init(echo_sql: bool = False):
     inspector = inspect(engine)
     table_count = len(inspector.get_table_names())
 
-    console.print(f"✅ Created {table_count} tables successfully!", style="bold green")
+    console.print(f"Created {table_count} tables successfully!", style="bold green")
 
 
 @app.command()
@@ -58,18 +57,20 @@ def seed(echo_sql: bool = False):
 
     Example: python -m usigrabber.db.cli seed
     """
-    console.print("🌱 Seeding database with sample data...", style="bold blue")
+    console.print("Seeding database with sample data...", style="bold blue")
 
     engine = load_db_engine(debug_sql=echo_sql)
 
     # Check if tables exist
     inspector = inspect(engine)
     if len(inspector.get_table_names()) == 0:
-        console.print("⚠️  No tables found. Run 'init' first or use 'reset'.", style="bold yellow")
+        console.print(
+            "Warning: No tables found. Run 'init' first or use 'reset'.", style="bold yellow"
+        )
         raise typer.Exit(1)
 
     seed_minimal_data(engine)
-    console.print("✅ Database seeded successfully!", style="bold green")
+    console.print("Database seeded successfully!", style="bold green")
 
 
 @app.command()
@@ -83,26 +84,23 @@ def reset(
     Example: python -m usigrabber.db.cli reset --force
     """
     if not force:
-        confirm = typer.confirm("⚠️  This will DELETE all data. Continue?")
+        confirm = typer.confirm("Warning: This will DELETE all data. Continue?")
         if not confirm:
-            console.print("❌ Reset cancelled.", style="yellow")
+            console.print("Reset cancelled.", style="yellow")
             raise typer.Exit(0)
 
-    console.print("🔄 Resetting database...", style="bold blue")
+    console.print("Resetting database...", style="bold blue")
 
     engine = load_db_engine(debug_sql=echo_sql)
 
-    # Drop all tables
-    from sqlmodel import SQLModel
-
     console.print("  - Dropping all tables...")
-    SQLModel.metadata.drop_all(engine)
+    Base.metadata.drop_all(engine)
 
     # Recreate tables
     console.print("  - Creating tables...")
     create_db_and_tables(engine)
 
-    console.print("✅ Database reset complete!", style="bold green")
+    console.print("Database reset complete!", style="bold green")
 
 
 @app.command()
@@ -116,76 +114,62 @@ def info(echo_sql: bool = False):
     """
     engine = load_db_engine(debug_sql=echo_sql)
 
-    console.print("\n📊 Database Information", style="bold blue")
+    console.print("\nDatabase Information", style="bold blue")
 
-    # Handle SQLite vs PostgreSQL differently
     db_url = str(engine.url)
-    if db_url.startswith("sqlite:///"):
-        # SQLite: show file path and check existence
-        db_path = db_url.replace("sqlite:///", "")
-        db_exists = Path(db_path).exists()
-        console.print("Type: SQLite")
-        console.print(f"Location: {db_path}")
-        console.print(f"Exists: {'Yes' if db_exists else 'No'}")
-
-        if not db_exists:
-            console.print(
-                "\nDatabase file not found. Run 'init' to create it.",
-                style="yellow",
-            )
-            raise typer.Exit(0)
-
-        # Get file size
-        file_size_bytes = Path(db_path).stat().st_size
-        file_size_mb = file_size_bytes / (1024 * 1024)
-        console.print(f"Size: {file_size_mb:.2f} MB")
-    else:
-        # PostgreSQL: show connection info
-
-        parsed = urlparse(db_url)
-        console.print("Type: PostgreSQL")
-        console.print(f"Host: {parsed.hostname}")
-        console.print(f"Port: {parsed.port}")
-        console.print(f"Database: {parsed.path.lstrip('/')}")
-        console.print(f"User: {parsed.username}")
+    # PostgreSQL: show connection info
+    parsed = urlparse(db_url)
+    console.print("Type: PostgreSQL")
+    console.print(f"Host: {parsed.hostname}")
+    console.print(f"Port: {parsed.port}")
+    console.print(f"Database: {parsed.path.lstrip('/')}")
+    console.print(f"User: {parsed.username}")
 
     # Check if tables exist
     inspector = inspect(engine)
     table_names = inspector.get_table_names()
 
     if len(table_names) == 0:
-        console.print("\n⚠️  No tables found. Run 'init' to create schema.", style="yellow")
+        console.print("\nWarning: No tables found. Run 'init' to create schema.", style="yellow")
         raise typer.Exit(0)
 
     console.print(f"\nTotal tables: {len(table_names)}")
 
     # Get record counts for main tables
     with Session(engine) as session:
-        from sqlalchemy import func
-
         counts = {
-            "Projects": session.exec(select(func.count()).select_from(Project)).one(),
-            "References": session.exec(select(func.count()).select_from(Reference)).one(),
-            "Keywords": session.exec(select(func.count()).select_from(ProjectKeyword)).one(),
-            "Tags": session.exec(select(func.count()).select_from(ProjectTag)).one(),
-            "Countries": session.exec(select(func.count()).select_from(ProjectCountry)).one(),
-            "MzID Files": session.exec(select(func.count()).select_from(MzidFile)).one(),
-            "PSMs": session.exec(select(func.count()).select_from(PeptideSpectrumMatch)).one(),
-            "Modified Peptides": session.exec(
+            "Projects": session.execute(select(func.count()).select_from(Project)).scalar_one(),
+            "References": session.execute(select(func.count()).select_from(Reference)).scalar_one(),
+            "Keywords": session.execute(
+                select(func.count()).select_from(ProjectKeyword)
+            ).scalar_one(),
+            "Tags": session.execute(select(func.count()).select_from(ProjectTag)).scalar_one(),
+            "Countries": session.execute(
+                select(func.count()).select_from(ProjectCountry)
+            ).scalar_one(),
+            "MzID Files": session.execute(select(func.count()).select_from(MzidFile)).scalar_one(),
+            "PSMs": session.execute(
+                select(func.count()).select_from(PeptideSpectrumMatch)
+            ).scalar_one(),
+            "Modified Peptides": session.execute(
                 select(func.count()).select_from(ModifiedPeptide)
-            ).one(),
-            "Modifications": session.exec(select(func.count()).select_from(Modification)).one(),
-            "Peptide Evidence": session.exec(
+            ).scalar_one(),
+            "Modifications": session.execute(
+                select(func.count()).select_from(Modification)
+            ).scalar_one(),
+            "Peptide Evidence": session.execute(
                 select(func.count()).select_from(PeptideEvidence)
-            ).one(),
-            "PSM-Peptide Evidence Links": session.exec(
+            ).scalar_one(),
+            "PSM-Peptide Evidence Links": session.execute(
                 select(func.count()).select_from(PSMPeptideEvidence)
-            ).one(),
-            "CV Parameters": session.exec(select(func.count()).select_from(CvParam)).one(),
+            ).scalar_one(),
+            "CV Parameters": session.execute(
+                select(func.count()).select_from(CvParam)
+            ).scalar_one(),
         }
 
     # Create table
-    table = Table(title="\n📋 Record Counts")
+    table = Table(title="\nRecord Counts")
     table.add_column("Table", style="cyan", no_wrap=True)
     table.add_column("Count", style="magenta", justify="right")
 
@@ -196,12 +180,12 @@ def info(echo_sql: bool = False):
 
     # Show sample project if available
     with Session(engine) as session:
-        project = session.exec(select(Project).limit(1)).first()
+        project = session.execute(select(Project).limit(1)).scalar_one_or_none()
         if project:
-            console.print("\n🔬 Sample Project:", style="bold")
-            console.print(f"  • {project.accession}: {project.title}")
-            console.print(f"  • Submission: {project.submission_date}")
-            console.print(f"  • Downloads: {project.total_file_downloads}")
+            console.print("\nSample Project:", style="bold")
+            console.print(f"  - {project.accession}: {project.title}")
+            console.print(f"  - Submission: {project.submission_date}")
+            console.print(f"  - Downloads: {project.total_file_downloads}")
 
 
 @app.command()
@@ -215,20 +199,18 @@ def drop(
     Example: python -m usigrabber.db.cli drop --force
     """
     if not force:
-        confirm = typer.confirm("⚠️  This will DELETE all tables and data. Continue?")
+        confirm = typer.confirm("Warning: This will DELETE all tables and data. Continue?")
         if not confirm:
-            console.print("❌ Drop cancelled.", style="yellow")
+            console.print("Drop cancelled.", style="yellow")
             raise typer.Exit(0)
 
-    console.print("🗑️  Dropping all tables...", style="bold red")
+    console.print("Dropping all tables...", style="bold red")
 
     engine = load_db_engine(debug_sql=echo_sql)
 
-    from sqlmodel import SQLModel
+    Base.metadata.drop_all(engine)
 
-    SQLModel.metadata.drop_all(engine)
-
-    console.print("✅ All tables dropped.", style="bold green")
+    console.print("All tables dropped.", style="bold green")
 
 
 if __name__ == "__main__":

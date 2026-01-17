@@ -6,7 +6,7 @@ from pyteomics import mzid
 from pyteomics.auxiliary import PyteomicsError
 from sqlalchemy import insert
 from sqlalchemy.engine import Engine
-from sqlmodel import Session
+from sqlalchemy.orm import Session
 
 from usigrabber.db.schema import (
     Modification,

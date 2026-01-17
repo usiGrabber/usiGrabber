@@ -12,7 +12,8 @@ from typing import Annotated
 import typer
 from rich.console import Console
 from rich.table import Table
-from sqlmodel import Session, func, select
+from sqlalchemy import func, select
+from sqlalchemy.orm import Session
 
 from usigrabber.backends.project_exchange import ProjectExchange
 from usigrabber.cli import app
@@ -71,7 +72,7 @@ def validate_usi(
         if project_accessions:
             query = query.where(MzidFile.project_accession.in_(project_accessions))  # type: ignore
 
-        mzid_files = session.exec(query).all()
+        mzid_files = session.execute(query).scalars().all()
 
         if not mzid_files:
             console.print("❌ No mzID files found matching criteria", style="yellow")
@@ -93,25 +94,25 @@ def validate_usi(
             )
 
             # Count total, validated, and unvalidated
-            total_count = session.exec(
+            total_count = session.execute(
                 select(func.count())
                 .select_from(PeptideSpectrumMatch)
                 .where(PeptideSpectrumMatch.mzid_file_id == mzid_file.id)
-            ).one()
+            ).scalar_one()
 
-            validated_count = session.exec(
+            validated_count = session.execute(
                 select(func.count())
                 .select_from(PeptideSpectrumMatch)
                 .where(PeptideSpectrumMatch.mzid_file_id == mzid_file.id)
                 .where(PeptideSpectrumMatch.is_usi_validated.is_not(None))  # type: ignore
-            ).one()
+            ).scalar_one()
 
-            unvalidated_count = session.exec(
+            unvalidated_count = session.execute(
                 select(func.count())
                 .select_from(PeptideSpectrumMatch)
                 .where(PeptideSpectrumMatch.mzid_file_id == mzid_file.id)
                 .where(PeptideSpectrumMatch.is_usi_validated.is_(None))  # type: ignore
-            ).one()
+            ).scalar_one()
 
             # Skip if we already have sample_size validated PSMs for this file
             if validated_count >= sample_size:
@@ -134,9 +135,13 @@ def validate_usi(
             remaining_needed = sample_size - validated_count
             sample_limit = min(remaining_needed, unvalidated_count)
 
-            psms_to_validate = session.exec(
-                psm_query.order_by(func.random()).limit(sample_limit)  # type: ignore
-            ).all()
+            psms_to_validate = (
+                session.execute(
+                    psm_query.order_by(func.random()).limit(sample_limit)  # type: ignore
+                )
+                .scalars()
+                .all()
+            )
 
             console.print(
                 f"📄 {mzid_file.file_name}: sampling {len(psms_to_validate)} PSMs "
@@ -192,9 +197,9 @@ def validate_usi(
             # Verify updates persisted by querying one back
             if updated_count > 0 and psms_to_validate:
                 first_psm_id = psms_to_validate[0].id
-                verification = session.exec(
+                verification = session.execute(
                     select(PeptideSpectrumMatch).where(PeptideSpectrumMatch.id == first_psm_id)
-                ).first()
+                ).scalar_one_or_none()
                 if verification:
                     logger.info(
                         f"Verification: PSM {first_psm_id} is_usi_validated = {verification.is_usi_validated}"

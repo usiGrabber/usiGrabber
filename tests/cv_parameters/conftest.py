@@ -1,20 +1,31 @@
+import os
+
 import pytest
+from sqlalchemy import create_engine
 from sqlalchemy.engine import Engine
-from sqlmodel import Session, create_engine
-from sqlmodel.pool import StaticPool
+from sqlalchemy.orm import Session
 
 from usigrabber.db import Project
-from usigrabber.db.schema import create_db_and_tables
+from usigrabber.db.schema import Base, create_db_and_tables
 
 
 @pytest.fixture
 def engine():
-    """Create an in-memory SQLite database for testing."""
-    engine = create_engine(
-        "sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool
-    )
+    """Create a PostgreSQL test database for testing."""
+    db_url = os.getenv("TEST_DB_URL") or os.getenv("DB_URL")
+    if not db_url:
+        pytest.skip("No database URL configured (TEST_DB_URL or DB_URL)")
+
+    engine = create_engine(db_url)
+
+    # Drop and recreate all tables for a clean test environment
+    Base.metadata.drop_all(engine)
     create_db_and_tables(engine)
+
     yield engine
+
+    # Cleanup after tests
+    Base.metadata.drop_all(engine)
 
 
 @pytest.fixture
@@ -23,7 +34,7 @@ def sample_project(engine: Engine):
     project = Project(
         accession="PXD000001",
         title="Test Project",
-        submissionType="COMPLETE",
+        submission_type="COMPLETE",
     )
     with Session(engine) as session:
         session.add(project)

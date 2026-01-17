@@ -8,7 +8,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from sqlmodel import Session, func, select
+from sqlalchemy import func, select
+from sqlalchemy.orm import Session
 
 from usigrabber.db.schema import MzidFile, PeptideSpectrumMatch, Project
 from usigrabber.utils import logger
@@ -90,15 +91,19 @@ def generate_report(
     logger.info("Generating USI validation report...")
 
     # Count total mzID files and projects
-    total_mzid_files = session.exec(select(func.count()).select_from(MzidFile)).one()
-    total_projects = session.exec(select(func.count()).select_from(Project)).one()
+    total_mzid_files = session.execute(select(func.count()).select_from(MzidFile)).scalar_one()
+    total_projects = session.execute(select(func.count()).select_from(Project)).scalar_one()
 
     # Query all validated PSMs (relationships will be lazy-loaded as needed)
-    validated_psms = session.exec(
-        select(PeptideSpectrumMatch).where(
-            PeptideSpectrumMatch.is_usi_validated.is_not(None)  # type: ignore
+    validated_psms = (
+        session.execute(
+            select(PeptideSpectrumMatch).where(
+                PeptideSpectrumMatch.is_usi_validated.is_not(None)  # type: ignore
+            )
         )
-    ).all()
+        .scalars()
+        .all()
+    )
 
     logger.info(f"Found {len(validated_psms)} validated PSMs")
 

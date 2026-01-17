@@ -8,9 +8,9 @@ from typing import Annotated, Any
 
 import typer
 from pydantic import BaseModel
-from sqlalchemy import Engine, inspect
+from sqlalchemy import Engine, inspect, select
 from sqlalchemy import exc as sa_exc
-from sqlmodel import Session, select
+from sqlalchemy.orm import Session
 
 from usigrabber.backends import BackendEnum
 from usigrabber.cli import app
@@ -130,7 +130,7 @@ def build(
 
     with Session(db_engine) as session:
         statement = select(Project.accession)
-        existing_accessions: set[str] = set(session.exec(statement).all())
+        existing_accessions: set[str] = set(session.execute(statement).scalars().all())
         logger.info(f"Found {len(existing_accessions)} existing projects.")
 
     asyncio.run(build_all_projects(backends, config, existing_accessions, db_engine))

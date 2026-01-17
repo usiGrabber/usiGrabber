@@ -8,7 +8,7 @@ import requests
 from async_http_client import AsyncHttpClient
 from ontology_resolver.ontology_helper import OntologyHelper
 from sqlalchemy.engine import Engine
-from sqlmodel import Session
+from sqlalchemy.orm import Session
 
 from usigrabber.backends.base import BaseBackend, FileMetadata, Files
 from usigrabber.cv_parameters.cv_engine import CVInjector, CVParam, CVTuple
@@ -259,17 +259,17 @@ class PrideBackend(BaseBackend):
         project = Project(
             accession=project_data["accession"],
             title=project_data["title"],
-            projectDescription=project_data.get("projectDescription"),
-            sampleProcessingProtocol=project_data.get("sampleProcessingProtocol"),
-            dataProcessingProtocol=project_data.get("dataProcessingProtocol"),
+            project_description=project_data.get("projectDescription"),
+            sample_processing_protocol=project_data.get("sampleProcessingProtocol"),
+            data_processing_protocol=project_data.get("dataProcessingProtocol"),
             doi=project_data.get("doi"),
-            submissionType=project_data["submissionType"],
+            submission_type=project_data["submissionType"],
             license=project_data.get("license"),
-            submissionDate=parse_date(project_data.get("submissionDate")),
-            publicationDate=parse_date(project_data.get("publicationDate")),
-            totalFileDownloads=project_data.get("totalFileDownloads", 0),
-            sampleAttributes=project_data.get("sampleAttributes"),
-            additionalAttributes=project_data.get("additionalAttributes"),
+            submission_date=parse_date(project_data.get("submissionDate")),
+            publication_date=parse_date(project_data.get("publicationDate")),
+            total_file_downloads=project_data.get("totalFileDownloads", 0),
+            sample_attributes=project_data.get("sampleAttributes"),
+            additional_attributes=project_data.get("additionalAttributes"),
         )
         session.add(project)
 
@@ -277,8 +277,8 @@ class PrideBackend(BaseBackend):
         for ref_data in project_data.get("references", []):
             reference = Reference(
                 project_accession=project.accession,
-                referenceLine=ref_data.get("referenceLine"),
-                pubmedID=ref_data.get("pubmedID"),
+                reference_line=ref_data.get("referenceLine"),
+                pubmed_id=ref_data.get("pubmedID"),
                 doi=ref_data.get("doi"),
             )
             session.add(reference)

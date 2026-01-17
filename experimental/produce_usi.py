@@ -1,7 +1,8 @@
 import urllib.error
 
 from pyteomics import usi
-from sqlmodel import Session, func, select
+from sqlalchemy import func, select
+from sqlalchemy.orm import Session
 
 from usigrabber.db import load_db_engine
 from usigrabber.db.schema import PeptideSpectrumMatch, Project
@@ -27,7 +28,7 @@ def main():
             .order_by(func.random())
             .limit(1)
         )
-        psm = session.exec(statement).first()
+        psm = session.execute(statement).scalar_one_or_none()
         if (
             not psm
             or not psm.project
@@ -39,13 +40,13 @@ def main():
         ):
             print("Insufficient data to generate USI.")
             return
-        usi = (
+        usi_str = (
             f"mzspec:{psm.project.accession}:{psm.ms_run}:"
             f"{psm.index_type.value}:{psm.index_number}:{psm.modified_peptide.peptide_sequence}/{psm.charge_state}"
         )
 
-        print("Retrieving spectrum for USI:", usi)
-        spectrum = get_spectrum(usi)
+        print("Retrieving spectrum for USI:", usi_str)
+        spectrum = get_spectrum(usi_str)
         print(spectrum)
 
 

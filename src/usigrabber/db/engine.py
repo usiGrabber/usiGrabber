@@ -1,15 +1,11 @@
 import logging
 import os
-from typing import Any
 from urllib.parse import urlparse
 
+from sqlalchemy import create_engine
 from sqlalchemy.engine.base import Engine
-from sqlmodel import create_engine
-from sqlmodel.pool import StaticPool
 
 logger = logging.getLogger(__name__)
-
-DEFAULT_DB_URL = "sqlite:///database.db"
 
 
 def build_postgres_url() -> str:
@@ -39,21 +35,20 @@ def build_postgres_url() -> str:
 
 
 def load_db_engine(debug_sql: bool = False) -> Engine:
-    kwargs: dict[str, Any] = {"url": os.getenv("DB_URL", DEFAULT_DB_URL)}
+    db_url = os.getenv("DB_URL", "")
 
-    if kwargs["url"].startswith("sqlite://"):
-        kwargs |= {"connect_args": {"check_same_thread": False}, "poolclass": StaticPool}
-        logger.info("Using SQLite database at %s", kwargs["url"])
-    elif kwargs["url"].startswith("postgresql://") or kwargs["url"].startswith("postgres://"):
-        kwargs["url"] = build_postgres_url()
-        logger.info("Using PostgreSQL database at %s", urlparse(kwargs["url"]).hostname)
-    else:
-        raise ValueError("Unsupported DB_URL scheme. Use sqlite:// or postgresql://")
+    if not db_url or not (db_url.startswith("postgresql://") or db_url.startswith("postgres://")):
+        raise ValueError(
+            "DB_URL must be set and start with postgresql:// or postgres://. "
+            "SQLite is no longer supported."
+        )
+
+    url = build_postgres_url()
+    logger.info("Using PostgreSQL database at %s", urlparse(url).hostname)
 
     # Use DB_ECHO_SQL from environment if not explicitly set
     echo_sql = debug_sql or os.getenv("DB_ECHO_SQL")
     if echo_sql:
         logger.info("SQL echo is enabled.")
-        kwargs["echo"] = True
 
-    return create_engine(**kwargs)
+    return create_engine(url, echo=bool(echo_sql))

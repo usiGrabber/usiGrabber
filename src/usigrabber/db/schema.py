@@ -1,9 +1,23 @@
 import uuid
 from datetime import date, datetime
 from enum import Enum
+from typing import Any
 
-from sqlalchemy import CheckConstraint, UniqueConstraint
-from sqlmodel import JSON, Column, Field, Relationship, SQLModel
+from sqlalchemy import (
+    JSON,
+    Boolean,
+    CheckConstraint,
+    Date,
+    DateTime,
+    Float,
+    ForeignKey,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
+)
+from sqlalchemy.dialects.postgresql import UUID as PG_UUID
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 
 class IndexType(str, Enum):
@@ -16,81 +30,99 @@ class IndexType(str, Enum):
 
 
 # ============================================================================
+# Base Class
+# ============================================================================
+
+
+class Base(DeclarativeBase):
+    """Base class for all SQLAlchemy models."""
+
+    type_annotation_map = {
+        dict: JSON,
+        dict[str, Any]: JSON,
+    }
+
+
+# ============================================================================
 # Core Tables
 # ============================================================================
 
 
-class CvJunctionTable(SQLModel, table=True):
+class CvJunctionTable(Base):
     __tablename__ = "project_cv_params"
 
-    cv_param_id: int = Field(foreign_key="cv_params.id", primary_key=True)
-    project_accession: str = Field(foreign_key="projects.accession", primary_key=True)
+    cv_param_id: Mapped[int] = mapped_column(ForeignKey("cv_params.id"), primary_key=True)
+    project_accession: Mapped[str] = mapped_column(
+        ForeignKey("projects.accession"), primary_key=True
+    )
 
 
-class CvParam(SQLModel, table=True):
+class CvParam(Base):
     __tablename__ = "cv_params"
 
-    id: int | None = Field(default=None, primary_key=True)
-    accession: str
-    value: str | None = Field(default=None)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    accession: Mapped[str] = mapped_column(String, nullable=False)
+    value: Mapped[str | None] = mapped_column(String, default=None)
 
-    projects: list["Project"] = Relationship(back_populates="cv_params", link_model=CvJunctionTable)
+    projects: Mapped[list["Project"]] = relationship(
+        back_populates="cv_params", secondary="project_cv_params"
+    )
 
 
-class Project(SQLModel, table=True):
+class Project(Base):
     """Main project table storing PRIDE project information."""
 
     __tablename__ = "projects"
 
-    accession: str = Field(primary_key=True)
-    title: str
-    project_description: str | None = Field(default=None, alias="projectDescription")
-    sample_processing_protocol: str | None = Field(default=None, alias="sampleProcessingProtocol")
-    data_processing_protocol: str | None = Field(default=None, alias="dataProcessingProtocol")
-    doi: str | None = None
-    submission_type: str = Field(alias="submissionType")
-    license: str | None = None
-    submission_date: date | None = Field(default=None, alias="submissionDate")
-    publication_date: date | None = Field(default=None, alias="publicationDate")
-    total_file_downloads: int = Field(default=0, alias="totalFileDownloads")
-    fully_processed: bool = Field(
-        default=False, description="Flag indicating if project is fully processed or not"
-    )
+    accession: Mapped[str] = mapped_column(String, primary_key=True)
+    title: Mapped[str] = mapped_column(String, nullable=False)
+    project_description: Mapped[str | None] = mapped_column(Text, default=None)
+    sample_processing_protocol: Mapped[str | None] = mapped_column(Text, default=None)
+    data_processing_protocol: Mapped[str | None] = mapped_column(Text, default=None)
+    doi: Mapped[str | None] = mapped_column(String, default=None)
+    submission_type: Mapped[str] = mapped_column(String, nullable=False)
+    license: Mapped[str | None] = mapped_column(String, default=None)
+    submission_date: Mapped[date | None] = mapped_column(Date, default=None)
+    publication_date: Mapped[date | None] = mapped_column(Date, default=None)
+    total_file_downloads: Mapped[int] = mapped_column(Integer, default=0)
+    fully_processed: Mapped[bool] = mapped_column(Boolean, default=False)
 
     # Complex nested data stored as JSON
-    sample_attributes: dict | None = Field(
-        default=None, sa_column=Column(JSON), alias="sampleAttributes"
-    )
-    additional_attributes: dict | None = Field(
-        default=None, sa_column=Column(JSON), alias="additionalAttributes"
-    )
+    sample_attributes: Mapped[dict | None] = mapped_column(JSON, default=None)
+    additional_attributes: Mapped[dict | None] = mapped_column(JSON, default=None)
 
     # Relationships
-    references: list["Reference"] = Relationship(back_populates="project")
-    keywords: list["ProjectKeyword"] = Relationship(back_populates="project")
-    project_tags: list["ProjectTag"] = Relationship(back_populates="project")
-    countries: list["ProjectCountry"] = Relationship(back_populates="project")
-    affiliations: list["ProjectAffiliation"] = Relationship(back_populates="project")
-    other_omics_links: list["ProjectOtherOmicsLink"] = Relationship(back_populates="project")
-    mzid_files: list["MzidFile"] = Relationship(back_populates="project")
-    peptide_spectrum_matches: list["PeptideSpectrumMatch"] = Relationship(back_populates="project")
+    references: Mapped[list["Reference"]] = relationship(back_populates="project")
+    keywords: Mapped[list["ProjectKeyword"]] = relationship(back_populates="project")
+    project_tags: Mapped[list["ProjectTag"]] = relationship(back_populates="project")
+    countries: Mapped[list["ProjectCountry"]] = relationship(back_populates="project")
+    affiliations: Mapped[list["ProjectAffiliation"]] = relationship(back_populates="project")
+    other_omics_links: Mapped[list["ProjectOtherOmicsLink"]] = relationship(
+        back_populates="project"
+    )
+    mzid_files: Mapped[list["MzidFile"]] = relationship(back_populates="project")
+    peptide_spectrum_matches: Mapped[list["PeptideSpectrumMatch"]] = relationship(
+        back_populates="project"
+    )
 
-    cv_params: list[CvParam] = Relationship(back_populates="projects", link_model=CvJunctionTable)
+    cv_params: Mapped[list[CvParam]] = relationship(
+        back_populates="projects", secondary="project_cv_params"
+    )
 
 
-class Reference(SQLModel, table=True):
+class Reference(Base):
     """Publication references for projects."""
 
     __tablename__ = "references"
 
-    id: int | None = Field(default=None, primary_key=True)
-    project_accession: str = Field(foreign_key="projects.accession")
-    reference_line: str | None = Field(default=None, alias="referenceLine")
-    pubmed_id: int | None = Field(default=None, alias="pubmedID")
-    doi: str | None = None
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    project_accession: Mapped[str] = mapped_column(ForeignKey("projects.accession"))
+    reference_line: Mapped[str | None] = mapped_column(Text, default=None)
+    pubmed_id: Mapped[int | None] = mapped_column(Integer, default=None)
+    doi: Mapped[str | None] = mapped_column(String, default=None)
 
     # Relationships
-    project: Project | None = Relationship(back_populates="references")
+    project: Mapped[Project | None] = relationship(back_populates="references")
 
 
 # ============================================================================
@@ -98,69 +130,69 @@ class Reference(SQLModel, table=True):
 # ============================================================================
 
 
-class ProjectKeyword(SQLModel, table=True):
+class ProjectKeyword(Base):
     """Project keywords."""
 
     __tablename__ = "project_keywords"
 
-    id: int | None = Field(default=None, primary_key=True)
-    project_accession: str = Field(foreign_key="projects.accession")
-    keyword: str
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    project_accession: Mapped[str] = mapped_column(ForeignKey("projects.accession"))
+    keyword: Mapped[str] = mapped_column(String, nullable=False)
 
     # Relationships
-    project: Project | None = Relationship(back_populates="keywords")
+    project: Mapped[Project | None] = relationship(back_populates="keywords")
 
 
-class ProjectTag(SQLModel, table=True):
+class ProjectTag(Base):
     """Project tags."""
 
     __tablename__ = "project_tags"
 
-    id: int | None = Field(default=None, primary_key=True)
-    project_accession: str = Field(foreign_key="projects.accession")
-    tag: str
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    project_accession: Mapped[str] = mapped_column(ForeignKey("projects.accession"))
+    tag: Mapped[str] = mapped_column(String, nullable=False)
 
     # Relationships
-    project: Project | None = Relationship(back_populates="project_tags")
+    project: Mapped[Project | None] = relationship(back_populates="project_tags")
 
 
-class ProjectCountry(SQLModel, table=True):
+class ProjectCountry(Base):
     """Project countries."""
 
     __tablename__ = "project_countries"
 
-    id: int | None = Field(default=None, primary_key=True)
-    project_accession: str = Field(foreign_key="projects.accession")
-    country: str
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    project_accession: Mapped[str] = mapped_column(ForeignKey("projects.accession"))
+    country: Mapped[str] = mapped_column(String, nullable=False)
 
     # Relationships
-    project: Project | None = Relationship(back_populates="countries")
+    project: Mapped[Project | None] = relationship(back_populates="countries")
 
 
-class ProjectAffiliation(SQLModel, table=True):
+class ProjectAffiliation(Base):
     """Project affiliations."""
 
     __tablename__ = "project_affiliations"
 
-    id: int | None = Field(default=None, primary_key=True)
-    project_accession: str = Field(foreign_key="projects.accession")
-    affiliation: str
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    project_accession: Mapped[str] = mapped_column(ForeignKey("projects.accession"))
+    affiliation: Mapped[str] = mapped_column(String, nullable=False)
 
     # Relationships
-    project: Project | None = Relationship(back_populates="affiliations")
+    project: Mapped[Project | None] = relationship(back_populates="affiliations")
 
 
-class ProjectOtherOmicsLink(SQLModel, table=True):
+class ProjectOtherOmicsLink(Base):
     """Project other omics links."""
 
     __tablename__ = "project_other_omics_links"
 
-    id: int | None = Field(default=None, primary_key=True)
-    project_accession: str = Field(foreign_key="projects.accession")
-    link: str
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    project_accession: Mapped[str] = mapped_column(ForeignKey("projects.accession"))
+    link: Mapped[str] = mapped_column(String, nullable=False)
 
     # Relationships
-    project: Project | None = Relationship(back_populates="other_omics_links")
+    project: Mapped[Project | None] = relationship(back_populates="other_omics_links")
 
 
 # ============================================================================
@@ -168,36 +200,28 @@ class ProjectOtherOmicsLink(SQLModel, table=True):
 # ============================================================================
 
 
-class MzidFile(SQLModel, table=True):
+class MzidFile(Base):
     """Metadata per mzID file - OPTIONAL table for provenance tracking."""
 
     __tablename__ = "mzid_files"
 
-    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
-    project_accession: str = Field(foreign_key="projects.accession")
-    file_name: str
-    file_path: str | None = None
-    software_name: str | None = None
-    software_version: str | None = None
-    search_database_name: str | None = None
-    protocol_parameters: dict | None = Field(
-        default=None,
-        sa_column=Column(JSON),
-        description="Enzyme, tolerances, modifications - stored as JSON",
+    id: Mapped[uuid.UUID] = mapped_column(
+        PG_UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
     )
-    threshold_type: str | None = Field(
-        default=None,
-        description="Type of threshold used (e.g., 'FDR', 'q-value', 'e-value', 'Mascot:identity')",
-    )
-    threshold_value: float | None = Field(
-        default=None,
-        description="Threshold value (e.g., 0.01 for 1% FDR)",
-    )
-    creation_date: datetime | None = None
+    project_accession: Mapped[str] = mapped_column(ForeignKey("projects.accession"))
+    file_name: Mapped[str] = mapped_column(String, nullable=False)
+    file_path: Mapped[str | None] = mapped_column(String, default=None)
+    software_name: Mapped[str | None] = mapped_column(String, default=None)
+    software_version: Mapped[str | None] = mapped_column(String, default=None)
+    search_database_name: Mapped[str | None] = mapped_column(String, default=None)
+    protocol_parameters: Mapped[dict | None] = mapped_column(JSON, default=None)
+    threshold_type: Mapped[str | None] = mapped_column(String, default=None)
+    threshold_value: Mapped[float | None] = mapped_column(Float, default=None)
+    creation_date: Mapped[datetime | None] = mapped_column(DateTime, default=None)
 
     # Relationships
-    project: Project | None = Relationship(back_populates="mzid_files")
-    peptide_spectrum_matches: list["PeptideSpectrumMatch"] = Relationship(
+    project: Mapped[Project | None] = relationship(back_populates="mzid_files")
+    peptide_spectrum_matches: Mapped[list["PeptideSpectrumMatch"]] = relationship(
         back_populates="mzid_file"
     )
 
@@ -207,47 +231,49 @@ class MzidFile(SQLModel, table=True):
 # ============================================================================
 
 
-class ModifiedPeptideModificationJunction(SQLModel, table=True):
+class ModifiedPeptideModificationJunction(Base):
     __tablename__ = "modified_peptide_modification_junction"
 
-    modified_peptide_id: uuid.UUID = Field(foreign_key="modified_peptides.id", primary_key=True)
-    modification_id: uuid.UUID = Field(foreign_key="modifications.id", primary_key=True)
+    modified_peptide_id: Mapped[uuid.UUID] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("modified_peptides.id"), primary_key=True
+    )
+    modification_id: Mapped[uuid.UUID] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("modifications.id"), primary_key=True
+    )
 
 
-class ModifiedPeptide(SQLModel, table=True):
+class ModifiedPeptide(Base):
     """Modified peptide sequence. Links to 0 to many Modifications."""
 
     __tablename__ = "modified_peptides"
 
-    id: uuid.UUID = Field(
-        primary_key=True, description="Deterministic UUID based on sequence and modifications"
-    )
-    peptide_sequence: str = Field(description="Peptide sequence without modifications")
+    id: Mapped[uuid.UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True)
+    peptide_sequence: Mapped[str] = mapped_column(String, nullable=False)
 
     # Relationships
-    peptide_spectrum_matches: list["PeptideSpectrumMatch"] = Relationship(
+    peptide_spectrum_matches: Mapped[list["PeptideSpectrumMatch"]] = relationship(
         back_populates="modified_peptide"
     )
-    modifications: list["Modification"] = Relationship(
-        back_populates="modified_peptides", link_model=ModifiedPeptideModificationJunction
+    modifications: Mapped[list["Modification"]] = relationship(
+        back_populates="modified_peptides",
+        secondary="modified_peptide_modification_junction",
     )
 
 
-class Modification(SQLModel, table=True):
+class Modification(Base):
     """Modification with a location and modified residue."""
 
     __tablename__ = "modifications"
 
-    id: uuid.UUID = Field(primary_key=True)
-    unimod_id: int | None = Field(description="Unimod id, e.g., '35' for 'UNIMOD:35' accession")
-    name: str | None = Field(
-        description="Modification name. Used as fallback if UNIMOD id not available."
-    )
-    location: int | None = Field(description="Location in the peptide sequence (1-indexed)")
-    modified_residue: str | None = Field(description="The specific amino acid that was modified")
+    id: Mapped[uuid.UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True)
+    unimod_id: Mapped[int | None] = mapped_column(Integer, default=None)
+    name: Mapped[str | None] = mapped_column(String, default=None)
+    location: Mapped[int | None] = mapped_column(Integer, default=None)
+    modified_residue: Mapped[str | None] = mapped_column(String, default=None)
 
-    modified_peptides: list["ModifiedPeptide"] = Relationship(
-        back_populates="modifications", link_model=ModifiedPeptideModificationJunction
+    modified_peptides: Mapped[list["ModifiedPeptide"]] = relationship(
+        back_populates="modifications",
+        secondary="modified_peptide_modification_junction",
     )
 
     # constraint
@@ -261,96 +287,70 @@ class Modification(SQLModel, table=True):
     )
 
 
-class PeptideSpectrumMatch(SQLModel, table=True):
+class PeptideSpectrumMatch(Base):
     """Core PSM data. Links to Project, MzidFile, Peptide."""
 
     __tablename__ = "peptide_spectrum_matches"
 
-    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
-    project_accession: str = Field(foreign_key="projects.accession")
-    mzid_file_id: uuid.UUID | None = Field(
+    id: Mapped[uuid.UUID] = mapped_column(
+        PG_UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    project_accession: Mapped[str] = mapped_column(ForeignKey("projects.accession"))
+    mzid_file_id: Mapped[uuid.UUID | None] = mapped_column(
+        PG_UUID(as_uuid=True),
+        ForeignKey("mzid_files.id"),
         default=None,
-        foreign_key="mzid_files.id",
-        description="Optional: can be NULL for non-mzID sources",
     )
-    modified_peptide_id: uuid.UUID = Field(foreign_key="modified_peptides.id")
-    spectrum_id: str | None = Field(description="Spectrum identifier/index")
-    charge_state: int | None
-    experimental_mz: float | None = Field(description="Experimental m/z value")
-    calculated_mz: float | None = Field(description="Calculated m/z value")
-    score_values: dict | None = Field(
-        default=None,
-        sa_column=Column(JSON),
-        description="MS-GF+ score, FDR, e-value, etc. as JSON",
+    modified_peptide_id: Mapped[uuid.UUID] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("modified_peptides.id")
     )
-    rank: int | None = Field(default=None, description="Rank of this PSM for the spectrum")
-    pass_threshold: bool | None = Field(
-        description=(
-            "Whether PSM passes quality threshold. Based on file-level threshold "
-            "(see mzid_file.threshold_type and threshold_value) or per-spectrum "
-            "dynamic thresholds (e.g., Mascot identity/homology). Value comes from "
-            "mzID passThreshold attribute."
-        )
-    )
-    index_type: IndexType | None = Field(
-        default=None,
-        description="Type of spectrum index. Part of USI specification.",
-    )
-    index_number: int | None = Field(
-        default=None,
-        description="Spectrum index number. Part of USI specification.",
-    )
-    ms_run: str | None = Field(
-        default=None,
-        description="MS run identifier from raw file name. Part of USI specification.",
-    )
-    ms_run_ext: str | None = Field(
-        default=None,
-        description="File extension of MS run. Part of USI specification.",
-    )
-    is_usi_validated: bool | None = Field(
-        default=None,
-        description="USI validation status: True (valid), False (invalid), None (not validated)",
-    )
+    spectrum_id: Mapped[str | None] = mapped_column(String, default=None)
+    charge_state: Mapped[int | None] = mapped_column(Integer, default=None)
+    experimental_mz: Mapped[float | None] = mapped_column(Float, default=None)
+    calculated_mz: Mapped[float | None] = mapped_column(Float, default=None)
+    score_values: Mapped[dict | None] = mapped_column(JSON, default=None)
+    rank: Mapped[int | None] = mapped_column(Integer, default=None)
+    pass_threshold: Mapped[bool | None] = mapped_column(Boolean, default=None)
+    index_type: Mapped[IndexType | None] = mapped_column(default=None)
+    index_number: Mapped[int | None] = mapped_column(Integer, default=None)
+    ms_run: Mapped[str | None] = mapped_column(String, default=None)
+    ms_run_ext: Mapped[str | None] = mapped_column(String, default=None)
+    is_usi_validated: Mapped[bool | None] = mapped_column(Boolean, default=None)
 
     # Relationships
-    project: Project | None = Relationship(back_populates="peptide_spectrum_matches")
-    mzid_file: MzidFile | None = Relationship(back_populates="peptide_spectrum_matches")
-    modified_peptide: ModifiedPeptide | None = Relationship(
+    project: Mapped[Project | None] = relationship(back_populates="peptide_spectrum_matches")
+    mzid_file: Mapped[MzidFile | None] = relationship(back_populates="peptide_spectrum_matches")
+    modified_peptide: Mapped[ModifiedPeptide | None] = relationship(
         back_populates="peptide_spectrum_matches"
     )
-    psm_peptide_evidences: list["PSMPeptideEvidence"] = Relationship(back_populates="psm")
-    search_modifications: list["SearchModification"] | None = Relationship(
+    psm_peptide_evidences: Mapped[list["PSMPeptideEvidence"]] = relationship(back_populates="psm")
+    search_modifications: Mapped[list["SearchModification"] | None] = relationship(
         back_populates="peptide_spectrum_match"
     )
 
 
-class PeptideEvidence(SQLModel, table=True):
+class PeptideEvidence(Base):
     """Peptide-to-protein mappings - where peptides appear in proteins."""
 
     __tablename__ = "peptide_evidence"
 
-    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
-    protein_accession: str | None = Field(default=None, description="Protein accession.")
-    is_decoy: bool | None = Field(default=None, description="Whether the protein is a decoy")
-    start_position: int | None = Field(
-        default=None, description="Start position in protein sequence"
+    id: Mapped[uuid.UUID] = mapped_column(
+        PG_UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
     )
-    end_position: int | None = Field(default=None, description="End position in protein sequence")
-    pre_residue: str | None = Field(
-        default=None, max_length=1, description="Flanking amino acid before"
-    )
-    post_residue: str | None = Field(
-        default=None, max_length=1, description="Flanking amino acid after"
-    )
+    protein_accession: Mapped[str | None] = mapped_column(String, default=None)
+    is_decoy: Mapped[bool | None] = mapped_column(Boolean, default=None)
+    start_position: Mapped[int | None] = mapped_column(Integer, default=None)
+    end_position: Mapped[int | None] = mapped_column(Integer, default=None)
+    pre_residue: Mapped[str | None] = mapped_column(String(1), default=None)
+    post_residue: Mapped[str | None] = mapped_column(String(1), default=None)
 
     # Relationships
-    psm_peptide_evidences: list["PSMPeptideEvidence"] = Relationship(
+    psm_peptide_evidences: Mapped[list["PSMPeptideEvidence"]] = relationship(
         back_populates="peptide_evidence"
     )
 
 
-class PSMPeptideEvidence(SQLModel, table=True):
+class PSMPeptideEvidence(Base):
     """Junction table linking PSMs to their protein evidence.
 
     In mzID files, PeptideEvidenceRef elements appear inside SpectrumIdentificationItem
@@ -361,24 +361,36 @@ class PSMPeptideEvidence(SQLModel, table=True):
 
     __tablename__ = "psm_peptide_evidence"
 
-    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
-    psm_id: uuid.UUID = Field(foreign_key="peptide_spectrum_matches.id")
-    peptide_evidence_id: uuid.UUID = Field(foreign_key="peptide_evidence.id")
+    id: Mapped[uuid.UUID] = mapped_column(
+        PG_UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    psm_id: Mapped[uuid.UUID] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("peptide_spectrum_matches.id")
+    )
+    peptide_evidence_id: Mapped[uuid.UUID] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("peptide_evidence.id")
+    )
 
     # Relationships
-    psm: "PeptideSpectrumMatch" = Relationship(back_populates="psm_peptide_evidences")
-    peptide_evidence: "PeptideEvidence" = Relationship(back_populates="psm_peptide_evidences")
+    psm: Mapped["PeptideSpectrumMatch"] = relationship(back_populates="psm_peptide_evidences")
+    peptide_evidence: Mapped["PeptideEvidence"] = relationship(
+        back_populates="psm_peptide_evidences"
+    )
 
 
-class SearchModification(SQLModel, table=True):
+class SearchModification(Base):
     __tablename__ = "search_modifications"
 
-    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
-    psm_id: uuid.UUID = Field(foreign_key="peptide_spectrum_matches.id")
-    unimod_id: int = Field()
+    id: Mapped[uuid.UUID] = mapped_column(
+        PG_UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    psm_id: Mapped[uuid.UUID] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("peptide_spectrum_matches.id")
+    )
+    unimod_id: Mapped[int] = mapped_column(Integer, nullable=False)
 
     # Relationships
-    peptide_spectrum_match: "PeptideSpectrumMatch" = Relationship(
+    peptide_spectrum_match: Mapped["PeptideSpectrumMatch"] = relationship(
         back_populates="search_modifications"
     )
 
@@ -390,4 +402,4 @@ class SearchModification(SQLModel, table=True):
 
 def create_db_and_tables(engine):
     """Create all database tables."""
-    SQLModel.metadata.create_all(engine)
+    Base.metadata.create_all(engine)

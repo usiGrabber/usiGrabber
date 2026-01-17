@@ -1,8 +1,9 @@
 from dataclasses import dataclass
 from typing import Self, assert_never
 
+from sqlalchemy import and_, or_, select
 from sqlalchemy.engine import Engine
-from sqlmodel import Session, and_, or_, select
+from sqlalchemy.orm import Session
 
 from usigrabber.db import CvParam as DBCVParam
 from usigrabber.db import Project
@@ -79,7 +80,7 @@ class CVInjector:
                 )
 
             statement = select(DBCVParam).where(or_(*filters))
-            existing = session.exec(statement)
+            existing = session.execute(statement).scalars()
             existing_params = list(existing.all())
 
             # Map existing for fast lookup

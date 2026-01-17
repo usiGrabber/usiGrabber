@@ -25,7 +25,8 @@ from attr import dataclass
 from ontology_resolver.ontology_helper import OntologyHelper
 from rich.console import Console
 from rich.progress import Progress, SpinnerColumn, TextColumn
-from sqlmodel import Session, and_, or_, select
+from sqlalchemy import and_, or_, select
+from sqlalchemy.orm import Session
 
 from usigrabber.db import (
     CvParam,
@@ -66,17 +67,17 @@ async def import_project(session: Session, project_data: dict):
     project = Project(
         accession=project_data["accession"],
         title=project_data["title"],
-        projectDescription=project_data.get("projectDescription"),
-        sampleProcessingProtocol=project_data.get("sampleProcessingProtocol"),
-        dataProcessingProtocol=project_data.get("dataProcessingProtocol"),
+        project_description=project_data.get("projectDescription"),
+        sample_processing_protocol=project_data.get("sampleProcessingProtocol"),
+        data_processing_protocol=project_data.get("dataProcessingProtocol"),
         doi=project_data.get("doi"),
-        submissionType=project_data["submissionType"],
+        submission_type=project_data["submissionType"],
         license=project_data.get("license"),
-        submissionDate=parse_date(project_data.get("submissionDate")),
-        publicationDate=parse_date(project_data.get("publicationDate")),
-        totalFileDownloads=project_data.get("totalFileDownloads", 0),
-        sampleAttributes=project_data.get("sampleAttributes"),
-        additionalAttributes=project_data.get("additionalAttributes"),
+        submission_date=parse_date(project_data.get("submissionDate")),
+        publication_date=parse_date(project_data.get("publicationDate")),
+        total_file_downloads=project_data.get("totalFileDownloads", 0),
+        sample_attributes=project_data.get("sampleAttributes"),
+        additional_attributes=project_data.get("additionalAttributes"),
     )
     session.add(project)
 
@@ -84,8 +85,8 @@ async def import_project(session: Session, project_data: dict):
     for ref_data in project_data.get("references", []):
         reference = Reference(
             project_accession=project.accession,
-            referenceLine=ref_data.get("referenceLine"),
-            pubmedID=ref_data.get("pubmedID"),
+            reference_line=ref_data.get("referenceLine"),
+            pubmed_id=ref_data.get("pubmedID"),
             doi=ref_data.get("doi"),
         )
         session.add(reference)
@@ -146,7 +147,7 @@ def add_cv_params_to_project(session: Session, project: Project, all_cvs: list[R
                 filters.append(and_(CvParam.accession == cv.name, CvParam.value == cv.value))
 
         statement = select(CvParam).where(or_(*filters))
-        existing = session.exec(statement)
+        existing = session.execute(statement).scalars()
         existing_params = list(existing.all())
 
         # Map existing for fast lookup
@@ -219,15 +220,15 @@ async def process_cv_data(session: Session, project: Project, project_data: dict
 async def import_pride_json(json_file: str, batch_size: int = 1):
     """Import PRIDE projects from JSON file into database."""
 
-    console.print(f"\n🔬 Importing PRIDE projects from: {json_file}", style="bold blue")
+    console.print(f"\nImporting PRIDE projects from: {json_file}", style="bold blue")
 
     # Load JSON
-    console.print("📖 Loading JSON file...")
+    console.print("Loading JSON file...")
     with open(json_file) as f:
         projects_data = json.load(f)
 
     total_projects = len(projects_data)
-    console.print(f"✓ Found {total_projects:,} projects\n")
+    console.print(f"Found {total_projects:,} projects\n")
 
     # Initialize database
     engine = load_db_engine()
@@ -237,7 +238,7 @@ async def import_pride_json(json_file: str, batch_size: int = 1):
 
     inspector = inspect(engine)
     if len(inspector.get_table_names()) == 0:
-        console.print("🗄️  Creating database tables...", style="yellow")
+        console.print("Creating database tables...", style="yellow")
         create_db_and_tables(engine)
 
     # Import in batches
@@ -260,9 +261,7 @@ async def import_pride_json(json_file: str, batch_size: int = 1):
                 # Commit in batches
                 if (i + 1) % batch_size == 0:
                     session.commit()
-                    description = (
-                        f"Importing projects... {i + 1}/{total_projects} (✓ {imported}, ✗ {errors})"
-                    )
+                    description = f"Importing projects... {i + 1}/{total_projects} (OK {imported}, ERR {errors})"
                     progress.update(
                         task,
                         advance=batch_size,
@@ -275,20 +274,20 @@ async def import_pride_json(json_file: str, batch_size: int = 1):
 
     # Summary
     console.print("\n" + "=" * 60)
-    console.print("📊 Import Summary", style="bold green")
+    console.print("Import Summary", style="bold green")
     console.print("=" * 60)
-    console.print(f"✅ Successfully imported: {imported:,} projects")
-    console.print(f"❌ Errors: {errors:,} projects")
-    console.print(f"📈 Success rate: {(imported / total_projects * 100):.1f}%")
+    console.print(f"Successfully imported: {imported:,} projects")
+    console.print(f"Errors: {errors:,} projects")
+    console.print(f"Success rate: {(imported / total_projects * 100):.1f}%")
 
     if error_projects:
-        console.print("\n⚠️  Failed Projects:", style="yellow")
+        console.print("\nFailed Projects:", style="yellow")
         for accession, error in error_projects[:10]:  # Show first 10
-            console.print(f"  • {accession}: {error[:80]}")
+            console.print(f"  - {accession}: {error[:80]}")
         if len(error_projects) > 10:
             console.print(f"  ... and {len(error_projects) - 10} more")
 
-    console.print("\n✅ Import complete!", style="bold green")
+    console.print("\nImport complete!", style="bold green")
 
 
 if __name__ == "__main__":

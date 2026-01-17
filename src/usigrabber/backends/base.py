@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 from collections.abc import AsyncGenerator
 from typing import Any, TypedDict
 
-from sqlmodel import Session
+from sqlalchemy.orm import Session
 
 
 class FileMetadata(TypedDict):
