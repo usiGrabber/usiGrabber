@@ -40,6 +40,7 @@ LOG_ROOT = Environment.parse_path("USIGRABBER_LOG_DIR", Path("logs/logging-mp"))
 LOG_ROOT.mkdir(exist_ok=True, parents=True)
 
 LOG_PATH = LOG_ROOT / "0"
+HUMAN_READABLE_LOG_PATH = LOG_PATH / "human.log"
 
 
 COMPRESSION_FORMATS = [f[0] for f in shutil.get_archive_formats()]
@@ -70,9 +71,11 @@ def rotate_log_dirs() -> None:
 
     # create symlink in root logging to human readable log of latest run
     symlink_path = LOG_ROOT / "latest.log"
-    if symlink_path.exists() or symlink_path.is_symlink():
+    if symlink_path.exists() and not symlink_path.is_symlink():
         symlink_path.unlink()
-    symlink_path.symlink_to(LOG_PATH.absolute() / "mplog.log")
+
+    if not symlink_path.exists():
+        symlink_path.symlink_to(HUMAN_READABLE_LOG_PATH.absolute())
 
 
 class MergingLoggerAdapter(logging.LoggerAdapter):
@@ -134,12 +137,12 @@ class WorkerLogging:
 
 class ListenerLogging:
     @classmethod
-    def configure_logging_dict(cls, q: multiprocessing.Queue) -> dict:
+    def configure_logging(cls, q: multiprocessing.Queue) -> None:
         """Configure the logging dictionary for the listener process."""
 
         rotate_log_dirs()
 
-        return {
+        config = {
             "version": 1,
             # disable the "setup" logger used in the parent process
             "disable_existing_loggers": True,
@@ -175,7 +178,7 @@ class ListenerLogging:
                 # file handler for all logs, human readable
                 "file": {
                     "class": "logging.FileHandler",
-                    "filename": LOG_PATH / "mplog.log",
+                    "filename": HUMAN_READABLE_LOG_PATH,
                     "mode": "w",
                     "formatter": "detailed",
                     "level": "INFO",
@@ -183,7 +186,7 @@ class ListenerLogging:
                 # file handler for specific worker
                 "worker3": {
                     "class": "logging.FileHandler",
-                    "filename": LOG_PATH / "mplog-worker3.log",
+                    "filename": LOG_PATH / "worker3.log",
                     "mode": "w",
                     "formatter": "detailed",
                     "level": "DEBUG",  # detailed logs for specific worker
@@ -192,7 +195,7 @@ class ListenerLogging:
                 "file_json": {
                     "class": "logging.handlers.RotatingFileHandler",
                     "formatter": "json",
-                    "filename": LOG_PATH / "mplog.json",
+                    "filename": LOG_PATH / "usigrabber.json",
                     "maxBytes": 1 * (1024**2),  # 1 MB
                     "backupCount": 5,
                     "level": "INFO",  # debugging should only be done on machine
@@ -200,7 +203,7 @@ class ListenerLogging:
                 # quick way to inspect errors, human readable
                 "errors": {
                     "class": "logging.FileHandler",
-                    "filename": LOG_PATH / "mplog-errors.log",
+                    "filename": LOG_PATH / "errors.log",
                     "mode": "w",
                     "formatter": "detailed",
                     "level": "ERROR",
@@ -220,3 +223,5 @@ class ListenerLogging:
                 f"{APP_NAME}.worker.3": {"handlers": ["worker3"]},
             },
         }
+
+        logging.config.dictConfig(config)

@@ -7,7 +7,7 @@ from usigrabber.parallelism_new.logging_helpers import ListenerLogging
 
 
 def listener_process(queue: multiprocessing.Queue) -> None:
-    logging.config.dictConfig(ListenerLogging.configure_logging_dict(queue))
+    ListenerLogging.configure_logging(queue)
     while True:
         try:
             record: logging.LogRecord = queue.get()
