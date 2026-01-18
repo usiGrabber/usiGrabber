@@ -1,8 +1,10 @@
 import multiprocessing
 import os
+import random
 import time
 
 from usigrabber.parallelism_new.logging_helpers import WorkerLogging
+from usigrabber.parallelism_new.pride import Project
 
 # 1. The Placeholder
 # This variable lives separately in every single worker process's memory.
@@ -22,26 +24,22 @@ def init_worker_queue(q: multiprocessing.Queue) -> None:
 
 
 # 3. The Task
-def do_work(job_id: int) -> int:
+def do_work(project: Project) -> None:
     """
     This function just assumes _shared_queue is already set.
     """
     if _shared_queue is None:
         raise RuntimeError("Queue was not initialized! Did you set the initializer?")
 
-    logger = WorkerLogging.get_logger(_shared_queue, job_id)
+    logger = WorkerLogging.get_logger(_shared_queue, project.project_accession)
 
     # Simulate work
     time.sleep(0.1)
-    result = job_id * 10
 
-    logger.info("Completed work for job %d, result=%d", job_id, result)
-    if job_id % 3 == 0:
-        logger.debug("Job %d is a multiple of 3.", job_id)
+    if random.random() < 0.33:
+        logger.debug("Doing some debugging.")
         logger.error(
-            "Job %d encountered an issue.",
-            job_id,
+            "Encountered an issue.",
             extra={"extra_info": "Simulated error for demonstration."},
         )
-
-    return result
+    logger.info("Completed work for project %s", project.project_accession)

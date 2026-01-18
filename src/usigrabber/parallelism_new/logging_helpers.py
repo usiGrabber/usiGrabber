@@ -32,7 +32,7 @@ class Environment:
 
 APP_NAME = "usiGrabber"
 USE_PLAIN_LOGGING = Environment.parse_bool("USIGRABBER_USE_PLAIN_LOGGING", False)
-CONSOLE_LOG_LEVEL = "DEBUG"
+CONSOLE_LOG_LEVEL = "WARNING"
 
 # Set up logging directory
 NUM_BACKUPS = Environment.parse_int("USIGRABBER_LOG_NUM_BACKUPS", 5)
@@ -71,10 +71,10 @@ def rotate_log_dirs() -> None:
 
     # create symlink in root logging to human readable log of latest run
     symlink_path = LOG_ROOT / "latest.log"
-    if symlink_path.exists() and not symlink_path.is_symlink():
+    if symlink_path.exists():
         symlink_path.unlink()
 
-    if not symlink_path.exists():
+    if not symlink_path.is_symlink():
         symlink_path.symlink_to(HUMAN_READABLE_LOG_PATH.absolute())
 
 
@@ -106,7 +106,7 @@ class MergingLoggerAdapter(logging.LoggerAdapter):
 
 class WorkerLogging:
     @classmethod
-    def configure_logging_dict(cls, q: multiprocessing.Queue, job_id: int) -> dict:
+    def configure_logging_dict(cls, q: multiprocessing.Queue) -> dict:
         # The worker process configuration is just a QueueHandler attached to the
         # root logger, which allows all messages to be sent to the queue.
         # We disable existing loggers to disable the "setup" logger used in the
@@ -126,12 +126,12 @@ class WorkerLogging:
         }
 
     @classmethod
-    def get_logger(cls, q: multiprocessing.Queue, job_id: int) -> logging.LoggerAdapter:
+    def get_logger(cls, q: multiprocessing.Queue, project_accession: str) -> logging.LoggerAdapter:
         pid = os.getpid()
-        logging.config.dictConfig(cls.configure_logging_dict(q, job_id))
+        logging.config.dictConfig(cls.configure_logging_dict(q))
         return MergingLoggerAdapter(
-            logging.getLogger(f"{APP_NAME}.worker.{job_id}"),
-            {"job_id": job_id, "pid": pid},
+            logging.getLogger(f"{APP_NAME}.worker.{project_accession}"),
+            {"project_accession": project_accession, "pid": pid},
         )
 
 
@@ -149,7 +149,7 @@ class ListenerLogging:
             "formatters": {
                 "detailed": {
                     "class": "logging.Formatter",
-                    "format": "%(asctime)s %(job_id)d %(levelname)s %(message)s",
+                    "format": "%(asctime)s %(project_accession)s %(levelname)s %(message)s",
                 },
                 "simple": {
                     "class": "logging.Formatter",
@@ -158,7 +158,7 @@ class ListenerLogging:
                 "json": {
                     "class": "pythonjsonlogger.jsonlogger.JsonFormatter",
                     # The format string determines the keys in the JSON output
-                    "format": "%(asctime)s %(levelname)s %(message)s %(pid)d %(job_id)d",
+                    "format": "%(asctime)s %(levelname)s %(message)s %(pid)d %(project_accession)s",
                 },
             },
             "handlers": {
