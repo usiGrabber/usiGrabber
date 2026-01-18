@@ -33,6 +33,16 @@
             "cwd": "${workspaceFolder}",
             "console": "integratedTerminal",
             "justMyCode": false
+        },
+        {
+            "name": "Debug parallelism-new",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/src/usigrabber/parallelism_new",
+            "console": "integratedTerminal",
+            "env": {
+                "USIGRABBER_NUM_WORKERS": "1"
+            }
         }
     ]
 }

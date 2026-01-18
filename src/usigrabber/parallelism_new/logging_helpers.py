@@ -2,21 +2,77 @@ import logging
 import logging.config
 import multiprocessing
 import os
+import shutil
 from pathlib import Path
 
 
-def get_bool_env(key: str, default: bool = False) -> bool:
-    value = os.getenv(key, str(default)).lower()
-    return value in ("1", "true", "yes", "on")
+class Environment:
+    @staticmethod
+    def parse_bool(key: str, default: bool = False) -> bool:
+        value = os.getenv(key, str(default)).lower()
+        return value in ("1", "true", "yes", "on")
+
+    @staticmethod
+    def parse_int(key: str, default: int = 0) -> int:
+        value = os.getenv(key, str(default))
+        return int(value)
+
+    @staticmethod
+    def parse_str(key: str, default: str = "") -> str:
+        return os.getenv(key, default)
+
+    @staticmethod
+    def parse_path(key: str, default: Path | None = None) -> Path:
+        if default is None:
+            default = Path.cwd()
+
+        value = Environment.parse_str(key, "")
+        return Path(value) if value else default
 
 
 APP_NAME = "usiGrabber"
-USE_PLAIN_LOGGING = get_bool_env("USIGRABBER_USE_PLAIN_LOGGING", False)
+USE_PLAIN_LOGGING = Environment.parse_bool("USIGRABBER_USE_PLAIN_LOGGING", False)
 CONSOLE_LOG_LEVEL = "DEBUG"
 
 # Set up logging directory
-LOG_PATH = Path("logs/logging-mp")
-LOG_PATH.mkdir(exist_ok=True, parents=True)
+NUM_BACKUPS = Environment.parse_int("USIGRABBER_LOG_NUM_BACKUPS", 5)
+LOG_ROOT = Environment.parse_path("USIGRABBER_LOG_DIR", Path("logs/logging-mp"))
+LOG_ROOT.mkdir(exist_ok=True, parents=True)
+
+LOG_PATH = LOG_ROOT / "0"
+
+
+COMPRESSION_FORMATS = [f[0] for f in shutil.get_archive_formats()]
+ARCHIVE_FORMAT = "zstdtar" if "zstdtar" in COMPRESSION_FORMATS else "gztar"
+ARCHIVE_FILE_EXT = ".tar.zst" if ARCHIVE_FORMAT == "zstdtar" else ".tar.gz"
+
+
+def create_archive(src: Path) -> Path:
+    archive = shutil.make_archive(str(src), ARCHIVE_FORMAT, root_dir=src)
+    print(f"Archived log directory {src} to {archive}")
+    shutil.rmtree(src)
+    return Path(archive)
+
+
+def rotate_log_dirs() -> None:
+    if LOG_PATH.exists():
+        # Archive the existing log directory
+        create_archive(LOG_PATH)
+
+        # Rotate existing log directories
+        for i in range(NUM_BACKUPS - 1, -1, -1):
+            src = LOG_ROOT / f"{i}{ARCHIVE_FILE_EXT}"
+            dst = LOG_ROOT / f"{i + 1}{ARCHIVE_FILE_EXT}"
+            if src.exists():
+                src.rename(dst)
+
+    LOG_PATH.mkdir(exist_ok=True)
+
+    # create symlink in root logging to human readable log of latest run
+    symlink_path = LOG_ROOT / "latest.log"
+    if symlink_path.exists() or symlink_path.is_symlink():
+        symlink_path.unlink()
+    symlink_path.symlink_to(LOG_PATH.absolute() / "mplog.log")
 
 
 class MergingLoggerAdapter(logging.LoggerAdapter):
@@ -79,15 +135,13 @@ class WorkerLogging:
 class ListenerLogging:
     @classmethod
     def configure_logging_dict(cls, q: multiprocessing.Queue) -> dict:
-        # The listener process configuration shows that the full flexibility of
-        # logging configuration is available to dispatch events to handlers however
-        # you want.
-        # We disable existing loggers to disable the "setup" logger used in the
-        # parent process. This is needed on POSIX because the logger will
-        # be there in the child following a fork().
+        """Configure the logging dictionary for the listener process."""
+
+        rotate_log_dirs()
 
         return {
             "version": 1,
+            # disable the "setup" logger used in the parent process
             "disable_existing_loggers": True,
             "formatters": {
                 "detailed": {
@@ -112,13 +166,13 @@ class ListenerLogging:
                     "markup": True,
                     "level": CONSOLE_LOG_LEVEL,
                 },
-                # unused console handler without rich
+                # simple stream handler without rich
                 "console_plain": {
                     "class": "logging.StreamHandler",
                     "formatter": "simple",
                     "level": CONSOLE_LOG_LEVEL,
                 },
-                # file handler for all logs
+                # file handler for all logs, human readable
                 "file": {
                     "class": "logging.FileHandler",
                     "filename": LOG_PATH / "mplog.log",
@@ -134,15 +188,16 @@ class ListenerLogging:
                     "formatter": "detailed",
                     "level": "DEBUG",  # detailed logs for specific worker
                 },
-                # json file handler for all logs
+                # json file handler for all logs, only this should be sent to loki
                 "file_json": {
                     "class": "logging.handlers.RotatingFileHandler",
                     "formatter": "json",
                     "filename": LOG_PATH / "mplog.json",
                     "maxBytes": 1 * (1024**2),  # 1 MB
                     "backupCount": 5,
-                    "level": "INFO",
+                    "level": "INFO",  # debugging should only be done on machine
                 },
+                # quick way to inspect errors, human readable
                 "errors": {
                     "class": "logging.FileHandler",
                     "filename": LOG_PATH / "mplog-errors.log",

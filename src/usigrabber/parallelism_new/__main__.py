@@ -1,14 +1,24 @@
 import logging
 import logging.config
 import multiprocessing as mp
+import os
 import time
 from collections import deque
 
 from usigrabber.parallelism_new import logging_listener, worker
 
+WORKER_COUNT = max(1, int(os.getenv("USIGRABBER_NUM_WORKERS", mp.cpu_count() - 1)))
+
 config_initial = {
     "version": 1,
-    "handlers": {"console": {"class": "logging.StreamHandler", "level": "INFO"}},
+    "handlers": {
+        "console": {
+            "()": "rich.logging.RichHandler",
+            "rich_tracebacks": True,
+            "markup": True,
+            "level": "INFO",
+        }
+    },
     "root": {"handlers": ["console"], "level": "DEBUG"},
 }
 
@@ -27,7 +37,11 @@ def main():
 
     # 2. Configure the Executor
     # Note: We pass functions FROM the tasks module
-    with mp.Pool(processes=2, initializer=worker.init_worker_queue, initargs=(queue,)) as pool:
+    with mp.Pool(
+        processes=WORKER_COUNT,
+        initializer=worker.init_worker_queue,
+        initargs=(queue,),
+    ) as pool:
         it = pool.imap_unordered(worker.do_work, range(10))
 
         # This "drains" the generator immediately but lazily
