@@ -3,7 +3,7 @@ import os
 import random
 import time
 
-from usigrabber.parallelism_new.logging_helpers import WorkerLogging
+from usigrabber.parallelism_new.logging_helpers import MergingLoggerAdapter, WorkerLogging
 from usigrabber.parallelism_new.pride import Project
 
 # 1. The Placeholder
@@ -36,10 +36,15 @@ def do_work(project: Project) -> None:
     # Simulate work
     time.sleep(0.1)
 
+    for file in project.files:
+        file_logger = MergingLoggerAdapter(logger, {"file_name": file})
+        file_logger.info("Processing file %s for project %s", file, project.project_accession)
+
     if random.random() < 0.33:
         logger.debug("Doing some debugging.")
         logger.error(
-            "Encountered an issue.",
+            "Project %s Encountered an issue.",
+            project.project_accession,
             extra={"extra_info": "Simulated error for demonstration."},
         )
     logger.info("Completed work for project %s", project.project_accession)

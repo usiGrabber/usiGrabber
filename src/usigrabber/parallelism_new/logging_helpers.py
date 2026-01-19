@@ -49,6 +49,19 @@ ARCHIVE_FILE_EXT = ".tar.zst" if ARCHIVE_FORMAT == "zstdtar" else ".tar.gz"
 
 
 def create_archive(src: Path) -> Path:
+    """
+    Create a compressed archive of the given directory and remove the original.
+    Returns the path to the created archive.
+
+    :param src: The source directory to archive.
+    :return: Path to the created archive.
+
+    Example usage:
+    ---
+    >>> create_archive(Path("/dir/to/logs"))
+    Path('/dir/to/logs.tar.zst')
+    """
+
     archive = shutil.make_archive(str(src), ARCHIVE_FORMAT, root_dir=src)
     print(f"Archived log directory {src} to {archive}")
     shutil.rmtree(src)
@@ -220,7 +233,8 @@ class ListenerLogging:
                 # "level": "INFO",  # configure levels on individual handlers instead
             },
             "loggers": {
-                f"{APP_NAME}.worker.3": {"handlers": ["worker3"]},
+                # specific logger, not needed for now
+                # f"{APP_NAME}.worker.3": {"handlers": ["worker3"]},
             },
         }
 
