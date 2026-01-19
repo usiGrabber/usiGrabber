@@ -29,6 +29,15 @@ def main():
     logging.config.dictConfig(config_initial)
     logger = logging.getLogger("setup")
 
+    # check if loki_url is set
+    LOKI_URL = os.getenv("LOKI_URL")
+
+    # if set, check if promtail binary is running
+    if LOKI_URL:
+        # check if promtail is running
+        # if not running, stop the program with an error
+        pass
+
     queue = mp.Queue()
 
     try:

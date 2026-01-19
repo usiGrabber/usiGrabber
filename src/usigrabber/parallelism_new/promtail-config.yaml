@@ -1,0 +1,46 @@
+server:
+  http_listen_port: 9080
+  grpc_listen_port: 0
+
+positions:
+  filename: /tmp/positions.yaml
+
+clients:
+  - url: ${LOKI_URL}/loki/api/v1/push
+
+scrape_configs:
+  - job_name: python_json_run
+    pipeline_stages:
+      # 1. Parse the JSON content
+      - json:
+          expressions:
+            # Python standard keys mapping
+            level: levelname # Python uses 'levelname' (INFO, ERROR)
+            timestamp: asctime # Python often uses 'asctime' or 'created'
+            message: message # The actual log message
+            pid: pid
+            project_accession: project_accession
+
+      # 2. Promote fields to Labels
+      - labels:
+          level:
+          project_accession:
+
+      # 3. Parse the timestamp
+      - timestamp:
+          source: timestamp
+          format: "format: 2006-01-02 15:04:05,999"
+          location: "Europe/Berlin"
+
+      # 4. Set the log line output
+      # This ensures the main log line in Loki is just the message,
+      # not the entire JSON blob (since we extracted labels).
+      - output:
+          source: message
+
+    static_configs:
+      - targets:
+          - test_parallelism
+        labels:
+          job: python-log-ship
+          __path__: /var/log/usigrabber/0/usigrabber.json
