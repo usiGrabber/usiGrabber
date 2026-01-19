@@ -276,6 +276,7 @@ def parse_psms(
         default=pd.DataFrame(),
     )
     evidence = evidence.drop_duplicates()
+    evidence = evidence[evidence["MS/MS scan number"].notna()]
 
     summary_interesting_columns = [
         col
