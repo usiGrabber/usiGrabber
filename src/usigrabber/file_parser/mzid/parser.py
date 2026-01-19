@@ -184,9 +184,7 @@ class MzidFileParser(BaseFileParser):
                     logger.info(f"[{stats.file_name}] PSMPeptideEvidence: {db_time:.3f}s total")
 
                 if parsed.search_modifications:
-                    sorted_search_mods = sorted(
-                        parsed.search_modifications, key=lambda x: x["psm_id"]
-                    )
+                    sorted_search_mods = sorted(parsed.search_modifications, key=lambda x: x["id"])
                     stmt = insert_func(SearchModification).on_conflict_do_nothing()
                     db_start = time.time()
                     conn.execute(
