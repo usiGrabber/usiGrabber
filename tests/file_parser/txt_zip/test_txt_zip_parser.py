@@ -1,6 +1,7 @@
 from pathlib import Path
 
 from usigrabber.db.schema import IndexType
+from usigrabber.file_parser.errors import TxtZipParseError
 from usigrabber.file_parser.txt_zip.parser import TxtZipFileParser
 
 
@@ -30,6 +31,8 @@ def test_txt_zip_parser_basic():
     assert (
         len(parsed_data.search_modifications) == len(parsed_data.psms) * 3
     )  # 3 tested mod for each raw file (so for each psm) stated in summary.txt
+
+    check_usi_fields_extraction(parsed_data)
 
 
 def test_txt_zip_parser():
@@ -156,22 +159,114 @@ def test_txt_zip_parser():
     assert len(search_modifications) > 0, "Should parse search modifications from the file"
     assert len(search_modifications) == len(psms) * 4, "Expected 4 search modifications per PSM"
 
+    check_usi_fields_extraction(parsed_data)
 
-def test_usi_fields_extraction():
+
+def test_txt_zip_parser_with_missing_req_columns():
+    """
+    Test the parser's behavior when essential columns are missing
+    from the input files.
+    """
+    mock_project_accession = "PXD000001"
+    file_parser = TxtZipFileParser()
+
+    summary_complete_path = Path("tests/file_parser/txt_zip/fixtures/project3/summary_complete.txt")
+    peptides_complete_path = Path(
+        "tests/file_parser/txt_zip/fixtures/project3/peptides_complete.txt"
+    )
+
+    # Test Error for missing required columns in evidence.txt
+    evidence_path, summary_path, peptides_path = (
+        Path("tests/file_parser/txt_zip/fixtures/project3/evidence_wo_req_fields.txt"),
+        summary_complete_path,
+        peptides_complete_path,
+    )
+    try:
+        file_parser.parse_file((evidence_path, summary_path, peptides_path), mock_project_accession)
+    except TxtZipParseError:
+        pass
+    else:
+        raise AssertionError("Parser should have raised an error due to missing columns")
+
+
+def test_txt_zip_parser_with_missing_opt_columns():
+    """
+    Test the parser's behavior when optional columns are missing
+    from the input files.
+    """
+    mock_project_accession = "PXD000001"
+    file_parser = TxtZipFileParser()
+
+    evidence_complete_path = Path(
+        "tests/file_parser/txt_zip/fixtures/project3/evidence_complete.txt"
+    )
+    summary_complete_path = Path("tests/file_parser/txt_zip/fixtures/project3/summary_complete.txt")
+    peptides_complete_path = Path(
+        "tests/file_parser/txt_zip/fixtures/project3/peptides_complete.txt"
+    )
+
+    # Test USI extraction with missing columns in evidence.txt
+    for evidence_missing_column in ["mass", "mz"]:
+        evidence_path, summary_path, peptides_path = (
+            Path(
+                "tests/file_parser/txt_zip/fixtures/project3/evidence_wo_"
+                + evidence_missing_column
+                + ".txt"
+            ),
+            summary_complete_path,
+            peptides_complete_path,
+        )
+        parsed_data = file_parser.parse_file(
+            (evidence_path, summary_path, peptides_path), mock_project_accession
+        )
+        check_usi_fields_extraction(parsed_data)
+
+    # Test USI extraction with missing columns in summary.txt
+    for summary_missing_column in ["raw_file", "fixed_mods", "var_mods"]:
+        evidence_path, summary_path, peptides_path = (
+            evidence_complete_path,
+            Path(
+                "tests/file_parser/txt_zip/fixtures/project3/summary_wo_"
+                + summary_missing_column
+                + ".txt"
+            ),
+            peptides_complete_path,
+        )
+        parsed_data = file_parser.parse_file(
+            (evidence_path, summary_path, peptides_path), mock_project_accession
+        )
+        check_usi_fields_extraction(parsed_data)
+
+    # Test USI extraction with missing columns in peptides.txt
+    for peptides_missing_column in [
+        "acid_after",
+        "acid_before",
+        "end_pos",
+        "proteins",
+        "razor_protein",
+        "seq",
+        "start_pos",
+    ]:
+        evidence_path, summary_path, peptides_path = (
+            evidence_complete_path,
+            summary_complete_path,
+            Path(
+                "tests/file_parser/txt_zip/fixtures/project3/peptides_wo_"
+                + peptides_missing_column
+                + ".txt"
+            ),
+        )
+        parsed_data = file_parser.parse_file(
+            (evidence_path, summary_path, peptides_path), mock_project_accession
+        )
+        check_usi_fields_extraction(parsed_data)
+
+
+def check_usi_fields_extraction(parsed_data):
     """
     Test that USI-related fields (index_type, index_number, ms_run) are correctly extracted
     from the files.
     """
-    mock_project_accession = "PXD000001"
-    file_parser = TxtZipFileParser()
-    evidence_path, summary_path, peptides_path = (
-        Path("tests/file_parser/txt_zip/fixtures/project1/evidence.txt"),
-        Path("tests/file_parser/txt_zip/fixtures/project1/summary.txt"),
-        Path("tests/file_parser/txt_zip/fixtures/project1/peptides.txt"),
-    )
-    parsed_data = file_parser.parse_file(
-        (evidence_path, summary_path, peptides_path), mock_project_accession
-    )
     psms = parsed_data.psms
 
     # At least some PSMs should have USI fields populated
@@ -194,11 +289,9 @@ def test_usi_fields_extraction():
     )
 
     # Check that MS run is extracted
-    if len(psms_with_ms_run) > 0:
-        sample_ms_run_psm = psms_with_ms_run[0]
-        assert sample_ms_run_psm["ms_run"] is not None
-        assert len(sample_ms_run_psm["ms_run"]) > 0, "MS run should not be empty string"
+    assert len(psms_with_ms_run) == len(psms), "All PSMs should have an MS run extracted"
+    for psm in psms_with_ms_run:
+        assert psm["ms_run"] is not None
+        assert len(psm["ms_run"]) > 0, "MS run should not be empty string"
         # MS run should not contain .raw extension
-        assert ".raw" not in sample_ms_run_psm["ms_run"].lower(), (
-            "MS run should have .raw extension removed"
-        )
+        assert ".raw" not in psm["ms_run"].lower(), "MS run should have .raw extension removed"

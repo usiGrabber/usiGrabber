@@ -145,6 +145,7 @@ def parse_modification_list(modifications, modified_sequence) -> list[Modificati
 
 def parse_peptide_evidence(
     peptides: pd.DataFrame,
+    peptides_columns: list[str],
 ) -> tuple[dict[str, list[uuid.UUID]], list[PeptideEvidenceDict]]:
     """
     Parse peptide evidence from peptides DataFrame.
@@ -167,31 +168,28 @@ def parse_peptide_evidence(
                 DataFrame
     """
     pe_id_map: dict[str, list[uuid.UUID]] = {}
-
     peptide_evidence_batch: list[PeptideEvidenceDict] = []
-    peptides = peptides.get(
-        [
-            "Sequence",
-            "Amino acid before",
-            "Amino acid after",
-            "Proteins",
-            "Leading razor protein",
-            "Start position",
-            "End position",
-        ],
-        default=pd.DataFrame(),
-    )
+
+    if len(peptides_columns) == 0 or "Sequence" not in peptides_columns:
+        logger.debug("No relevant data present; skipping peptide evidence parsing")
+        return pe_id_map, peptide_evidence_batch
 
     for peptide_row in peptides.iterrows():
         peptide_row = peptide_row[1]
         sequence: str = peptide_row.get("Sequence", "")
         pe_id_map[sequence] = []
 
-        razor_protein: str = peptide_row.get("Leading razor protein", "")
-        razor_protein = razor_protein.split(".")[0]
-        proteins: str = peptide_row.get("Proteins", "")
-        protein_list = str(proteins).split(";")
-        protein_list = [p.split(".")[0] for p in protein_list]
+        if "Leading razor protein" in peptides_columns:
+            razor_protein: str = peptide_row.get("Leading razor protein", "")
+            razor_protein = razor_protein.split(".")[0]
+        else:
+            razor_protein = None
+        if "Proteins" in peptides_columns:
+            proteins: str = peptide_row.get("Proteins", "")
+            protein_list = str(proteins).split(";")
+            protein_list = [p.split(".")[0] for p in protein_list]
+        else:
+            protein_list = [razor_protein] if razor_protein else []
 
         for protein in protein_list:
             start_position = peptide_row.get("Start position", None)
@@ -226,7 +224,9 @@ def parse_peptide_evidence(
 
 def parse_psms(
     evidence: pd.DataFrame,
+    evidence_columns: list[str],
     summary: pd.DataFrame,
+    summary_columns: list[str],
     project_accession: str,
     peptide_id_map: dict[str, uuid.UUID],
     pe_id_map: dict[str, list[uuid.UUID]],
@@ -266,15 +266,25 @@ def parse_psms(
     search_mod_batch: list[SearchModificationDict] = []
     search_mod_counts = set[int]()
 
+    evidence_interesting_columns = [
+        col
+        for col in ["Sequence", "Raw file", "Charge", "m/z", "Mass", "MS/MS scan number"]
+        if col in evidence_columns
+    ]
     evidence = evidence.get(
-        ["Sequence", "Raw file", "Charge", "m/z", "Mass", "MS/MS scan number"],
+        evidence_interesting_columns,
         default=pd.DataFrame(),
     )
     evidence = evidence.drop_duplicates()
     evidence = evidence[evidence["MS/MS scan number"].notna()]
 
+    summary_interesting_columns = [
+        col
+        for col in ["Raw file", "Variable modifications", "Fixed modifications"]
+        if col in summary_columns
+    ]
     summary = summary.get(
-        ["Raw file", "Variable modifications", "Fixed modifications"],
+        summary_interesting_columns,
         default=pd.DataFrame(),
     )
 
@@ -284,7 +294,7 @@ def parse_psms(
         raw_file: str = summary_elem.get("Raw file", "")
         var_modifications: str = summary_elem.get("Variable modifications", "")
         fixed_modified_sequence: str = summary_elem.get("Fixed modifications", "")
-        if raw_file:
+        if raw_file and raw_file != "":
             if raw_file not in summary_mod_map:
                 summary_mod_map[raw_file] = set()
             summary_mod_map[raw_file].add((var_modifications, fixed_modified_sequence))
@@ -299,25 +309,27 @@ def parse_psms(
             logger.warning(f"Peptide_ref '{sequence}' not found in map")
             continue
 
-        scan_id: int = psm_elem.get("MS/MS scan number", "")
-        mass = psm_elem.get("Mass", 0)
+        mass = psm_elem.get("Mass", None)
         charge = psm_elem.get("Charge", 1)
 
         modification_list: list[str] = []
         raw_file = psm_elem.get("Raw file", "")
-        for var_modifications, fixed_modified_sequence in summary_mod_map[raw_file]:
-            var_mods = var_modifications
-            fix_mods = fixed_modified_sequence
-            if var_mods:
-                modification_list.extend(var_mods.split(";"))
-            if fix_mods:
-                modification_list.extend(fix_mods.split(";"))
-        unimod_id_list: list[int] = [
-            lookup_unimod_id_by_name(simple_mod_name(mod))
-            for mod in modification_list
-            if lookup_unimod_id_by_name(simple_mod_name(mod)) is not None
-        ]
-        search_mod_counts.add(len(unimod_id_list))
+        if raw_file in summary_mod_map:
+            for var_modifications, fixed_modified_sequence in summary_mod_map[raw_file]:
+                var_mods = var_modifications
+                fix_mods = fixed_modified_sequence
+                if var_mods and var_mods != "":
+                    modification_list.extend(var_mods.split(";"))
+                if fix_mods and fix_mods != "":
+                    modification_list.extend(fix_mods.split(";"))
+            unimod_id_list: list[int] = [
+                lookup_unimod_id_by_name(simple_mod_name(mod))
+                for mod in modification_list
+                if lookup_unimod_id_by_name(simple_mod_name(mod)) is not None
+            ]
+            search_mod_counts.add(len(unimod_id_list))
+        else:
+            unimod_id_list = []
 
         psm_id = uuid.uuid4()
         psm: PeptideSpectrumMatchDict = {
@@ -325,12 +337,12 @@ def parse_psms(
             "project_accession": project_accession,
             "modified_peptide_id": modified_peptide_id,
             "spectrum_id": None,
-            "charge_state": psm_elem.get("Charge", None),
+            "charge_state": charge,
             "experimental_mz": psm_elem.get("m/z", None),
-            "calculated_mz": mass / charge if charge else None,
+            "calculated_mz": mass / charge if mass and charge and charge != 0 else None,
             "pass_threshold": None,
             "index_type": IndexType.scan,
-            "index_number": scan_id,
+            "index_number": psm_elem.get("MS/MS scan number", None),
             "ms_run": psm_elem.get("Raw file", None),
             "ms_run_ext": "raw",  # Is always 'raw', as it is extracted from raw file column
         }

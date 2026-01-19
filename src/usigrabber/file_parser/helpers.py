@@ -64,7 +64,6 @@ def extract_unimod_id_or_name(mod_data: dict) -> tuple[int | None, str | None]:
         uid = lookup_unimod_id_by_name(mod_name)
 
     if uid is None:
-        logger.debug("No UNIMOD ID found for modification: %s", mod_data)
         return None, mod_name
     else:
         return uid, None
