@@ -213,7 +213,7 @@ def parse_txt_zip(
             col for col in EVIDENCE_COLS_REQUIRED if not evidence_cols_present[col]
         ]
 
-        # summary columns ar not required for USI extraction
+        # summary columns are not required for USI extraction
         SUMMARY_COLS = {
             "Raw file",
             "Variable modifications",
@@ -226,7 +226,7 @@ def parse_txt_zip(
                 summary_cols_present[col] = True
         summary_missing_cols = [col for col in SUMMARY_COLS if not summary_cols_present[col]]
 
-        # peptides columns ar not required for USI extraction
+        # peptides columns are not required for USI extraction
         PEPTIDES_COLS = {
             "Sequence",
             "Amino acid before",

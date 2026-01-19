@@ -182,9 +182,7 @@ def test_txt_zip_parser_with_missing_req_columns():
         peptides_complete_path,
     )
     try:
-        parsed_data = file_parser.parse_file(  # noqa: F841
-            (evidence_path, summary_path, peptides_path), mock_project_accession
-        )
+        file_parser.parse_file((evidence_path, summary_path, peptides_path), mock_project_accession)
     except TxtZipParseError:
         pass
     else:
