@@ -65,7 +65,16 @@ def test_parse_peptide_evidence_basic(project2_peptides_df):
     Basic test for parse_peptide_evidence function to ensure it correctly
     parses peptide evidence from provided DataFrame.
     """
-    pe_id_map, peptide_evidence = parse_peptide_evidence(project2_peptides_df)
+    peptide_columns = [
+        "Sequence",
+        "Amino acid before",
+        "Amino acid after",
+        "Proteins",
+        "Leading razor protein",
+        "Start position",
+        "End position",
+    ]
+    pe_id_map, peptide_evidence = parse_peptide_evidence(project2_peptides_df, peptide_columns)
 
     assert len(peptide_evidence) > 0
     assert len(pe_id_map) > 0
@@ -90,7 +99,16 @@ def test_parse_peptide_evidence(project1_peptides_df):
     Comprehensive test for parse_peptide_evidence function to validate
     parsing logic and data integrity.
     """
-    pe_id_map, peptide_evidence = parse_peptide_evidence(project1_peptides_df)
+    peptide_columns = [
+        "Sequence",
+        "Amino acid before",
+        "Amino acid after",
+        "Proteins",
+        "Leading razor protein",
+        "Start position",
+        "End position",
+    ]
+    pe_id_map, peptide_evidence = parse_peptide_evidence(project1_peptides_df, peptide_columns)
 
     assert len(peptide_evidence) > 0
     assert len(pe_id_map) > 0
@@ -119,12 +137,38 @@ def test_parse_psms_basic(
     Basic test for parse_psms function to ensure it correctly parses
     PSMs and related data from provided DataFrames.
     """
+    evidence_columns = [
+        "Sequence",
+        "Modifications",
+        "Modified sequence",
+        "Raw file",
+        "Charge",
+        "m/z",
+        "Mass",
+        "MS/MS scan number",
+    ]
+    peptide_columns = [
+        "Sequence",
+        "Amino acid before",
+        "Amino acid after",
+        "Proteins",
+        "Leading razor protein",
+        "Start position",
+        "End position",
+    ]
+    summary_columns = [
+        "Raw file",
+        "Variable modifications",
+        "Fixed modifications",
+    ]
     peptide_id_map, _, _, _ = parse_peptides_and_modifications(project2_evidence_df)
-    pe_id_map, _ = parse_peptide_evidence(project2_peptides_df)
+    pe_id_map, _ = parse_peptide_evidence(project2_peptides_df, peptide_columns)
 
     psm_batch, junction_batch, search_mod_batch = parse_psms(
         project2_evidence_df,
+        evidence_columns,
         project2_summary_df,
+        summary_columns,
         "PXD000001",
         peptide_id_map,
         pe_id_map,
@@ -150,12 +194,38 @@ def test_parse_psms(
     Comprehensive test for parse_psms function to validate parsing logic
     and data integrity.
     """
+    evidence_columns = [
+        "Sequence",
+        "Modifications",
+        "Modified sequence",
+        "Raw file",
+        "Charge",
+        "m/z",
+        "Mass",
+        "MS/MS scan number",
+    ]
+    peptide_columns = [
+        "Sequence",
+        "Amino acid before",
+        "Amino acid after",
+        "Proteins",
+        "Leading razor protein",
+        "Start position",
+        "End position",
+    ]
+    summary_columns = [
+        "Raw file",
+        "Variable modifications",
+        "Fixed modifications",
+    ]
     peptide_id_map, _, _, _ = parse_peptides_and_modifications(project1_evidence_df)
-    pe_id_map, _ = parse_peptide_evidence(project1_peptides_df)
+    pe_id_map, _ = parse_peptide_evidence(project1_peptides_df, peptide_columns)
 
     psm_batch, junction_batch, search_mod_batch = parse_psms(
         project1_evidence_df,
+        evidence_columns,
         project1_summary_df,
+        summary_columns,
         "PXD000002",
         peptide_id_map,
         pe_id_map,
