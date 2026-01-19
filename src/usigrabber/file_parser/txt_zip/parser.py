@@ -143,11 +143,17 @@ class TxtZipFileParser(BaseFileParser):
                     logger.info(f"[{stats.file_name}] PSMPeptideEvidence: {db_time:.3f}s total")
 
                 if parsed.search_modifications:
+                    sorted_search_mods = sorted(
+                        parsed.search_modifications, key=lambda x: x["psm_id"]
+                    )
                     stmt = insert_func(SearchModification).on_conflict_do_nothing()
+                    db_start = time.time()
                     conn.execute(
                         stmt,
-                        parsed.search_modifications,
+                        sorted_search_mods,
                     )
+                    db_time = time.time() - db_start
+                    logger.info(f"[{stats.file_name}] SearchModification: {db_time:.3f}s total")
             logger.debug(f"Successfully imported mzID data for file '{stats.file_name}'")
         except Exception as e:
             error_msg = f"Database import failed for file '{stats.file_name}': {e}"
