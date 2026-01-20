@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 
 mp_context = multiprocessing.get_context("spawn")
 
-SKIP_COMPLETE = os.getenv("SKIP_COMPLETE", "1") == "1"
+SKIP_NON_COMPLETE = os.getenv("SKIP_NON_COMPLETE", "1") == "1"
 
 
 def init_worker() -> None:
@@ -75,7 +75,7 @@ async def iterate_projects(
                     },
                 )
                 continue
-            if SKIP_COMPLETE and submission_type == "COMPLETE":
+            if SKIP_NON_COMPLETE and submission_type != "COMPLETE":
                 continue
             yield project, current_backend
 
