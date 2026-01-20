@@ -1,7 +1,5 @@
 """Tests for mzID helper functions"""
 
-import pytest
-
 from usigrabber.db.schema import IndexType
 from usigrabber.file_parser.helpers import (
     extract_index_type_and_number,
@@ -9,22 +7,6 @@ from usigrabber.file_parser.helpers import (
     extract_unimod_id_or_name,
     parse_modification_location,
 )
-
-
-@pytest.fixture(autouse=True)
-def mock_lookup_unimod_id_by_name(monkeypatch):
-    """Stub network-backed lookup so CI stays offline."""
-
-    def _lookup(name: str | None) -> int | None:
-        mappings = {
-            "Oxidation": 35,
-            "fragment neutral loss": None,
-            "": None,
-        }
-        return mappings.get(name or "")
-
-    monkeypatch.setattr("usigrabber.file_parser.helpers.lookup_unimod_id_by_name", _lookup)
-
 
 # ============================================================================
 # Tests for extract_unimod_id()
