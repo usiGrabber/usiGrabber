@@ -1438,6 +1438,7 @@ dev = [
     { name = "basedpyright" },
     { name = "pyinstrument" },
     { name = "pytest" },
+    { name = "pytest-cov" },
     { name = "ruff" },
 ]
 
@@ -1473,6 +1474,7 @@ dev = [
     { name = "basedpyright", specifier = ">=1.31.7" },
     { name = "pyinstrument", specifier = ">=5.1.1" },
     { name = "pytest", specifier = ">=9.0.0" },
+    { name = "pytest-cov", specifier = ">=7.0.0" },
     { name = "ruff", specifier = ">=0.14.1" },
 ]
 
