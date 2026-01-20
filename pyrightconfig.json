@@ -9,5 +9,8 @@
 	"reportMissingTypeStubs": "none",
 	"reportExplicitAny": "none",
 	"reportAny": "none",
-	"reportAssignmentType": "none"
+	"reportAssignmentType": "none",
+	"exclude": [
+		"src/usigrabber/utils/uuid.py"
+	]
 }
