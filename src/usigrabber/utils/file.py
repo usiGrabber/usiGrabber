@@ -277,7 +277,7 @@ def parse_basename(raw_path: str) -> str:
 def md5_checksum(file_path: Path) -> str:
     """Calculate the MD5 checksum of a file."""
 
-    hash_md5 = hashlib.md5()
+    hash_md5 = hashlib.md5(usedforsecurity=False)
 
     with open(file_path, "rb") as f:
         # Read the file in 4096 byte chunks
