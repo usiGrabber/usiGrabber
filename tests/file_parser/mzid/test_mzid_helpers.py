@@ -1,9 +1,6 @@
-"""
-Tests for mzID helper functions
+"""Tests for mzID helper functions"""
 
-Unit tests for pure parsing helper functions with no database dependencies.
-Tests edge cases, error handling, and data transformations.
-"""
+import pytest
 
 from usigrabber.db.schema import IndexType
 from usigrabber.file_parser.helpers import (
@@ -12,6 +9,22 @@ from usigrabber.file_parser.helpers import (
     extract_unimod_id_or_name,
     parse_modification_location,
 )
+
+
+@pytest.fixture(autouse=True)
+def mock_lookup_unimod_id_by_name(monkeypatch):
+    """Stub network-backed lookup so CI stays offline."""
+
+    def _lookup(name: str | None) -> int | None:
+        mappings = {
+            "Oxidation": 35,
+            "fragment neutral loss": None,
+            "": None,
+        }
+        return mappings.get(name or "")
+
+    monkeypatch.setattr("usigrabber.file_parser.helpers.lookup_unimod_id_by_name", _lookup)
+
 
 # ============================================================================
 # Tests for extract_unimod_id()
@@ -33,13 +46,13 @@ def test_extract_unimod_id_from_cvparam_list():
     mod_data = {
         "cvParam": [
             {"accession": "MS:1001524", "name": "fragment neutral loss"},
-            {"accession": "UNIMOD:34", "name": ""},
+            {"accession": "UNIMOD:35", "name": ""},
         ]
     }
 
     result, _ = extract_unimod_id_or_name(mod_data)
 
-    assert result == 34
+    assert result == 35
 
 
 def test_extract_unimod_id_with_invalid_accession():
