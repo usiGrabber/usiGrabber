@@ -124,6 +124,7 @@ def seed_minimal_data(engine: Engine) -> None:
             project_accession="PXD000001",
             file_name="mock_data.mzid",
             file_path="/mock/path/mock_data.mzid",
+            checksum="a" * 32,  # md5 checksums are 32 chars
             software_name="MS-GF+",
             software_version="v2023.01",
             threshold_type="FDR",
