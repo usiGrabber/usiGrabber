@@ -180,7 +180,7 @@ class MzidFile(SQLModel, table=True):
     file_name: str
     file_path: str | None = None
     checksum: str = Field(
-        sa_column=Column(CHAR(32), index=True, nullable=False),
+        sa_column=Column(CHAR(32), nullable=False),
         description="MD5 checksum of the mzID file",
     )
     software_name: str | None = None
