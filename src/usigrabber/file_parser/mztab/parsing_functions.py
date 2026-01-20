@@ -1,11 +1,11 @@
 import logging
-import uuid
 
 import pandas as pd
 from pyteomics import mztab
 
 from usigrabber.file_parser.models import ModifiedPeptideDict, PeptideSpectrumMatchDict
 from usigrabber.file_parser.uuid_helpers import generate_deterministic_peptide_uuid
+from usigrabber.utils.uuid import uuid7
 
 logger = logging.getLogger(__name__)
 
@@ -32,7 +32,7 @@ def extract_mztab_data(
         unique_modified_peptides[seq] = peptide_dict
 
         psm_dict: PeptideSpectrumMatchDict = {
-            "id": uuid.uuid4(),
+            "id": uuid7(),
             "project_accession": project_accession,
             "mzid_file_id": None,
             "modified_peptide_id": unique_modified_peptides[seq]["id"],
@@ -46,6 +46,7 @@ def extract_mztab_data(
             "index_type": None,
             "index_number": None,
             "ms_run": None,
+            "ms_run_ext": None,
         }
         psm_rows.append(psm_dict)
 

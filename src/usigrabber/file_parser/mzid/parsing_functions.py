@@ -1,9 +1,9 @@
 import logging
 import os
-import uuid
 from datetime import datetime
 from pathlib import Path
 from typing import Any
+from uuid import UUID
 
 from lxml import etree as ET  # pyright: ignore
 from pyteomics import mzid
@@ -33,6 +33,7 @@ from usigrabber.file_parser.uuid_helpers import (
 )
 from usigrabber.utils import lookup_unimod_id_by_name
 from usigrabber.utils.file import parse_basename
+from usigrabber.utils.uuid import uuid7
 
 logger = logging.getLogger(__name__)
 
@@ -242,7 +243,7 @@ def parse_db_sequences(reader: mzid.MzIdentML) -> dict[str, str]:
 def parse_peptides_and_modifications(
     reader: mzid.MzIdentML,
 ) -> tuple[
-    dict[str, uuid.UUID],
+    dict[str, UUID],
     list[ModifiedPeptideDict],
     list[ModificationDict],
     list[ModifiedPeptideModificationJunctionDict],
@@ -263,13 +264,13 @@ def parse_peptides_and_modifications(
         - List of ModifiedPeptideModificationJunction records
     """
 
-    peptide_id_map: dict[str, uuid.UUID] = {}
+    peptide_id_map: dict[str, UUID] = {}
     # Use dict for deduplication - same modified peptide UUID = same record
-    peptides_dict: dict[uuid.UUID, ModifiedPeptideDict] = {}
+    peptides_dict: dict[UUID, ModifiedPeptideDict] = {}
 
     # Track modifications as we parse peptides
-    modifications_dict: dict[uuid.UUID, ModificationDict] = {}
-    junction_set: set[tuple[uuid.UUID, uuid.UUID]] = set()  # (modified_peptide_id, mod_id)
+    modifications_dict: dict[UUID, ModificationDict] = {}
+    junction_set: set[tuple[UUID, UUID]] = set()  # (modified_peptide_id, mod_id)
 
     for peptide_elem in reader.iterfind("Peptide"):
         mzid_peptide_id: str = peptide_elem.get("id", "")
@@ -363,7 +364,7 @@ def parse_modification_list(modifications: list[dict[str, Any]]) -> list[Modific
 def parse_peptide_evidence(
     reader: mzid.MzIdentML,
     db_sequence_map: dict[str, str],
-) -> tuple[dict[str, uuid.UUID], list[PeptideEvidenceDict]]:
+) -> tuple[dict[str, UUID], list[PeptideEvidenceDict]]:
     """
     Parse PeptideEvidence elements.
 
@@ -377,7 +378,7 @@ def parse_peptide_evidence(
                     - List of PeptideEvidence records created
     """
 
-    pe_id_map: dict[str, uuid.UUID] = {}
+    pe_id_map: dict[str, UUID] = {}
 
     peptide_evidence_batch: list[PeptideEvidenceDict] = []
 
@@ -392,7 +393,7 @@ def parse_peptide_evidence(
         protein_accession: str | None = db_sequence_map.get(db_sequence_ref)
 
         # Create peptide evidence record
-        pe_id = uuid.uuid4()
+        pe_id = uuid7()
         pe_dict: PeptideEvidenceDict = {
             "id": pe_id,
             "protein_accession": protein_accession,
@@ -412,9 +413,9 @@ def parse_peptide_evidence(
 def parse_psms(
     reader: mzid.MzIdentML,
     project_accession: str,
-    mzid_file_id: uuid.UUID,
-    peptide_id_map: dict[str, uuid.UUID],
-    pe_id_map: dict[str, uuid.UUID],
+    mzid_file_id: UUID,
+    peptide_id_map: dict[str, UUID],
+    pe_id_map: dict[str, UUID],
     spectra_data_map: dict[str, tuple[str, IndexType | None]],
 ) -> tuple[
     list[PeptideSpectrumMatchDict], list[PSMPeptideEvidenceDict], list[SearchModificationDict]
@@ -482,7 +483,7 @@ def parse_psms(
             for sii in sii_list:
                 # Look up modified peptide ID using mzID peptide reference
                 peptide_ref: str = sii.get("peptide_ref", "")
-                modified_peptide_id: uuid.UUID | None = peptide_id_map.get(peptide_ref)
+                modified_peptide_id: UUID | None = peptide_id_map.get(peptide_ref)
 
                 if not modified_peptide_id:
                     logger.warning(f"Peptide_ref '{peptide_ref}' not found in map")
@@ -500,7 +501,7 @@ def parse_psms(
                         index_type = spectra_data[1]
 
                 # Create PSM record
-                psm_id = uuid.uuid4()
+                psm_id = uuid7()
                 psm: PeptideSpectrumMatchDict = {
                     "id": psm_id,
                     "project_accession": project_accession,
@@ -525,7 +526,7 @@ def parse_psms(
                 ):
                     # create search modification record
                     search_mod: SearchModificationDict = {
-                        "id": uuid.uuid4(),
+                        "id": uuid7(),
                         "psm_id": psm["id"],
                         "unimod_id": unimod_id,
                     }
@@ -537,11 +538,11 @@ def parse_psms(
                     pe_refs = [pe_refs]
                 for pe_ref in pe_refs:
                     pe_ref_id: str = pe_ref.get("peptideEvidence_ref", "")
-                    db_pe_id: uuid.UUID | None = pe_id_map.get(pe_ref_id)
+                    db_pe_id: UUID | None = pe_id_map.get(pe_ref_id)
 
                     if db_pe_id:
                         junction_dict: PSMPeptideEvidenceDict = {
-                            "id": uuid.uuid4(),
+                            "id": uuid7(),
                             "psm_id": psm_id,
                             "peptide_evidence_id": db_pe_id,
                         }

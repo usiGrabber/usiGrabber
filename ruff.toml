@@ -20,6 +20,8 @@ select = [
 # Got annoyed with line length
 ignore = ["E501"]
 
+# exclude copied uuid module
+exclude = ["src/usigrabber/utils/uuid.py"]
 
 [format]
 # Use tabs instead of 4 space indentation.

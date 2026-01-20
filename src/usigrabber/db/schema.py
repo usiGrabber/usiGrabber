@@ -5,6 +5,8 @@ from enum import Enum
 from sqlalchemy import CheckConstraint, UniqueConstraint
 from sqlmodel import JSON, Column, Field, Relationship, SQLModel
 
+from usigrabber.utils.uuid import uuid7
+
 
 class IndexType(str, Enum):
     """Type of spectrum index for USI specification."""
@@ -173,7 +175,7 @@ class MzidFile(SQLModel, table=True):
 
     __tablename__ = "mzid_files"
 
-    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    id: uuid.UUID = Field(default_factory=uuid7, primary_key=True)
     project_accession: str = Field(foreign_key="projects.accession")
     file_name: str
     file_path: str | None = None
@@ -266,7 +268,7 @@ class PeptideSpectrumMatch(SQLModel, table=True):
 
     __tablename__ = "peptide_spectrum_matches"
 
-    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    id: uuid.UUID = Field(default_factory=uuid7, primary_key=True)
     project_accession: str = Field(foreign_key="projects.accession")
     mzid_file_id: uuid.UUID | None = Field(
         default=None,
@@ -330,7 +332,7 @@ class PeptideEvidence(SQLModel, table=True):
 
     __tablename__ = "peptide_evidence"
 
-    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    id: uuid.UUID = Field(default_factory=uuid7, primary_key=True)
     protein_accession: str | None = Field(default=None, description="Protein accession.")
     is_decoy: bool | None = Field(default=None, description="Whether the protein is a decoy")
     start_position: int | None = Field(
@@ -361,7 +363,7 @@ class PSMPeptideEvidence(SQLModel, table=True):
 
     __tablename__ = "psm_peptide_evidence"
 
-    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    id: uuid.UUID = Field(default_factory=uuid7, primary_key=True)
     psm_id: uuid.UUID = Field(foreign_key="peptide_spectrum_matches.id")
     peptide_evidence_id: uuid.UUID = Field(foreign_key="peptide_evidence.id")
 
@@ -373,7 +375,7 @@ class PSMPeptideEvidence(SQLModel, table=True):
 class SearchModification(SQLModel, table=True):
     __tablename__ = "search_modifications"
 
-    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    id: uuid.UUID = Field(default_factory=uuid7, primary_key=True)
     psm_id: uuid.UUID = Field(foreign_key="peptide_spectrum_matches.id")
     unimod_id: int = Field()
 
