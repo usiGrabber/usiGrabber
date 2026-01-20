@@ -2,10 +2,26 @@ import uuid
 from datetime import date, datetime
 from enum import Enum
 
+import psycopg
+from psycopg.adapt import Dumper
+from psycopg.pq import Format
 from sqlalchemy import CHAR, CheckConstraint, UniqueConstraint
 from sqlmodel import JSON, Column, Field, Relationship, SQLModel
 
+from usigrabber.utils.uuid import UUID as UUID7
 from usigrabber.utils.uuid import uuid7
+
+
+class UUID7Dumper(Dumper):
+    # Tell psycopg this dumper produces binary data (Format.BINARY = 1)
+    format = Format.BINARY
+
+    def dump(self, obj) -> bytes:
+        return obj.bytes
+
+
+# since we are not yet using stdlib UUID, we need to register a custom dumper for our own class
+psycopg.adapters.register_dumper(UUID7, UUID7Dumper)
 
 
 class IndexType(str, Enum):
