@@ -1,5 +1,6 @@
 import asyncio
 import gzip
+import hashlib
 import logging
 import ntpath
 import os
@@ -271,6 +272,19 @@ def parse_basename(raw_path: str) -> str:
     if is_windows_path(raw_path):
         return ntpath.basename(raw_path)
     return posixpath.basename(raw_path)
+
+
+def md5_checksum(file_path: Path) -> str:
+    """Calculate the MD5 checksum of a file."""
+
+    hash_md5 = hashlib.md5(usedforsecurity=False)
+
+    with open(file_path, "rb") as f:
+        # Read the file in 4096 byte chunks
+        for chunk in iter(lambda: f.read(4096), b""):
+            hash_md5.update(chunk)
+
+    return hash_md5.hexdigest()
 
 
 def main(

@@ -32,7 +32,7 @@ from usigrabber.file_parser.uuid_helpers import (
     generate_deterministic_peptide_uuid,
 )
 from usigrabber.utils import lookup_unimod_id_by_name
-from usigrabber.utils.file import parse_basename
+from usigrabber.utils.file import md5_checksum, parse_basename
 from usigrabber.utils.uuid import uuid7
 
 logger = logging.getLogger(__name__)
@@ -203,9 +203,16 @@ def parse_mzid_metadata(
     software_name, software_version = parse_software_info(reader)
     threshold_type, threshold_value = parse_threshold_info(reader)
 
+    # use md5 checksum of the file as additional metadata
+    # PRIDE provides checksums for files, however, they are usually of the gzipped version
+    # also, this requires another http request to download the checksums
+    # calculating it manually is super fast and works for other backends as well
+    checksum = md5_checksum(mzid_path)
+
     mzid_file = MzidFile(
         project_accession=project_accession,
         file_name=mzid_path.name,
+        checksum=checksum,
         file_path=str(mzid_path.absolute()),  # TODO: Replace with PRIDE file path
         software_name=software_name,
         software_version=software_version,

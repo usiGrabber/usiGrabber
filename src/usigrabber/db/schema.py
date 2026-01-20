@@ -2,7 +2,7 @@ import uuid
 from datetime import date, datetime
 from enum import Enum
 
-from sqlalchemy import CheckConstraint, UniqueConstraint
+from sqlalchemy import CHAR, CheckConstraint, UniqueConstraint
 from sqlmodel import JSON, Column, Field, Relationship, SQLModel
 
 from usigrabber.utils.uuid import uuid7
@@ -179,6 +179,10 @@ class MzidFile(SQLModel, table=True):
     project_accession: str = Field(foreign_key="projects.accession")
     file_name: str
     file_path: str | None = None
+    checksum: str = Field(
+        sa_column=Column(CHAR(32), nullable=False),
+        description="MD5 checksum of the mzID file",
+    )
     software_name: str | None = None
     software_version: str | None = None
     search_database_name: str | None = None
