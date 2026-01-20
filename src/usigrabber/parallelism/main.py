@@ -25,6 +25,8 @@ logger = logging.getLogger(__name__)
 
 mp_context = multiprocessing.get_context("spawn")
 
+SKIP_NON_COMPLETE = os.getenv("SKIP_NON_COMPLETE", "1") == "1"
+
 
 def init_worker() -> None:
     global db_engine
@@ -63,6 +65,18 @@ async def iterate_projects(
         async for project in current_backend.value.get_new_projects(
             existing_accessions=existing_accessions
         ):
+            submission_type = project.get("submissionType")
+            if submission_type is None:
+                logger.warning(
+                    f"Project {project.get('accession')} has no submissionType, skipping",
+                    extra={
+                        "project_accession": project.get("accession"),
+                        "backend": current_backend.name,
+                    },
+                )
+                continue
+            if SKIP_NON_COMPLETE and submission_type != "COMPLETE":
+                continue
             yield project, current_backend
 
 
