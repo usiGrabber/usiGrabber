@@ -6,13 +6,13 @@ import time
 from collections import deque
 from collections.abc import Sequence
 from typing import TYPE_CHECKING
+from uuid import UUID
 
 from rich.progress import BarColumn, Progress, SpinnerColumn, TaskProgressColumn, TextColumn
 
 from usigrabber.db.schema import PeptideSpectrumMatch
 from usigrabber.utils import logger
 from usigrabber.utils.usi import build_usi
-from usigrabber.utils.uuid import UUID
 
 if TYPE_CHECKING:
     from usigrabber.backends.base import BaseBackend

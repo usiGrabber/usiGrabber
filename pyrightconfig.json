@@ -10,7 +10,7 @@
 	"reportExplicitAny": "none",
 	"reportAny": "none",
 	"reportAssignmentType": "none",
-	"exclude": [
+	"ignore": [
 		"src/usigrabber/utils/uuid.py"
 	]
 }
