@@ -206,7 +206,7 @@ def parse_mzid_metadata(
     # use md5 checksum of the file as additional metadata
     # PRIDE provides checksums for files, however, they are usually of the gzipped version
     # also, this requires another http request to download the checksums
-    # calculating in manually is super fast and works for other backends as well
+    # calculating it manually is super fast and works for other backends as well
     checksum = md5_checksum(mzid_path)
 
     mzid_file = MzidFile(
