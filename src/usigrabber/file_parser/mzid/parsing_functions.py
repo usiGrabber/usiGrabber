@@ -392,7 +392,7 @@ def parse_peptide_evidence(
         protein_accession: str | None = db_sequence_map.get(db_sequence_ref)
 
         # Create peptide evidence record
-        pe_id = uuid.uuid4()
+        pe_id = uuid.uuid7()
         pe_dict: PeptideEvidenceDict = {
             "id": pe_id,
             "protein_accession": protein_accession,
@@ -500,7 +500,7 @@ def parse_psms(
                         index_type = spectra_data[1]
 
                 # Create PSM record
-                psm_id = uuid.uuid4()
+                psm_id = uuid.uuid7()
                 psm: PeptideSpectrumMatchDict = {
                     "id": psm_id,
                     "project_accession": project_accession,
@@ -525,7 +525,7 @@ def parse_psms(
                 ):
                     # create search modification record
                     search_mod: SearchModificationDict = {
-                        "id": uuid.uuid4(),
+                        "id": uuid.uuid7(),
                         "psm_id": psm["id"],
                         "unimod_id": unimod_id,
                     }
@@ -541,7 +541,7 @@ def parse_psms(
 
                     if db_pe_id:
                         junction_dict: PSMPeptideEvidenceDict = {
-                            "id": uuid.uuid4(),
+                            "id": uuid.uuid7(),
                             "psm_id": psm_id,
                             "peptide_evidence_id": db_pe_id,
                         }

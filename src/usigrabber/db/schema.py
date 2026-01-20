@@ -173,7 +173,7 @@ class MzidFile(SQLModel, table=True):
 
     __tablename__ = "mzid_files"
 
-    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    id: uuid.UUID = Field(default_factory=uuid.uuid7, primary_key=True)
     project_accession: str = Field(foreign_key="projects.accession", index=True)
     file_name: str
     file_path: str | None = None
@@ -270,7 +270,7 @@ class PeptideSpectrumMatch(SQLModel, table=True):
 
     __tablename__ = "peptide_spectrum_matches"
 
-    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    id: uuid.UUID = Field(default_factory=uuid.uuid7, primary_key=True)
     project_accession: str = Field(foreign_key="projects.accession", index=True)
     mzid_file_id: uuid.UUID | None = Field(
         default=None,
@@ -336,7 +336,7 @@ class PeptideEvidence(SQLModel, table=True):
 
     __tablename__ = "peptide_evidence"
 
-    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    id: uuid.UUID = Field(default_factory=uuid.uuid7, primary_key=True)
     protein_accession: str | None = Field(default=None, description="Protein accession.")
     is_decoy: bool | None = Field(default=None, description="Whether the protein is a decoy")
     start_position: int | None = Field(
@@ -367,7 +367,7 @@ class PSMPeptideEvidence(SQLModel, table=True):
 
     __tablename__ = "psm_peptide_evidence"
 
-    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    id: uuid.UUID = Field(default_factory=uuid.uuid7, primary_key=True)
     psm_id: uuid.UUID = Field(foreign_key="peptide_spectrum_matches.id", index=True)
     peptide_evidence_id: uuid.UUID = Field(foreign_key="peptide_evidence.id", index=True)
 
@@ -379,7 +379,7 @@ class PSMPeptideEvidence(SQLModel, table=True):
 class SearchModification(SQLModel, table=True):
     __tablename__ = "search_modifications"
 
-    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    id: uuid.UUID = Field(default_factory=uuid.uuid7, primary_key=True)
     psm_id: uuid.UUID = Field(foreign_key="peptide_spectrum_matches.id", index=True)
     unimod_id: int = Field()
 

@@ -205,7 +205,7 @@ def parse_peptide_evidence(
             post_residue = peptide_row.get("Amino acid after", None)
             post_residue = post_residue if (post_residue and protein == razor_protein) else None
 
-            pe_id = uuid.uuid4()
+            pe_id = uuid.uuid7()
             peptide_evidence_dict: PeptideEvidenceDict = {
                 "id": pe_id,
                 "protein_accession": protein,
@@ -331,7 +331,7 @@ def parse_psms(
         else:
             unimod_id_list = []
 
-        psm_id = uuid.uuid4()
+        psm_id = uuid.uuid7()
         psm: PeptideSpectrumMatchDict = {
             "id": psm_id,
             "project_accession": project_accession,
@@ -351,7 +351,7 @@ def parse_psms(
         for unimod_id in unimod_id_list:
             # create search modification record
             search_mod: SearchModificationDict = {
-                "id": uuid.uuid4(),
+                "id": uuid.uuid7(),
                 "psm_id": psm["id"],
                 "unimod_id": unimod_id,
             }
@@ -360,7 +360,7 @@ def parse_psms(
         peptide_evidence_ids = pe_id_map.get(sequence, [])
         for pe_id in peptide_evidence_ids:
             junction: PSMPeptideEvidenceDict = {
-                "id": uuid.uuid4(),
+                "id": uuid.uuid7(),
                 "psm_id": psm["id"],
                 "peptide_evidence_id": pe_id,
             }

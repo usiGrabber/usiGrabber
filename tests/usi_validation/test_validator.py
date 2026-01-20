@@ -1,5 +1,5 @@
 from unittest.mock import MagicMock, patch
-from uuid import uuid4
+from uuid import uuid7
 
 import pytest
 
@@ -10,9 +10,9 @@ from usigrabber.usi_validation.validator import validate_psms_batch
 @pytest.fixture
 def sample_psm():
     project = Project(accession="PXD000001", title="Test", submissionType="COMPLETE")
-    modified_peptide = ModifiedPeptide(peptide_sequence="PEPTIDE", id=uuid4())
+    modified_peptide = ModifiedPeptide(peptide_sequence="PEPTIDE", id=uuid7())
     return PeptideSpectrumMatch(
-        id=uuid4(),
+        id=uuid7(),
         project=project,
         project_accession=project.accession,
         ms_run="run1",
@@ -55,10 +55,10 @@ def test_validate_psms_batch_invalid_usi(sample_psm):
 def test_validate_psms_batch_missing_fields():
     # PSM with missing project
     psm = PeptideSpectrumMatch(
-        id=uuid4(),
+        id=uuid7(),
         ms_run="run1",
         project_accession="PXD1",
-        modified_peptide_id=uuid4(),
+        modified_peptide_id=uuid7(),
         spectrum_id="s1",
         charge_state=2,
         experimental_mz=1,
