@@ -1,4 +1,3 @@
-import uuid
 from uuid import UUID
 
 import pandas as pd
@@ -25,12 +24,13 @@ from usigrabber.file_parser.uuid_helpers import (
     generate_deterministic_peptide_uuid,
 )
 from usigrabber.utils import lookup_unimod_id_by_name
+from usigrabber.utils.uuid import uuid7
 
 
 def parse_peptides_and_modifications(
     evidence: pd.DataFrame,
 ) -> tuple[
-    dict[str, uuid.UUID],
+    dict[str, UUID],
     list[ModifiedPeptideDict],
     list[ModificationDict],
     list[ModifiedPeptideModificationJunctionDict],
@@ -55,13 +55,13 @@ def parse_peptides_and_modifications(
             - modifications_batch: List of unique modification records
             - junction_batch: List of peptide-modification relationships
     """
-    peptide_id_map: dict[str, uuid.UUID] = {}
+    peptide_id_map: dict[str, UUID] = {}
     # Use dict for deduplication - same modified peptide UUID = same record
-    peptides_dict: dict[uuid.UUID, ModifiedPeptideDict] = {}
+    peptides_dict: dict[UUID, ModifiedPeptideDict] = {}
 
     # Track modifications as we parse peptides
-    modifications_dict: dict[uuid.UUID, ModificationDict] = {}
-    junction_set: set[tuple[uuid.UUID, uuid.UUID]] = set()  # (modified_peptide_id, mod_id)
+    modifications_dict: dict[UUID, ModificationDict] = {}
+    junction_set: set[tuple[UUID, UUID]] = set()  # (modified_peptide_id, mod_id)
 
     evidence = evidence.get(
         ["Sequence", "Modifications", "Modified sequence"], default=pd.DataFrame()
@@ -146,7 +146,7 @@ def parse_modification_list(modifications, modified_sequence) -> list[Modificati
 def parse_peptide_evidence(
     peptides: pd.DataFrame,
     peptides_columns: list[str],
-) -> tuple[dict[str, list[uuid.UUID]], list[PeptideEvidenceDict]]:
+) -> tuple[dict[str, list[UUID]], list[PeptideEvidenceDict]]:
     """
     Parse peptide evidence from peptides DataFrame.
     This function processes a DataFrame containing peptide data to create peptide evidence
@@ -167,7 +167,7 @@ def parse_peptide_evidence(
             - peptide_evidence_batch: List of PeptideEvidence objects created from the peptides
                 DataFrame
     """
-    pe_id_map: dict[str, list[uuid.UUID]] = {}
+    pe_id_map: dict[str, list[UUID]] = {}
     peptide_evidence_batch: list[PeptideEvidenceDict] = []
 
     if len(peptides_columns) == 0 or "Sequence" not in peptides_columns:
@@ -205,7 +205,7 @@ def parse_peptide_evidence(
             post_residue = peptide_row.get("Amino acid after", None)
             post_residue = post_residue if (post_residue and protein == razor_protein) else None
 
-            pe_id = uuid.uuid4()
+            pe_id = uuid7()
             peptide_evidence_dict: PeptideEvidenceDict = {
                 "id": pe_id,
                 "protein_accession": protein,
@@ -228,8 +228,8 @@ def parse_psms(
     summary: pd.DataFrame,
     summary_columns: list[str],
     project_accession: str,
-    peptide_id_map: dict[str, uuid.UUID],
-    pe_id_map: dict[str, list[uuid.UUID]],
+    peptide_id_map: dict[str, UUID],
+    pe_id_map: dict[str, list[UUID]],
 ) -> tuple[
     list[PeptideSpectrumMatchDict], list[PSMPeptideEvidenceDict], list[SearchModificationDict]
 ]:
@@ -331,7 +331,7 @@ def parse_psms(
         else:
             unimod_id_list = []
 
-        psm_id = uuid.uuid4()
+        psm_id = uuid7()
         psm: PeptideSpectrumMatchDict = {
             "id": psm_id,
             "project_accession": project_accession,
@@ -351,7 +351,7 @@ def parse_psms(
         for unimod_id in unimod_id_list:
             # create search modification record
             search_mod: SearchModificationDict = {
-                "id": uuid.uuid4(),
+                "id": uuid7(),
                 "psm_id": psm["id"],
                 "unimod_id": unimod_id,
             }
@@ -360,7 +360,7 @@ def parse_psms(
         peptide_evidence_ids = pe_id_map.get(sequence, [])
         for pe_id in peptide_evidence_ids:
             junction: PSMPeptideEvidenceDict = {
-                "id": uuid.uuid4(),
+                "id": uuid7(),
                 "psm_id": psm["id"],
                 "peptide_evidence_id": pe_id,
             }
