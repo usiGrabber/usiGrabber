@@ -921,7 +921,7 @@ wheels = [
 
 [[package]]
 name = "pronto"
-version = "2.7.1"
+version = "2.7.3"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "chardet" },
@@ -929,9 +929,9 @@ dependencies = [
     { name = "networkx" },
     { name = "python-dateutil" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/ec/7d/d686cc16d7dd266f5ba8cfd9bcd87c333084ef67d3aa51860d2044788f70/pronto-2.7.1.tar.gz", hash = "sha256:c169ff9e0bcef03aec7b75934353dd18d67e55d9461c8878c1041f57148f477f", size = 64162, upload-time = "2025-10-25T20:06:23.902Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/c2/fd/b23ce2421f966fce762817ec2a7636b5b47c8020d1f97a210d9aadf9fcd6/pronto-2.7.3.tar.gz", hash = "sha256:101effc2cc5de4269d0754e10c3c574181b8e5ba8cc615dea530b61a8cbd5046", size = 63137, upload-time = "2026-01-12T13:15:31.022Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/50/49/ae39d148aa0b855cdded774e24b2ccd974d868a69e026d3e6f3554904e7b/pronto-2.7.1-py3-none-any.whl", hash = "sha256:e35bb06691bb881bc90952b38efa483af7a1a912d8c1d7efc4ee86cf77cfb8a8", size = 63317, upload-time = "2025-10-25T20:06:22.332Z" },
+    { url = "https://files.pythonhosted.org/packages/0d/a0/3d7ca89585aba18945168c58dc2705caa2516488e274c3327a6b0932c0a0/pronto-2.7.3-py3-none-any.whl", hash = "sha256:c7e225a39ddaca2771e46d6b3511ae851d1440b6a96e455aa7eb2bbbb459b8be", size = 62053, upload-time = "2026-01-12T13:15:29.201Z" },
 ]
 
 [[package]]
@@ -1453,7 +1453,7 @@ requires-dist = [
     { name = "ontology-resolver", editable = "packages/ontology-resolver" },
     { name = "pandas", specifier = ">=2.3.3" },
     { name = "pre-commit", specifier = ">=4.3.0" },
-    { name = "pronto", specifier = ">=2.7.1" },
+    { name = "pronto", specifier = ">=2.7.2" },
     { name = "psutil", specifier = ">=7.1.3" },
     { name = "psycopg", extras = ["binary"], specifier = ">=3.2.12" },
     { name = "pydantic", specifier = ">=2.12.3" },
