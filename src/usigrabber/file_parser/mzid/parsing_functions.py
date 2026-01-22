@@ -81,7 +81,11 @@ def parse_spectra_data(mzid_path: Path) -> dict[str, tuple[str, IndexType | None
 
         # Extract SpectrumIDFormat accession from nested cvParam
         spectrum_id_format: str | None = None
-        spectrum_id_format_cv = child.find(".//SpectrumIDFormat/cvParam")
+        spectrum_id_format_cv = (
+            child.find(".//SpectrumIDFormat/cvParam")
+            if child.find(".//SpectrumIDFormat/cvParam") is not None
+            else child.find(".//spectrumIDFormat/cvParam")
+        )
         if spectrum_id_format_cv is not None:
             spectrum_id_format = spectrum_id_format_cv.get("accession")
 
