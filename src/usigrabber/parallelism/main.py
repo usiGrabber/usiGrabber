@@ -4,6 +4,7 @@ import os
 from collections import deque
 from collections.abc import AsyncGenerator, Callable
 from concurrent.futures import FIRST_COMPLETED, Future, ProcessPoolExecutor, wait
+from concurrent.futures.process import BrokenProcessPool
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
@@ -26,6 +27,8 @@ logger = logging.getLogger(__name__)
 mp_context = multiprocessing.get_context("spawn")
 
 SKIP_NON_COMPLETE = os.getenv("SKIP_NON_COMPLETE", "1") == "1"
+
+WORKER_TIMEOUT_SECONDS = 60 * 10
 
 
 def init_worker() -> None:
@@ -160,12 +163,26 @@ class FutureHolder:
     def count_of(self, future_type: type[WorkFuture]) -> int:
         return sum(1 for future in self._futures.values() if isinstance(future, future_type))
 
-    def process_first_completed(self):
+    def process_first_completed(self, timeout: float = WORKER_TIMEOUT_SECONDS):
         """
         Processes the first completed future.
+
+        Args:
+            timeout: Maximum seconds to wait for a worker to complete.
+                     If no worker completes within this time, raises RuntimeError.
         """
         futures = list(self._futures.keys())
-        done_futures, waiting_futures = wait(futures, return_when=FIRST_COMPLETED)
+        done_futures, waiting_futures = wait(futures, return_when=FIRST_COMPLETED, timeout=timeout)
+
+        if not done_futures:
+            pending_projects = [
+                self._futures[f]._context.project_accession for f in waiting_futures
+            ]
+            raise RuntimeError(
+                f"No workers completed within {timeout}s. "
+                f"Possible deadlock or hung worker. "
+                f"Pending projects: {pending_projects[:5]}{'...' if len(pending_projects) > 5 else ''}"
+            )
 
         for future in done_futures:
             future_wrapper = self._futures[future]
@@ -186,6 +203,9 @@ class OntologyWorkFuture(WorkFuture):
     def get_and_process_result(self):
         try:
             self.future.result()
+        except BrokenProcessPool:
+            # Worker crashed - re-raise to crash the program
+            raise
         except Exception as e:
             logger.error(
                 f"Error for ontologies occurred in {self._context.project_accession} for backend {self._context.backend.name}: {e}",
@@ -200,6 +220,9 @@ class MainWorkFuture(WorkFuture):
     def get_and_process_result(self):
         try:
             self.future.result()
+        except BrokenProcessPool:
+            # Worker crashed - re-raise to crash the program
+            raise
         except Exception as e:
             logger.error(
                 f"Error occurred in {self._context.project_accession} for backend {self._context.backend.name}: {e}",
