@@ -57,3 +57,8 @@ def mzid_fixtures_dir() -> Path:
 def full_mzid_path(mzid_fixtures_dir: Path) -> Path:
     """Return path to a full example mzID file."""
     return mzid_fixtures_dir / "full_small.mzid"
+
+
+@pytest.fixture
+def mzid_file_path_2(mzid_fixtures_dir: Path) -> Path:
+    return mzid_fixtures_dir / "threshold_empty_value.mzid"

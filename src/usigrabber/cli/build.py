@@ -19,6 +19,7 @@ from usigrabber.db.cli import reset as db_reset
 from usigrabber.db.schema import Project
 from usigrabber.file_parser import import_files
 from usigrabber.utils import get_cache_dir
+from usigrabber.utils.context import context_project_accession
 from usigrabber.utils.file import get_interesting_files, temporary_path
 from usigrabber.utils.setup import setup_logger
 
@@ -161,6 +162,8 @@ async def build_project(
 
     backend = backend_enum.value
     project_accession = backend.get_project_accession(project)
+    token = context_project_accession.set(project_accession)
+
     logger.info(
         f"Building {project_accession}",
         extra={
@@ -209,6 +212,8 @@ async def build_project(
                 tmp_dir,
                 logger,
             )
+
+    context_project_accession.reset(token)
 
 
 def build_project_sync(backend_enum: BackendEnum, project: dict[str, Any]) -> None:

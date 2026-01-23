@@ -224,6 +224,28 @@ class MzidFile(SQLModel, table=True):
     )
 
 
+class ImportedFile(SQLModel, table=True):
+    id: int | None = Field(default=None, primary_key=True)
+    project_accession: str
+    file_id: str
+    format: str
+
+    psm_count: int | None = Field(default=None)
+    start_time: datetime = Field(
+        default_factory=datetime.now,
+    )
+    end_time: datetime | None = Field(default=None)
+    is_processed_successfully: bool | None = Field(default=None)
+    error_message: str | None = Field(default=None)
+    worker_pid: int
+    checksum: str = Field(
+        sa_column=Column(CHAR(32), nullable=False),
+        description="MD5 checksum of the mzID file",
+    )
+
+    __table_args__ = UniqueConstraint("file_id", "project_accession", name="unique_file_constraint")
+
+
 # ============================================================================
 # General Data Tables
 # ============================================================================

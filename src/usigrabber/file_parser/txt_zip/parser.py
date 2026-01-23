@@ -37,6 +37,10 @@ class TxtZipFileParser(BaseFileParser):
     def file_extensions(self) -> set[str]:
         return {".txt", ""}
 
+    def get_file_id(self, path: Path | tuple[Path, Path, Path]) -> str:
+        assert isinstance(path, tuple)
+        return "|".join(map(lambda x: str(x), path))
+
     @property
     def format_name(self) -> str:
         return "txt"

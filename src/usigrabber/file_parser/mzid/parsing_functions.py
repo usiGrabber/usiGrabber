@@ -33,7 +33,8 @@ from usigrabber.file_parser.uuid_helpers import (
     generate_deterministic_peptide_uuid,
 )
 from usigrabber.utils import lookup_unimod_id_by_name
-from usigrabber.utils.file import md5_checksum, parse_basename
+from usigrabber.utils.checksum import md5_checksum
+from usigrabber.utils.file import parse_basename
 from usigrabber.utils.uuid import uuid7
 
 logger = logging.getLogger(__name__)

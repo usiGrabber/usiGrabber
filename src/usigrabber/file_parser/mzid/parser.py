@@ -39,12 +39,21 @@ class MzidFileParser(BaseFileParser):
     def file_extensions(self) -> set[str]:
         return {".mzid"}
 
+    def get_file_id(self, path: Path | tuple[Path, Path, Path]) -> str:
+        path = path if isinstance(path, Path) else path[0]
+        return str(path)
+
     @property
     def format_name(self) -> str:
         return "mzIdentML"
 
     def parse_file(self, path, project_accession: str) -> ParsedMzidData:
         """Parse the mzID file into ParsedMzidData."""
+        if isinstance(path, tuple):
+            logger.warning(
+                "mzID file parser called with tuple of paths: %s. We are only using the first path!",
+                path,
+            )
         path = path if isinstance(path, Path) else path[0]
         logger.debug(f"Parsing mzID file: '{path.name}'")
 
