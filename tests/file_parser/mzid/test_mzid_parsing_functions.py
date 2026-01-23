@@ -270,7 +270,7 @@ def spectra_data_xml_generator(request) -> Generator[Path, None, None]:
                             <cvParam accession="MS:1000774" cvRef="PSI-MS" name="multiple peak list nativeID format"/>
                         </SpectrumIDFormat>
                     </SpectraData>
-                    <SpectraData location="file:/E:/vWA-related/pp-2020-005%20Peaks%20Project_PEAKS_56_HEK293_3/pp_2020_005_5_HEK293_3.mgf" id="SPECTRADATA_29">
+                    <SpectraData location="file:/E:/vWA-related/pp-2020-005%20Peaks%20Project_PEAKS_56_HEK293_3/pp_2020_005_5_HEK293_3.mgf" id="SPECTRADATA_30">
                         <FileFormat>
                             <cvParam accession="MS:1001062" cvRef="PSI-MS" name="Mascot MGF file"/>
                         </FileFormat>
@@ -287,10 +287,10 @@ def spectra_data_xml_generator(request) -> Generator[Path, None, None]:
 def test_parse_spectra_data_custom_ns(spectra_data_xml_generator: Path) -> None:
     spectra_data = parse_spectra_data(spectra_data_xml_generator)
 
-    assert len(spectra_data) == 1
+    assert len(spectra_data) == 2
 
-    ms_run_name, spectrum_id_format = list(spectra_data.values())[0]
-    ms_run_name, ms_run_ext = os.path.splitext(ms_run_name)
-    assert ms_run_name == "pp_2020_005_5_HEK293_3"
-    assert ms_run_ext == ".mgf"
-    assert spectrum_id_format == IndexType.index
+    for ms_run_name, spectrum_id_format in spectra_data.values():
+        ms_run_name, ms_run_ext = os.path.splitext(ms_run_name)
+        assert ms_run_name == "pp_2020_005_5_HEK293_3"
+        assert ms_run_ext == ".mgf"
+        assert spectrum_id_format == IndexType.index

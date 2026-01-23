@@ -33,7 +33,7 @@ from usigrabber.file_parser.uuid_helpers import (
     generate_deterministic_peptide_uuid,
 )
 from usigrabber.utils import lookup_unimod_id_by_name
-from usigrabber.utils.file import md5_checksum
+from usigrabber.utils.file import md5_checksum, parse_basename
 from usigrabber.utils.uuid import uuid7
 
 logger = logging.getLogger(__name__)
@@ -62,46 +62,50 @@ def parse_spectra_data(mzid_path: Path) -> dict[str, tuple[str, IndexType | None
     ns = root.tag.split("}")[0] + "}" if root.tag.startswith("{") else ""
 
     for spectra_data in root.findall(f"{ns}SpectraData"):
-        if spectra_data is not None:
-            spectra_id = spectra_data.get("id")
-            if not spectra_id:
-                continue
+        spectra_id = spectra_data.get("id")
+        if not spectra_id:
+            continue
 
-            ms_run_name = spectra_data.get("name") or spectra_data.get("location")
-            if not ms_run_name:
-                logger.warning(
-                    "SpectraData element with id '%s' has no 'name' or 'location' attribute. File: %s",
-                    spectra_id,
-                    mzid_path.name,
-                )
-                continue
-
-            basename = os.path.basename(ms_run_name)
-            ms_run_name, ext = os.path.splitext(basename)
-            prev_ext = ""
-
-            # keep stripping extensions until none left
-            while ext != "":
-                prev_ext = ext
-                ms_run_name, ext = os.path.splitext(ms_run_name)
-            ms_run_name += prev_ext  # add back last extension
-
-            cv_param = spectra_data.find(f"{ns}SpectrumIDFormat/{ns}cvParam")
-            if cv_param is None:
-                raise MzidParseError(
-                    "SpectrumIDFormat cvParam not found which is not compliant with mzIdentML specs."
-                )
-
-            spectrum_id_format: str | None = cv_param.get("accession")
-            if spectrum_id_format is None:
-                raise MzidParseError(
-                    "SpectrumIDFormat cvParam has no accession attribute which is not compliant with mzIdentML specs."
-                )
-
-            spectra_data_map[spectra_id] = (
-                ms_run_name,
-                get_spectrum_id_format(cv_param=spectrum_id_format),
+        ms_run_name = spectra_data.get("name") or spectra_data.get("location")
+        if not ms_run_name:
+            logger.warning(
+                "SpectraData element with id '%s' has no 'name' or 'location' attribute. File: %s",
+                spectra_id,
+                mzid_path.name,
             )
+            continue
+
+        basename = parse_basename(ms_run_name)
+        ms_run_name, ext = os.path.splitext(basename)
+        prev_ext = ""
+
+        # keep stripping extensions until none left
+        while ext != "":
+            prev_ext = ext
+            ms_run_name, ext = os.path.splitext(ms_run_name)
+        ms_run_name += prev_ext  # add back last extension
+
+        cv_param = spectra_data.find(f"{ns}SpectrumIDFormat/{ns}cvParam")
+        if cv_param is None:
+            raise MzidParseError(
+                f"SpectrumIDFormat cvParam not found in file '{mzid_path.name}' which is not compliant with mzIdentML specs."
+            )
+
+        spectrum_id_format: str | None = cv_param.get("accession")
+        if spectrum_id_format is None:
+            raise MzidParseError(
+                f"SpectrumIDFormat cvParam has no accession attribute in file '{mzid_path.name}' which is not compliant with mzIdentML specs."
+            )
+
+        spectra_data_map[spectra_id] = (
+            ms_run_name,
+            get_spectrum_id_format(cv_param=spectrum_id_format),
+        )
+
+    if len(spectra_data_map) == 0:
+        raise MzidParseError(
+            "No valid SpectraData elements found in mzIdentML file which is not compliant with mzIdentML specs."
+        )
 
     return spectra_data_map
 
