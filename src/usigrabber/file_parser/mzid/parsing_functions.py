@@ -54,8 +54,10 @@ def parse_spectra_data(mzid_path: Path) -> dict[str, tuple[str, IndexType | None
 
     xml_snippet = extract_xml_subtree(mzid_path, tag="Inputs")
     if not xml_snippet:
-        logger.warning("No <Inputs> section found in mzID file: %s", mzid_path.name)
-        return spectra_data_map
+        raise MzidParseError(
+            f"Inputs section not found in mzIdentML file '{mzid_path.name}'"
+            "which is not compliant with mzIdentML specs."
+        )
     root = ET.fromstring(xml_snippet)
 
     # namespace changes between mzIdentML versions, some files don't have a namespace
