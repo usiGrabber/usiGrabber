@@ -28,7 +28,7 @@ mp_context = multiprocessing.get_context("spawn")
 
 SKIP_NON_COMPLETE = os.getenv("SKIP_NON_COMPLETE", "1") == "1"
 
-WORKER_TIMEOUT_SECONDS = 60 * 10
+WORKER_TIMEOUT_SECONDS = 60 * 60
 
 
 def init_worker() -> None:
