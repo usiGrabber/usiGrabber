@@ -243,7 +243,9 @@ class ImportedFile(SQLModel, table=True):
         description="MD5 checksum of the mzID file",
     )
 
-    __table_args__ = UniqueConstraint("file_id", "project_accession", name="unique_file_constraint")
+    __table_args__ = (
+        UniqueConstraint("file_id", "project_accession", name="unique_file_constraint"),
+    )
 
 
 # ============================================================================

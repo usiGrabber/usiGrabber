@@ -29,6 +29,10 @@ class MztabFileParser(BaseFileParser):
     def format_name(self) -> str:
         return "mzTab"
 
+    def get_file_id(self, path: Path | tuple[Path, Path, Path]) -> str:
+        assert isinstance(path, tuple)
+        return "|".join(map(lambda x: str(x), path))
+
     def parse_file(self, path, project_accession: str) -> ParsedMztabData:
         path = path if isinstance(path, Path) else path[0]
         if not path.exists():
