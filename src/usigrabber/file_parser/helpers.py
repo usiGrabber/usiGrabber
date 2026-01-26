@@ -204,6 +204,7 @@ SPECTRUM_ID_FORMAT_MAPPING = {
     "MS:1000776": IndexType.scan,
     "MS:1000768": IndexType.scan,
     "MS:1001530": IndexType.nativeId,
+    "MS:1001562": IndexType.nativeId,
 }
 
 # Set to track already logged exceptions
