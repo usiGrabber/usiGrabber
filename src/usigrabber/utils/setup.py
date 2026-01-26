@@ -1,15 +1,13 @@
 # myapp/system_setup.py
 import logging
 import os
-import random
 import shutil
 import sys
 from logging import FileHandler
 from pathlib import Path
 
 from usigrabber.utils import get_cache_dir
-
-LOCAL_JOB_ID = f"local-{random.randint(0, 10**6)}"
+from usigrabber.utils.job_id import get_job_id
 
 
 def setup_logger(is_main_process: bool, logger_name: str | None = None):
@@ -82,11 +80,7 @@ def setup_logger(is_main_process: bool, logger_name: str | None = None):
     if os.environ.get("LOKI_URL"):
         from usigrabber.utils.logging_helpers.loki_handler import LokiHandler
 
-        if os.environ.get("SLURM_JOB_ID"):
-            job_id = f"slurm-{os.environ.get('SLURM_JOB_ID')}"
-        else:
-            job_id = LOCAL_JOB_ID
-
+        job_id = get_job_id()
         loki_url = f"http://{os.environ.get('LOKI_URL')}/loki/api/v1/push"
         loki_handler = LokiHandler(
             url=loki_url,

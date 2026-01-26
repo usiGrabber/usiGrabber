@@ -241,6 +241,7 @@ class ImportedFile(SQLModel, table=True):
     error_message: str | None = Field(default=None)
     traceback: str | None = Field(default=None)
     worker_pid: int
+    job_id: str
     checksum: str = Field(
         sa_column=Column(CHAR(32), nullable=False),
         description="MD5 checksum of the mzID file",

@@ -20,6 +20,7 @@ from usigrabber.file_parser.models import (  # Import models
     ParsedTxtZipData,
 )
 from usigrabber.utils.checksum import md5_checksum
+from usigrabber.utils.job_id import get_job_id
 
 PARSER_REGISTRY: dict[str, "BaseFileParser"] = {}
 
@@ -95,6 +96,7 @@ class BaseFileParser(ABC):
                 checksum=md5_checksum(path),
                 format=self.format_name,
                 worker_pid=os.getpid(),
+                job_id=get_job_id(),
             )
             session.add(file_info)
             session.commit()
@@ -122,7 +124,7 @@ class BaseFileParser(ABC):
         finally:
             with Session(engine) as session:
                 file_info = session.get(ImportedFile, imported_file_id)
-                assert file_info, ""
+                assert file_info, "This id must exist!"
 
                 file_info.psm_count = psm_count
                 file_info.is_processed_successfully = is_processed_successfully
