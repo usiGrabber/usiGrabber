@@ -75,6 +75,10 @@ class Project(SQLModel, table=True):
         default=False, description="Flag indicating if project is fully processed or not"
     )
 
+    # Error tracking for project-level failures
+    error_message: str | None = Field(default=None)
+    traceback: str | None = Field(default=None)
+
     # Complex nested data stored as JSON
     sample_attributes: dict | None = Field(
         default=None, sa_column=Column(JSON), alias="sampleAttributes"
@@ -246,6 +250,25 @@ class ImportedFile(SQLModel, table=True):
     __table_args__ = (
         UniqueConstraint("file_id", "project_accession", name="unique_file_constraint"),
     )
+
+
+class DownloadedFile(SQLModel, table=True):
+    """Tracks file download and extraction attempts."""
+
+    __tablename__ = "downloaded_files"
+
+    # file_path is the path without the repository URL prefix (e.g., "PXD000001/file.mzid")
+    file_path: str = Field(primary_key=True)
+    project_accession: str
+    checksum: str | None = Field(
+        default=None,
+        sa_column=Column(CHAR(32)),
+        description="MD5 checksum of the downloaded file",
+    )
+
+    is_successful: bool | None = Field(default=None)
+    error_message: str | None = Field(default=None)
+    traceback: str | None = Field(default=None)
 
 
 # ============================================================================
