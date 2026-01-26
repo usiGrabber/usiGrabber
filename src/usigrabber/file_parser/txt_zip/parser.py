@@ -39,7 +39,7 @@ class TxtZipFileParser(BaseFileParser):
 
     def get_file_id(self, path: Path | tuple[Path, Path, Path]) -> str:
         assert isinstance(path, tuple)
-        return "|".join(map(lambda x: str(x), path))
+        return "|".join(map(str, path))
 
     @property
     def format_name(self) -> str:
