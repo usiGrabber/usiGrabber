@@ -236,7 +236,7 @@ def extract_xml_subtree(xml_path: Path, tag: str) -> str:
     """
     Use sed to extract XML subtree from a file and return as string.
     """
-    cmd = ["sed", "-n", rf"/<{tag}>/,/<\/{tag}>/p", str(xml_path)]
+    cmd = ["sed", "-n", rf"/<{tag}[ >]/,/<\/{tag}>/p", str(xml_path)]
     proc = subprocess.run(
         cmd,
         text=True,

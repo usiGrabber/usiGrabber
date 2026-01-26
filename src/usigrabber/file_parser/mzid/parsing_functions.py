@@ -9,6 +9,7 @@ from lxml import etree as ET  # pyright: ignore
 from pyteomics import mzid
 
 from usigrabber.db.schema import IndexType, MzidFile
+from usigrabber.file_parser.errors import MzidParseError
 from usigrabber.file_parser.helpers import (
     create_search_mod_log_str,
     extract_index_type_and_number,
@@ -52,16 +53,22 @@ def parse_spectra_data(mzid_path: Path) -> dict[str, tuple[str, IndexType | None
     spectra_data_map: dict[str, tuple[str, IndexType | None]] = {}
 
     xml_snippet = extract_xml_subtree(mzid_path, tag="Inputs")
+    if not xml_snippet:
+        raise MzidParseError(
+            f"Inputs section not found in mzIdentML file '{mzid_path.name}'"
+            "which is not compliant with mzIdentML specs."
+        )
     root = ET.fromstring(xml_snippet)
 
-    for child in root:
-        if child.tag != "SpectraData":
-            continue
+    # namespace changes between mzIdentML versions, some files don't have a namespace
+    ns = root.tag.split("}")[0] + "}" if root.tag.startswith("{") else ""
 
-        spectra_id = child.get("id")
+    for spectra_data in root.findall(f"{ns}SpectraData"):
+        spectra_id = spectra_data.get("id")
         if not spectra_id:
             continue
-        ms_run_name = child.get("name") or child.get("location")
+
+        ms_run_name = spectra_data.get("name") or spectra_data.get("location")
         if not ms_run_name:
             logger.warning(
                 "SpectraData element with id '%s' has no 'name' or 'location' attribute. File: %s",
@@ -69,6 +76,7 @@ def parse_spectra_data(mzid_path: Path) -> dict[str, tuple[str, IndexType | None
                 mzid_path.name,
             )
             continue
+
         basename = parse_basename(ms_run_name)
         ms_run_name, ext = os.path.splitext(basename)
         prev_ext = ""
@@ -79,27 +87,30 @@ def parse_spectra_data(mzid_path: Path) -> dict[str, tuple[str, IndexType | None
             ms_run_name, ext = os.path.splitext(ms_run_name)
         ms_run_name += prev_ext  # add back last extension
 
-        # Extract SpectrumIDFormat accession from nested cvParam
-        spectrum_id_format: str | None = None
-        spectrum_id_format_cv = (
-            child.find(".//SpectrumIDFormat/cvParam")
-            if child.find(".//SpectrumIDFormat/cvParam") is not None
-            else child.find(".//spectrumIDFormat/cvParam")
+        cv_param = (
+            spectra_data.find(f"{ns}SpectrumIDFormat/{ns}cvParam")
+            if spectra_data.find(f".//{ns}SpectrumIDFormat/{ns}cvParam") is not None
+            else spectra_data.find(f".//{ns}spectrumIDFormat/{ns}cvParam")
         )
-        if spectrum_id_format_cv is not None:
-            spectrum_id_format = spectrum_id_format_cv.get("accession")
-
-        if spectrum_id_format is None:
-            logger.warning(
-                "SpectraData element with id '%s' has no SpectrumIDFormat cvParam. File: %s",
-                spectra_id,
-                mzid_path.name,
+        if cv_param is None:
+            raise MzidParseError(
+                f"SpectrumIDFormat cvParam not found in file '{mzid_path.name}' which is not compliant with mzIdentML specs."
             )
-            continue
+
+        spectrum_id_format: str | None = cv_param.get("accession")
+        if spectrum_id_format is None:
+            raise MzidParseError(
+                f"SpectrumIDFormat cvParam has no accession attribute in file '{mzid_path.name}' which is not compliant with mzIdentML specs."
+            )
 
         spectra_data_map[spectra_id] = (
             ms_run_name,
             get_spectrum_id_format(cv_param=spectrum_id_format),
+        )
+
+    if len(spectra_data_map) == 0:
+        raise MzidParseError(
+            "No valid SpectraData elements found in mzIdentML file which is not compliant with mzIdentML specs."
         )
 
     return spectra_data_map
