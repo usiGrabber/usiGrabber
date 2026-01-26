@@ -3,6 +3,7 @@
 import datetime
 import logging
 import os
+import traceback
 from abc import ABC, abstractmethod
 from pathlib import Path
 
@@ -85,6 +86,8 @@ class BaseFileParser(ABC):
     ) -> ImportStats:
         path_name = path[0].name if isinstance(path, tuple) else path.name
         stats = ImportStats(file_name=path_name, project_accession=project_accession)
+
+        imported_file_id = None
         with Session(engine) as session:
             file_info = ImportedFile(
                 project_accession=project_accession,
@@ -95,9 +98,12 @@ class BaseFileParser(ABC):
             )
             session.add(file_info)
             session.commit()
+            imported_file_id = file_info.id
+            assert imported_file_id, "Imported file must has been given an id by the db!"
 
         is_processed_successfully = False
         error_message = None
+        traceback_str = None
         psm_count = None
 
         try:
@@ -110,15 +116,17 @@ class BaseFileParser(ABC):
             return stats
         except Exception as e:
             error_message = str(e)
+            traceback_str = traceback.format_exc()
             stats.mark_failed(str(e))
             raise
         finally:
             with Session(engine) as session:
-                file_info = session.get(ImportedFile, file_info.id)
+                file_info = session.get(ImportedFile, imported_file_id)
                 assert file_info, ""
 
                 file_info.psm_count = psm_count
                 file_info.is_processed_successfully = is_processed_successfully
                 file_info.error_message = error_message
+                file_info.trackback = traceback_str
                 file_info.end_time = datetime.datetime.now()
                 session.commit()

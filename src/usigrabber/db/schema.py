@@ -225,6 +225,8 @@ class MzidFile(SQLModel, table=True):
 
 
 class ImportedFile(SQLModel, table=True):
+    __tablename__ = "imported_files"
+
     id: int | None = Field(default=None, primary_key=True)
     project_accession: str
     file_id: str
@@ -237,6 +239,7 @@ class ImportedFile(SQLModel, table=True):
     end_time: datetime | None = Field(default=None)
     is_processed_successfully: bool | None = Field(default=None)
     error_message: str | None = Field(default=None)
+    traceback: str | None = Field(default=None)
     worker_pid: int
     checksum: str = Field(
         sa_column=Column(CHAR(32), nullable=False),
