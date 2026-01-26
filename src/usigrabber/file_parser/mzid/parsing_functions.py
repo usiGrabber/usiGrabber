@@ -87,11 +87,10 @@ def parse_spectra_data(mzid_path: Path) -> dict[str, tuple[str, IndexType | None
             ms_run_name, ext = os.path.splitext(ms_run_name)
         ms_run_name += prev_ext  # add back last extension
 
-        cv_param = (
-            spectra_data.find(f"{ns}SpectrumIDFormat/{ns}cvParam")
-            if spectra_data.find(f".//{ns}SpectrumIDFormat/{ns}cvParam") is not None
-            else spectra_data.find(f".//{ns}spectrumIDFormat/{ns}cvParam")
-        )
+        cv_param = spectra_data.find(f"{ns}SpectrumIDFormat/{ns}cvParam")
+        if cv_param is None:
+            spectra_data.find(f".//{ns}spectrumIDFormat/{ns}cvParam")
+
         if cv_param is None:
             raise MzidParseError(
                 f"SpectrumIDFormat cvParam not found in file '{mzid_path.name}' which is not compliant with mzIdentML specs."
