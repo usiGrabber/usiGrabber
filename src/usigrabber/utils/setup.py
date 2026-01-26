@@ -84,7 +84,11 @@ def setup_logger(is_main_process: bool, logger_name: str | None = None):
         loki_url = f"http://{os.environ.get('LOKI_URL')}/loki/api/v1/push"
         loki_handler = LokiHandler(
             url=loki_url,
-            tags={"app": "usigrabber-test", "process": str(process_suffix), "job_id": job_id},
+            tags={
+                "app": os.environ.get("APP_ID", "usigrabber"),
+                "process": str(process_suffix),
+                "job_id": job_id,
+            },
             batch_size=100,
             flush_interval=5.0,
             include_metadata=True,  # Include log level, file, line, etc. in logs
