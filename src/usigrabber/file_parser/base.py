@@ -87,12 +87,13 @@ class BaseFileParser(ABC):
     ) -> ImportStats:
         path_name = path[0].name if isinstance(path, tuple) else path.name
         stats = ImportStats(file_name=path_name, project_accession=project_accession)
-
+        file_id = self.get_file_id(path)
         imported_file_id = None
+
         with Session(engine) as session:
             file_info = ImportedFile(
                 project_accession=project_accession,
-                file_id=self.get_file_id(path),
+                file_id=file_id,
                 checksum=md5_checksum(path),
                 format=self.format_name,
                 worker_pid=os.getpid(),
@@ -129,6 +130,6 @@ class BaseFileParser(ABC):
                 file_info.psm_count = psm_count
                 file_info.is_processed_successfully = is_processed_successfully
                 file_info.error_message = error_message
-                file_info.trackback = traceback_str
+                file_info.traceback = traceback_str
                 file_info.end_time = datetime.datetime.now()
                 session.commit()

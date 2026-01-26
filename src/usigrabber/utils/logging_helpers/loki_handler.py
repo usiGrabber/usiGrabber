@@ -9,6 +9,8 @@ from typing import Any
 
 import requests
 
+from usigrabber.utils.context import context_file_id, context_project_accession
+
 
 class LokiHandler(logging.Handler):
     """
@@ -112,6 +114,15 @@ class LokiHandler(logging.Handler):
                             "getMessage",
                         ]:
                             structured_metadata[key] = str(value)
+
+            # Add context variables if set
+            project_accession = context_project_accession.get(None)
+            if project_accession:
+                structured_metadata["project_accession"] = project_accession
+
+            file_id = context_file_id.get(None)
+            if file_id:
+                structured_metadata["file_id"] = file_id
 
             with self._lock:
                 self._buffer.append((timestamp_ns, msg, structured_metadata))
