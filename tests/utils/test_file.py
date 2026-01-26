@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from usigrabber.utils.file import md5_checksum
+from usigrabber.utils.checksum import md5_checksum
 
 
 def test_md5_checksum(full_mzid_path: Path):

@@ -211,7 +211,6 @@ async def build_project(
                     file_ext,
                     project["accession"],
                     tmp_dir,
-                    logger,
                 )
     except Exception as e:
         raise e
