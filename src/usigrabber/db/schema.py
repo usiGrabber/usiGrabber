@@ -195,10 +195,6 @@ class MzidFile(SQLModel, table=True):
     project_accession: str = Field(foreign_key="projects.accession")
     file_name: str
     file_path: str | None = None
-    checksum: str = Field(
-        sa_column=Column(CHAR(32), nullable=False),
-        description="MD5 checksum of the mzID file",
-    )
     software_name: str | None = None
     software_version: str | None = None
     search_database_name: str | None = None

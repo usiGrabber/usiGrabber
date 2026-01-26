@@ -3,7 +3,7 @@
 #SBATCH --account=sci-renard-usi-grabber
 #SBATCH --partition=cpu-batch
 #SBATCH --cpus-per-task=16 # -c
-#SBATCH --mem=256gb
-#SBATCH --time=20:00:00
+#SBATCH --mem=128gb
+#SBATCH --time=48:00:00
 
-uv run usigrabber build --max-workers 6 --ontology-workers 2
+uv run usigrabber build --reset --max-workers 8 --ontology-workers 2
