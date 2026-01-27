@@ -92,9 +92,9 @@ async def import_files(engine, ftp_paths: list[str], file_ext, project_accession
                         "ext": str(file_ext),
                     },
                 )
-            except Exception as e:
+            except Exception:
                 # Raise any other exception because import_file should capture exceptions and any other exception is unexpected
-                raise e
+                raise
 
 
 def import_file(engine, path: Path | tuple[Path, Path, Path], file_ext, project_accession) -> None:
