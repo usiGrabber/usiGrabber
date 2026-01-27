@@ -150,8 +150,8 @@ async def _download_and_extract(
                 worker_pid=os.getpid(),
                 job_id=get_job_id(),
             )
-        session.add(record)
-        session.commit()
+            session.add(record)
+            session.commit()
 
 
 def import_file(
@@ -169,7 +169,7 @@ def import_file(
         stats = parser.import_file(engine, path, project_accession)
         if stats.psm_count:
             log_info(logger, stats, file_ext)
-    except FileParserError as e:
+    except Exception as e:
         logger.error(f"Failed to import '{file_ext}' file: {e}", exc_info=True)
     finally:
         context_file_id.reset(token)
