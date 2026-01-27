@@ -154,7 +154,13 @@ class LokiHandler(logging.Handler):
             # Build logfmt string
             parts = []
             for key, value in logfmt_fields.items():
-                escaped = str(value).replace("\\", "\\\\").replace('"', '\\"')
+                escaped = (
+                    str(value)
+                    .replace("\\", "\\\\")
+                    .replace('"', '\\"')
+                    .replace("\n", "\\n")
+                    .replace("\r", "\\r")
+                )
                 parts.append(f'{key}="{escaped}"')
 
             log_line = " ".join(parts)
