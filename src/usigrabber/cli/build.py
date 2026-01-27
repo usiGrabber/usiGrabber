@@ -1,7 +1,9 @@
 import asyncio
+import datetime
 import logging
 import multiprocessing
 import os
+import traceback
 import warnings
 from pathlib import Path
 from typing import Annotated, Any
@@ -164,37 +166,39 @@ async def build_project(
     project_accession = backend.get_project_accession(project)
     token = context_project_accession.set(project_accession)
 
-    try:
-        logger.info(
-            f"Building {project_accession}",
-            extra={
-                "event": "project_started",
-                "project_accession": project_accession,
-                "backend": backend_enum.name,
-            },
+    logger.info(
+        f"Building {project_accession}",
+        extra={
+            "event": "project_started",
+            "project_accession": project_accession,
+            "backend": backend_enum.name,
+        },
+    )
+
+    # Use worker db_engine if available (multiprocessing), otherwise load a new one
+    if db_engine:
+        engine = db_engine
+    elif worker_db_engine is not None:
+        engine = worker_db_engine
+    else:
+        raise ValueError(
+            "DB engine must be passed in single process mode or loaded per individual worker with the ProcessPool"
         )
 
-        # Use worker db_engine if available (multiprocessing), otherwise load a new one
-        if db_engine:
-            engine = db_engine
-        elif worker_db_engine is not None:
-            engine = worker_db_engine
-        else:
-            raise ValueError(
-                "DB engine must be passed in single process mode or loaded per individual worker with the ProcessPool"
-            )
+    with Session(engine) as session:
+        await backend.dump_project_to_db(session, project)
+        session.commit()
 
-        with Session(engine) as session:
-            await backend.dump_project_to_db(session, project)
-            session.commit()
+    error: None | str = None
+    traceback_str: None | str = None
 
+    try:
         # download files
         files = backend.get_files_for_project(project["accession"])
         with temporary_path() as tmp_dir:
-            is_fully_processed: bool = False
             main_source_type = None
             for category in FILE_CATEGORIES:
-                if not files[category] or is_fully_processed or main_source_type is not None:
+                if not files[category] or main_source_type is not None:
                     continue
 
                 interesting_ftp_paths, file_ext = await get_interesting_files(
@@ -205,17 +209,29 @@ async def build_project(
                     continue
 
                 main_source_type = file_ext
-                is_fully_processed = await import_files(
+                await import_files(
                     engine,
                     interesting_ftp_paths,
                     file_ext,
                     project["accession"],
                     tmp_dir,
                 )
-    except Exception:
-        raise
+    except Exception as e:
+        error = str(e)
+        traceback_str = traceback.format_exc()
+        raise e
     finally:
         context_project_accession.reset(token)
+        with Session(engine) as session:
+            db_project = session.get(Project, project_accession)
+            assert db_project, (
+                f"There must exist a project with accession {project_accession} in the db"
+            )
+
+            db_project.error_message = error
+            db_project.traceback = traceback_str
+            db_project.end_time = datetime.datetime.now()
+            session.commit()
 
 
 def build_project_sync(backend_enum: BackendEnum, project: dict[str, Any]) -> None:
