@@ -212,8 +212,8 @@ async def build_project(
                     project["accession"],
                     tmp_dir,
                 )
-    except Exception as e:
-        raise e
+    except Exception:
+        raise
     finally:
         context_project_accession.reset(token)
 
