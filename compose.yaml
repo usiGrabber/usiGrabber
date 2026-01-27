@@ -18,6 +18,8 @@ services:
       - GF_SECURITY_ADMIN_PASSWORD=admin
     depends_on:
       - loki
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
 
   db:
     image: postgres:18
