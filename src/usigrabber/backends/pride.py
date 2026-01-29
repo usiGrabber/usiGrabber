@@ -158,7 +158,6 @@ class PrideBackend(BaseBackend):
             response = await client.get_response(url)
             if response.ok:
                 files_info = await response.json()
-                files_info = response.json()
                 search_files: list[FileMetadata] = []
                 result_files: list[FileMetadata] = []
                 other_files: list[FileMetadata] = []
