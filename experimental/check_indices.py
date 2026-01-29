@@ -169,11 +169,13 @@ async def process_row(row):
                     print(f"Saved problematic mzid to: {save_path}")
                 else:
                     print(f"Saved sane mzid to: {save_path}")
-                print(usis)
+                print("Generated USIs:")
+                for usi in usis:
+                    print(f"\t{usi}")
 
                 # validate generated USIs with
 
-                breakpoint()
+                input("Press any key to continue...")
 
                 # --- YOUR PROCESSING LOGIC HERE ---
                 # e.g., usis = extract_usis(file)
@@ -240,6 +242,9 @@ def download_spectrum(usi: USI) -> PyteomicsSpectrum | None:
             return PyteomicsSpectrum.model_validate(spectrum_data)
 
         except Exception as e:
+            if "Internal Server Error" in str(e):
+                print(f"Internal Server error for '{usi}', not retrying.")
+                break
             if attempt < MAX_RETRIES - 1:
                 time.sleep(INITIAL_BACKOFF * (BACKOFF_MULTIPLIER**attempt))
             else:
@@ -247,7 +252,7 @@ def download_spectrum(usi: USI) -> PyteomicsSpectrum | None:
     return None
 
 
-def generate_random_usis(parsed_data, count=20):
+def generate_random_usis(parsed_data, count=20) -> list[str]:
     """
     Generates a list of random USIs from the parsed mzIdentML data.
     Assumes parsed_data contains dictionaries.
