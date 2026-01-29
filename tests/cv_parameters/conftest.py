@@ -24,6 +24,8 @@ def sample_project(engine: Engine):
         accession="PXD000001",
         title="Test Project",
         submissionType="COMPLETE",
+        job_id="testing",
+        worker_pid=0,
     )
     with Session(engine) as session:
         session.add(project)
