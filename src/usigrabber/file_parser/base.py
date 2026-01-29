@@ -77,8 +77,11 @@ class BaseFileParser(ABC):
             return True
 
         # Create a set of raw file names (without extension) in lowercase
+        # Skip all raw files that do not end with .raw or .RAW
         raw_file_names_lower = {
-            Path(rf["filepath"]).stem.lower() for rf in raw_files if rf.get("filepath")
+            Path(rf["filepath"]).stem.lower()
+            for rf in raw_files
+            if rf.get("filepath") and rf["filepath"].lower().endswith(".raw")
         }
 
         if not raw_file_names_lower:
