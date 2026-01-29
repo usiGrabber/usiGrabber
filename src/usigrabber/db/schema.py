@@ -240,7 +240,7 @@ class ImportedFile(SQLModel, table=True):
     job_id: str
     checksum: str = Field(
         sa_column=Column(CHAR(32), nullable=False),
-        description="MD5 checksum of the file as it was was downloaded from the source (pre-extraction)",
+        description="MD5 checksum of the mzID file",
     )
 
     __table_args__ = (

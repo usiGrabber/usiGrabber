@@ -2,16 +2,13 @@ import os
 from collections.abc import AsyncGenerator
 from pathlib import Path
 from typing import Any
-from urllib.error import HTTPError, URLError
 
 import ijson
 import requests
 from async_http_client import AsyncHttpClient
 from ontology_resolver.ontology_helper import OntologyHelper
-from pyteomics.usi import PRIDEBackend
 from sqlalchemy.engine import Engine
 from sqlmodel import Session
-from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential
 
 from usigrabber.backends.base import BaseBackend, FileMetadata, Files
 from usigrabber.cv_parameters.cv_engine import CVInjector, CVParam, CVTuple
@@ -149,15 +146,14 @@ class PrideBackend(BaseBackend):
                     yield project
 
     @classmethod
-    async def get_files_for_project(
+    def get_files_for_project(
         cls,
         project_accession: str,
     ) -> Files:
         url = f"{cls.BASE_URL}/projects/{project_accession}/files/all"
-        async with AsyncHttpClient() as client:
-            response = await client.get_response(url)
-            if response.ok:
-                files_info = await response.json()
+        with requests.get(url) as response:
+            if response.status_code == 200:
+                files_info = response.json()
                 search_files: list[FileMetadata] = []
                 result_files: list[FileMetadata] = []
                 other_files: list[FileMetadata] = []
@@ -334,6 +330,15 @@ class PrideBackend(BaseBackend):
         Returns:
             True if spectrum exists and can be retrieved, False otherwise
         """
+        from urllib.error import HTTPError, URLError
+
+        from pyteomics.usi import PRIDEBackend
+        from tenacity import (
+            retry,
+            retry_if_exception_type,
+            stop_after_attempt,
+            wait_exponential,
+        )
 
         @retry(
             retry=retry_if_exception_type((HTTPError, URLError)),

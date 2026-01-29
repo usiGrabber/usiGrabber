@@ -189,7 +189,7 @@ async def build_project(
             session.commit()
 
         # download files
-        files = await backend.get_files_for_project(project["accession"])
+        files = backend.get_files_for_project(project["accession"])
         with temporary_path() as tmp_dir:
             is_fully_processed: bool = False
             main_source_type = None
@@ -205,9 +205,7 @@ async def build_project(
                     continue
 
                 main_source_type = file_ext
-                # TODO: handle is_fully_processed
-                # is_fully_processed = await import_files(
-                await import_files(
+                is_fully_processed = await import_files(
                     engine,
                     interesting_ftp_paths,
                     file_ext,

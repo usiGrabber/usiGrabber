@@ -60,7 +60,7 @@ class BaseBackend(ABC):
 
     @classmethod
     @abstractmethod
-    async def get_files_for_project(cls, project_accession: str) -> Files:
+    def get_files_for_project(cls, project_accession: str) -> Files:
         """
         Retrieve file information for a specific project.
 

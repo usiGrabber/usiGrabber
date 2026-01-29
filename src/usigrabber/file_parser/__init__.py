@@ -9,7 +9,6 @@ import logging
 from pathlib import Path
 
 from aioftp import StatusCodeError
-from sqlalchemy import Engine
 
 from usigrabber.file_parser.base import BaseFileParser, get_parser_for_extension, register_parser
 from usigrabber.file_parser.errors import FileParserError
@@ -18,7 +17,6 @@ from usigrabber.file_parser.models import ImportStats
 from usigrabber.file_parser.mzid.parser import MzidFileParser  # noqa: F401
 from usigrabber.file_parser.mztab.parser import MztabFileParser  # noqa: F401
 from usigrabber.file_parser.txt_zip.parser import TxtZipFileParser  # noqa: F401
-from usigrabber.utils.checksum import md5_checksum
 from usigrabber.utils.context import context_file_id
 from usigrabber.utils.file import PARALLEL_DOWNLOADS, download_ftp_with_semaphore, extract_archive
 
@@ -36,13 +34,7 @@ __all__ = [
 ]
 
 
-async def import_files(
-    engine: Engine,
-    ftp_paths: list[str],
-    file_ext: str,
-    project_accession: str,
-    tmp_dir: Path,
-) -> None:
+async def import_files(engine, ftp_paths: list[str], file_ext, project_accession, tmp_dir) -> None:
     """
     Generic file import function for multiple files.
 
@@ -87,11 +79,10 @@ async def import_files(
         ]
         for coro in asyncio.as_completed(path_coros):
             try:
-                path: Path = await coro
-                checksum = md5_checksum(path)  # generate checksum before extraction
+                path = await coro
                 relevant_paths = extract_relevant_paths([path], file_ext)
                 for path in relevant_paths:
-                    import_file(engine, path, file_ext, checksum, project_accession)
+                    import_file(engine, path, file_ext, project_accession)
             except StatusCodeError as e:
                 logger.error(
                     f"Failed to download file from FTP: {e}",
@@ -106,24 +97,12 @@ async def import_files(
                 raise
 
 
-def import_file(
-    engine: Engine,
-    path: Path | tuple[Path, Path, Path],
-    file_ext: str,
-    checksum: str,
-    project_accession: str,
-) -> None:
+def import_file(engine, path: Path | tuple[Path, Path, Path], file_ext, project_accession) -> None:
     """
     Generic file import function.
 
     Automatically selects the appropriate parser based on file extension.
     Correctly sets the context file_id for logging
-
-    :param engine: Database engine for persisting data.
-    :param path: Path to the file or tuple of paths (for txt triplets).
-    :param file_ext: File extension to determine the parser.
-    :param checksum: MD5 checksum of the file as it was downloaded from the source (pre-extraction).
-    :param project_accession: Project accession identifier.
     """
 
     parser = get_parser_for_extension(file_ext)
@@ -136,7 +115,7 @@ def import_file(
     file_id_context_token = context_file_id.set(file_id)
 
     try:
-        file_stats = parser.import_file(engine, path, checksum, project_accession)
+        file_stats = parser.import_file(engine, path, project_accession)
         if file_stats.psm_count:
             log_info(logger, file_stats, file_ext)
     except FileParserError as e:
