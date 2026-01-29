@@ -64,7 +64,9 @@ class AsyncHttpClient:
         if self._session:
             await self._session.close()
 
-    async def get_response(self, url: str, params: dict | None = None, **kwargs: Any):
+    async def get_response(
+        self, url: str, params: dict | None = None, **kwargs: Any
+    ) -> aiohttp.ClientResponse:
         """Perform a GET request (cached)."""
         if not self._session:
             raise RuntimeError("Session not initialized — use 'async with' to manage lifecycle.")

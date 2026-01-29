@@ -19,6 +19,7 @@ from usigrabber.db.cli import reset as db_reset
 from usigrabber.db.schema import Project
 from usigrabber.file_parser import import_files
 from usigrabber.utils import get_cache_dir
+from usigrabber.utils.context import context_project_accession
 from usigrabber.utils.file import get_interesting_files, temporary_path
 from usigrabber.utils.setup import setup_logger
 
@@ -161,54 +162,62 @@ async def build_project(
 
     backend = backend_enum.value
     project_accession = backend.get_project_accession(project)
-    logger.info(
-        f"Building {project_accession}",
-        extra={
-            "event": "project_started",
-            "project_accession": project_accession,
-            "backend": backend_enum.name,
-        },
-    )
+    token = context_project_accession.set(project_accession)
 
-    # Use worker db_engine if available (multiprocessing), otherwise load a new one
-    if db_engine:
-        engine = db_engine
-    elif worker_db_engine is not None:
-        engine = worker_db_engine
-    else:
-        raise ValueError(
-            "DB engine must be passed in single process mode or loaded per individual worker with the ProcessPool"
+    try:
+        logger.info(
+            f"Building {project_accession}",
+            extra={
+                "event": "project_started",
+                "project_accession": project_accession,
+                "backend": backend_enum.name,
+            },
         )
 
-    with Session(engine) as session:
-        await backend.dump_project_to_db(session, project)
-        session.commit()
-
-    # download files
-    files = backend.get_files_for_project(project["accession"])
-    with temporary_path() as tmp_dir:
-        is_fully_processed: bool = False
-        main_source_type = None
-        for category in FILE_CATEGORIES:
-            if not files[category] or is_fully_processed or main_source_type is not None:
-                continue
-
-            interesting_ftp_paths, file_ext = await get_interesting_files(
-                files[category], project["accession"]
+        # Use worker db_engine if available (multiprocessing), otherwise load a new one
+        if db_engine:
+            engine = db_engine
+        elif worker_db_engine is not None:
+            engine = worker_db_engine
+        else:
+            raise ValueError(
+                "DB engine must be passed in single process mode or loaded per individual worker with the ProcessPool"
             )
 
-            if not interesting_ftp_paths:
-                continue
+        with Session(engine) as session:
+            await backend.dump_project_to_db(session, project)
+            session.commit()
 
-            main_source_type = file_ext
-            is_fully_processed = await import_files(
-                engine,
-                interesting_ftp_paths,
-                file_ext,
-                project["accession"],
-                tmp_dir,
-                logger,
-            )
+        # download files
+        files = await backend.get_files_for_project(project["accession"])
+        with temporary_path() as tmp_dir:
+            is_fully_processed: bool = False
+            main_source_type = None
+            for category in FILE_CATEGORIES:
+                if not files[category] or is_fully_processed or main_source_type is not None:
+                    continue
+
+                interesting_ftp_paths, file_ext = await get_interesting_files(
+                    files[category], project["accession"]
+                )
+
+                if not interesting_ftp_paths:
+                    continue
+
+                main_source_type = file_ext
+                # TODO: handle is_fully_processed
+                # is_fully_processed = await import_files(
+                await import_files(
+                    engine,
+                    interesting_ftp_paths,
+                    file_ext,
+                    project["accession"],
+                    tmp_dir,
+                )
+    except Exception:
+        raise
+    finally:
+        context_project_accession.reset(token)
 
 
 def build_project_sync(backend_enum: BackendEnum, project: dict[str, Any]) -> None:

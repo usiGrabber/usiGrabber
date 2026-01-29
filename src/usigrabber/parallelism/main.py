@@ -180,8 +180,7 @@ class FutureHolder:
             ]
             raise RuntimeError(
                 f"No workers completed within {timeout}s. "
-                f"Possible deadlock or hung worker. "
-                f"Pending projects: {pending_projects[:5]}{'...' if len(pending_projects) > 5 else ''}"
+                f"Possible deadlock or hung worker. Pending projects: {pending_projects}"
             )
 
         for future in done_futures:
