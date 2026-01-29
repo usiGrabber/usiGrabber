@@ -35,3 +35,4 @@ temp_test_data
 logs/
 experimental/pride_projects_all.json
 slurm-*
+http_cache

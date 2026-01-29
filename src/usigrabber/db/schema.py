@@ -78,6 +78,9 @@ class Project(SQLModel, table=True):
     start_time: datetime = Field(default_factory=datetime.now)
     end_time: datetime | None = Field(default=None)
 
+    job_id: str
+    worker_pid: int
+
     # Complex nested data stored as JSON
     sample_attributes: dict | None = Field(
         default=None, sa_column=Column(JSON), alias="sampleAttributes"
@@ -276,7 +279,7 @@ class DownloadedFile(SQLModel, table=True):
     worker_pid: int
 
     __table_args__ = (
-        UniqueConstraint("file_name", "project_accession", name="unique_file_constraint"),
+        UniqueConstraint("file_name", "project_accession", name="unique_download_file_constraint"),
     )
 
 

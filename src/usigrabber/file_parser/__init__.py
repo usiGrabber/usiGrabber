@@ -19,6 +19,15 @@ from usigrabber.file_parser.base import BaseFileParser, get_parser_for_extension
 from usigrabber.file_parser.errors import FileParserError
 from usigrabber.file_parser.helpers import get_txt_triples, log_info
 from usigrabber.file_parser.models import ImportStats
+
+# Import to register parsers
+from usigrabber.file_parser.mzid.parser import (
+    MzidFileParser,  # noqa: F401
+)
+from usigrabber.file_parser.mztab.parser import (
+    MztabFileParser,  # noqa: F401
+)
+from usigrabber.file_parser.txt_zip.parser import TxtZipFileParser  # noqa: F401
 from usigrabber.utils.checksum import md5_checksum
 from usigrabber.utils.context import context_file_id
 from usigrabber.utils.file import PARALLEL_DOWNLOADS, download_ftp_with_semaphore, extract_archive
@@ -66,12 +75,13 @@ async def import_files(
         *[
             _download_and_extract(sem, url, tmp_dir, file_ext, engine, project_accession)
             for url in ftp_paths
-        ]
+        ],
+        return_exceptions=True,  # One failure won't cancel others
     )
 
     successful_paths: list[Path] = []
     for result in results:
-        if result.is_successful and result.extracted_paths:
+        if isinstance(result, DownloadResult) and result.is_successful and result.extracted_paths:
             successful_paths.extend(result.extracted_paths)
 
     if not successful_paths:
@@ -122,6 +132,15 @@ async def _download_and_extract(
             checksum=checksum,
         )
         return download_result
+    except asyncio.CancelledError:
+        download_result = DownloadResult(
+            file_name=file_name,
+            start_time=start_time,
+            end_time=time.time(),
+            error_message="Task was cancelled",
+            traceback_str=tb.format_exc(),
+        )
+        raise  # Re-raise so user cancellation still works
     except Exception as e:
         logger.error(f"Failed to download/extract {url}: {e}", exc_info=True)
         download_result = DownloadResult(

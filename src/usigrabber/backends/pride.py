@@ -19,6 +19,7 @@ from usigrabber.cv_parameters.instrument_cleaner import clean_instruments
 from usigrabber.db import Project, ProjectCountry, ProjectKeyword, ProjectTag, Reference
 from usigrabber.db.schema import ProjectAffiliation, ProjectOtherOmicsLink
 from usigrabber.utils import get_cache_dir, logger, parse_date
+from usigrabber.utils.job_id import get_job_id
 
 
 def parse_cv_param(cv_data: dict, ontology_helper: OntologyHelper) -> CVParam | None:
@@ -274,6 +275,8 @@ class PrideBackend(BaseBackend):
             totalFileDownloads=project_data.get("totalFileDownloads", 0),
             sampleAttributes=project_data.get("sampleAttributes"),
             additionalAttributes=project_data.get("additionalAttributes"),
+            job_id=get_job_id(),
+            worker_pid=os.getpid(),
         )
         session.add(project)
 
