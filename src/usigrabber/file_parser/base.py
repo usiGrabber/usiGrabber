@@ -13,13 +13,12 @@ from sqlalchemy.engine import Engine
 from sqlalchemy.orm.session import Session
 
 from usigrabber.db.schema import ImportedFile
-from usigrabber.file_parser.models import (  # Import models
+from usigrabber.file_parser.models import (
     ImportStats,
     ParsedMzidData,
     ParsedMztabData,
     ParsedTxtZipData,
 )
-from usigrabber.utils.checksum import md5_checksum
 from usigrabber.utils.job_id import get_job_id
 
 PARSER_REGISTRY: dict[str, "BaseFileParser"] = {}
@@ -83,6 +82,7 @@ class BaseFileParser(ABC):
         self,
         engine: Engine,
         path: Path | tuple[Path, Path, Path],
+        checksum: str,
         project_accession: str,
     ) -> ImportStats:
         path_name = path[0].name if isinstance(path, tuple) else path.name
@@ -94,7 +94,7 @@ class BaseFileParser(ABC):
             file_info = ImportedFile(
                 project_accession=project_accession,
                 file_id=file_id,
-                checksum=md5_checksum(path),
+                checksum=checksum,
                 format=self.format_name,
                 worker_pid=os.getpid(),
                 job_id=get_job_id(),
