@@ -223,8 +223,8 @@ class MzidFile(SQLModel, table=True):
 class ImportedFile(SQLModel, table=True):
     __tablename__ = "imported_files"
 
-    id: int | None = Field(default=None, primary_key=True)
-    project_accession: str
+    id: int = Field(primary_key=True)
+    project_accession: str = Field(foreign_key="projects.accession")
     file_id: str
     format: str
 
