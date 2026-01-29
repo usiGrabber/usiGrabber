@@ -196,7 +196,7 @@ class PrideBackend(BaseBackend):
                 logger.error(
                     "Could not retrieve files for accession %s: %s %s",
                     project_accession,
-                    response.status_code,
+                    response.status,
                     response.reason,
                 )
                 return Files(search=[], result=[], other=[])
