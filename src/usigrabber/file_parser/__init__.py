@@ -38,10 +38,13 @@ from usigrabber.utils.job_id import get_job_id
 logger = logging.getLogger(__name__)
 
 __all__ = [
+    # Base parser and registry
     "BaseFileParser",
     "register_parser",
     "get_parser_for_extension",
+    # Shared models
     "ImportStats",
+    # Exceptions
     "FileParserError",
     "import_file",
 ]
