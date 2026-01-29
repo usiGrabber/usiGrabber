@@ -195,10 +195,6 @@ class MzidFile(SQLModel, table=True):
     project_accession: str = Field(foreign_key="projects.accession")
     file_name: str
     file_path: str | None = None
-    checksum: str = Field(
-        sa_column=Column(CHAR(32), nullable=False),
-        description="MD5 checksum of the mzID file",
-    )
     software_name: str | None = None
     software_version: str | None = None
     search_database_name: str | None = None
@@ -221,6 +217,34 @@ class MzidFile(SQLModel, table=True):
     project: Project | None = Relationship(back_populates="mzid_files")
     peptide_spectrum_matches: list["PeptideSpectrumMatch"] = Relationship(
         back_populates="mzid_file"
+    )
+
+
+class ImportedFile(SQLModel, table=True):
+    __tablename__ = "imported_files"
+
+    id: int | None = Field(default=None, primary_key=True)
+    project_accession: str = Field(foreign_key="projects.accession")
+    file_id: str
+    format: str
+
+    psm_count: int | None = Field(default=None)
+    start_time: datetime = Field(
+        default_factory=datetime.now,
+    )
+    end_time: datetime | None = Field(default=None)
+    is_processed_successfully: bool | None = Field(default=None)
+    error_message: str | None = Field(default=None)
+    traceback: str | None = Field(default=None)
+    worker_pid: int
+    job_id: str
+    checksum: str = Field(
+        sa_column=Column(CHAR(32), nullable=False),
+        description="MD5 checksum of the mzID file",
+    )
+
+    __table_args__ = (
+        UniqueConstraint("file_id", "project_accession", name="unique_file_constraint"),
     )
 
 

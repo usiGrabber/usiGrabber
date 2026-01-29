@@ -5,7 +5,7 @@ Provides a unified interface for importing proteomics files.
 """
 
 import asyncio
-from logging import Logger
+import logging
 from pathlib import Path
 
 from aioftp import StatusCodeError
@@ -19,7 +19,10 @@ from usigrabber.file_parser.models import ImportStats
 from usigrabber.file_parser.mzid.parser import MzidFileParser  # noqa: F401
 from usigrabber.file_parser.mztab.parser import MztabFileParser  # noqa: F401
 from usigrabber.file_parser.txt_zip.parser import TxtZipFileParser  # noqa: F401
+from usigrabber.utils.context import context_file_id
 from usigrabber.utils.file import PARALLEL_DOWNLOADS, download_ftp_with_semaphore, extract_archive
+
+logger = logging.getLogger(__name__)
 
 __all__ = [
     # Base parser and registry
@@ -39,15 +42,13 @@ async def import_files(
     file_ext: str,
     project_accession: str,
     tmp_dir: Path,
-    logger: Logger,
     raw_files: list[FileMetadata],
-) -> bool:
+) -> None:
     """
     Generic file import function for multiple files.
 
     Automatically selects the appropriate parser based on file extensions.
     """
-    exception_occurred = False
 
     sem = asyncio.Semaphore(PARALLEL_DOWNLOADS)
 
@@ -66,33 +67,15 @@ async def import_files(
         )
         paths: list[Path] = [path for path in paths if isinstance(path, Path)]
         if not paths:
-            logger.error(
+            logger.warning(
                 f"No valid txt files were downloaded for processing {file_ext} in project "
                 f"{project_accession}."
             )
-            exception_occurred = True
         else:
             relevant_paths = extract_relevant_paths(paths, file_ext)
             txt_triplets = get_txt_triples(relevant_paths)
             for triplet in txt_triplets:
-                try:
-                    file_stats = import_file(
-                        engine, triplet, file_ext, project_accession, raw_files
-                    )
-                    if file_stats.psm_count:
-                        log_info(logger, file_stats, file_ext)
-                except FileParserError as e:
-                    logger.error(
-                        f"Failed to import '{file_ext}' files: {e}",
-                        exc_info=True,
-                        stack_info=True,
-                        extra={
-                            "ext": file_ext,
-                            "project_accession": project_accession,
-                        },
-                    )
-                    exception_occurred = True
-                    continue
+                import_file(engine, triplet, file_ext, project_accession, raw_files)
     # files to handle individually
     else:
         path_coros = [
@@ -108,21 +91,7 @@ async def import_files(
                 path = await coro
                 relevant_paths = extract_relevant_paths([path], file_ext)
                 for path in relevant_paths:
-                    file_stats = import_file(engine, path, file_ext, project_accession, raw_files)
-                    if file_stats.psm_count:
-                        log_info(logger, file_stats, Path(path).name)
-            except FileParserError as e:
-                logger.error(
-                    f"Failed to import '{file_ext}' files: {e}",
-                    exc_info=True,
-                    stack_info=True,
-                    extra={
-                        "ext": file_ext,
-                        "project_accession": project_accession,
-                    },
-                )
-                exception_occurred = True
-                continue
+                    import_file(engine, path, file_ext, project_accession, raw_files)
             except StatusCodeError as e:
                 logger.error(
                     f"Failed to download file from FTP: {e}",
@@ -130,13 +99,11 @@ async def import_files(
                     stack_info=True,
                     extra={
                         "ext": file_ext,
-                        "project_accession": project_accession,
                     },
                 )
-                exception_occurred = True
-                continue
-
-    return not exception_occurred
+            except Exception:
+                # Raise any other exception because import_file should capture exceptions and any other exception is unexpected
+                raise
 
 
 def import_file(
@@ -145,17 +112,39 @@ def import_file(
     file_ext: str,
     project_accession: str,
     raw_files: list[FileMetadata],
-) -> ImportStats:
+) -> None:
     """
     Generic file import function.
 
     Automatically selects the appropriate parser based on file extension.
+    Correctly sets the context file_id for logging
     """
+
     parser = get_parser_for_extension(file_ext)
     if not parser:
+        # This is an important error which should be surfaced and the list of allowed files for parsing should be changed or the parser changed.
+        # This will cause the project to fail but because its important we are surfacing the error here!
         raise FileParserError(f"No parser registered for file extension '{file_ext}'")
 
-    return parser.import_file(engine, path, project_accession, raw_files)
+    file_id = parser.get_file_id(path)
+    file_id_context_token = context_file_id.set(file_id)
+
+    try:
+        file_stats = parser.import_file(engine, path, project_accession, raw_files)
+        if file_stats.psm_count:
+            log_info(logger, file_stats, file_ext)
+    except FileParserError as e:
+        logger.error(
+            f"Failed to import '{file_ext}' files: {e}",
+            exc_info=True,
+            stack_info=True,
+            extra={
+                "ext": file_ext,
+            },
+        )
+
+    finally:
+        context_file_id.reset(file_id_context_token)
 
 
 def extract_relevant_paths(paths: list[Path], file_ext: str) -> list[Path]:
