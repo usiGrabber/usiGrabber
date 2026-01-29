@@ -6,6 +6,7 @@ from pathlib import Path
 
 from sqlalchemy.engine import Engine
 
+from usigrabber.backends.base import FileMetadata
 from usigrabber.file_parser.models import (  # Import models
     ImportStats,
     ParsedMzidData,
@@ -68,6 +69,7 @@ class BaseFileParser(ABC):
         engine: Engine,
         path: Path | tuple[Path, Path, Path],
         project_accession: str,
+        raw_files: list[FileMetadata],
     ) -> ImportStats:
         path_name = path[0].name if isinstance(path, tuple) else path.name
         stats = ImportStats(file_name=path_name, project_accession=project_accession)

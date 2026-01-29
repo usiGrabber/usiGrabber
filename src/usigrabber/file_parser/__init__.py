@@ -76,7 +76,9 @@ async def import_files(
             txt_triplets = get_txt_triples(relevant_paths)
             for triplet in txt_triplets:
                 try:
-                    file_stats = import_file(engine, triplet, file_ext, project_accession)
+                    file_stats = import_file(
+                        engine, triplet, file_ext, project_accession, raw_files
+                    )
                     if file_stats.psm_count:
                         log_info(logger, file_stats, file_ext)
                 except FileParserError as e:
@@ -106,7 +108,7 @@ async def import_files(
                 path = await coro
                 relevant_paths = extract_relevant_paths([path], file_ext)
                 for path in relevant_paths:
-                    file_stats = import_file(engine, path, file_ext, project_accession)
+                    file_stats = import_file(engine, path, file_ext, project_accession, raw_files)
                     if file_stats.psm_count:
                         log_info(logger, file_stats, Path(path).name)
             except FileParserError as e:
@@ -137,7 +139,13 @@ async def import_files(
     return not exception_occurred
 
 
-def import_file(engine, path, file_ext, project_accession) -> ImportStats:
+def import_file(
+    engine: Engine,
+    path: Path | tuple[Path, Path, Path],
+    file_ext: str,
+    project_accession: str,
+    raw_files: list[FileMetadata],
+) -> ImportStats:
     """
     Generic file import function.
 
@@ -147,7 +155,7 @@ def import_file(engine, path, file_ext, project_accession) -> ImportStats:
     if not parser:
         raise FileParserError(f"No parser registered for file extension '{file_ext}'")
 
-    return parser.import_file(engine, path, project_accession)
+    return parser.import_file(engine, path, project_accession, raw_files)
 
 
 def extract_relevant_paths(paths: list[Path], file_ext: str) -> list[Path]:
