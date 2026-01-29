@@ -64,6 +64,38 @@ class BaseFileParser(ABC):
         """
         pass
 
+    def validate_ms_run_names(
+        self,
+        parsed_data: ParsedTxtZipData | ParsedMzidData | ParsedMztabData,
+        raw_files: list[FileMetadata],
+    ) -> bool:
+        """
+        Validate that all ms_run names in the parsed data correspond to actual raw files.
+        Checks if a raw file with extension .raw (not case sensitive) and the ms_run name exists.
+        """
+        if not parsed_data.psms:
+            return True
+
+        # Create a set of raw file names (without extension) in lowercase
+        raw_file_names_lower = {
+            Path(rf["filepath"]).stem.lower() for rf in raw_files if rf.get("filepath")
+        }
+
+        if not raw_file_names_lower:
+            logger.warning("No raw files available for ms_run validation")
+            return False
+
+        # Check all PSMs for ms_run validation
+        for psm in parsed_data.psms:
+            ms_run = psm.get("ms_run")
+            if ms_run and ms_run.lower() not in raw_file_names_lower:
+                logger.warning(
+                    f"PSM has ms_run '{ms_run}' that doesn't match any available raw files"
+                )
+                return False
+
+        return True
+
     def import_file(
         self,
         engine: Engine,
@@ -76,6 +108,12 @@ class BaseFileParser(ABC):
         try:
             parsed_data = self.parse_file(path, project_accession)
             stats.mark_parsing_complete()
+
+            ms_run_valid = self.validate_ms_run_names(parsed_data, raw_files)
+            if not ms_run_valid:
+                stats.mark_failed("MS run name validation failed.")
+                return stats
+
             self.persist(engine, parsed_data, stats)
             stats.mark_complete()
             return stats
