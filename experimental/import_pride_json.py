@@ -77,6 +77,8 @@ async def import_project(session: Session, project_data: dict):
         totalFileDownloads=project_data.get("totalFileDownloads", 0),
         sampleAttributes=project_data.get("sampleAttributes"),
         additionalAttributes=project_data.get("additionalAttributes"),
+        worker_pid=0,
+        job_id="experimental",
     )
     session.add(project)
 
