@@ -28,7 +28,13 @@ def test_import_mzid(engine: Engine, full_mzid_path: Path) -> None:
     """
     mock_project_accession = "PXD000010"
 
-    import_file(engine, full_mzid_path, ".mzid", mock_project_accession)
+    import_file(
+        engine,
+        full_mzid_path,
+        ".mzid",
+        mock_project_accession,
+        [{"filepath": "OTE0019_York_060813_JH16.raw", "file_size": 1, "category": "raw"}],
+    )
 
     with Session(engine) as session:
         mzid_files: Sequence[MzidFile] = session.exec(select(MzidFile)).all()

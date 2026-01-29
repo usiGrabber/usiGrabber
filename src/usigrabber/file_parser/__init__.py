@@ -11,9 +11,11 @@ import traceback as tb
 from dataclasses import dataclass
 from pathlib import Path
 
+from aioftp import StatusCodeError
 from sqlalchemy import Engine
 from sqlmodel import Session
 
+from usigrabber.backends.base import FileMetadata
 from usigrabber.db.schema import DownloadedFile
 from usigrabber.file_parser.base import BaseFileParser, get_parser_for_extension, register_parser
 from usigrabber.file_parser.errors import FileParserError
@@ -65,7 +67,12 @@ class DownloadResult:
 
 
 async def import_files(
-    engine: Engine, ftp_paths: list[str], file_ext: str, project_accession: str, tmp_dir: Path
+    engine: Engine,
+    ftp_paths: list[str],
+    file_ext: str,
+    project_accession: str,
+    tmp_dir: Path,
+    raw_files: list[FileMetadata],
 ) -> None:
     """Download, extract, and import proteomics files."""
     sem = asyncio.Semaphore(PARALLEL_DOWNLOADS)
@@ -94,10 +101,10 @@ async def import_files(
     if file_ext == ".txt":
         triplets = get_txt_triples(successful_paths)
         for triplet in triplets:
-            import_file(engine, triplet, file_ext, project_accession)
+            import_file(engine, triplet, file_ext, project_accession, raw_files)
     else:
         for path in successful_paths:
-            import_file(engine, path, file_ext, project_accession)
+            import_file(engine, path, file_ext, project_accession, raw_files)
 
 
 async def _download_and_extract(
@@ -174,7 +181,11 @@ async def _download_and_extract(
 
 
 def import_file(
-    engine: Engine, path: Path | tuple[Path, Path, Path], file_ext: str, project_accession: str
+    engine: Engine,
+    path: Path | tuple[Path, Path, Path],
+    file_ext: str,
+    project_accession: str,
+    raw_files: list[FileMetadata],
 ) -> None:
     """Import a file using the appropriate parser. Errors are tracked in ImportedFile."""
     parser = get_parser_for_extension(file_ext)
@@ -185,7 +196,7 @@ def import_file(
     token = context_file_id.set(file_id)
 
     try:
-        stats = parser.import_file(engine, path, project_accession)
+        stats = parser.import_file(engine, path, project_accession, raw_files)
         if stats.psm_count:
             log_info(logger, stats, file_ext)
     except Exception as e:

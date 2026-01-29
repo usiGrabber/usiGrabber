@@ -20,7 +20,10 @@ from usigrabber.db.schema import (
 from usigrabber.file_parser.base import BaseFileParser, register_parser
 from usigrabber.file_parser.errors import MzidImportError, MzidParseError
 from usigrabber.file_parser.helpers import get_db_insert_function
-from usigrabber.file_parser.models import ImportStats, ParsedMzidData
+from usigrabber.file_parser.models import (
+    ImportStats,
+    ParsedMzidData,
+)
 from usigrabber.file_parser.mzid.parsing_functions import (
     parse_db_sequences,
     parse_mzid_metadata,

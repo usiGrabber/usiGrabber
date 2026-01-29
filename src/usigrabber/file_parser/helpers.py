@@ -455,7 +455,7 @@ def simple_mod_name(mod_name: str) -> str:
     return mod_name.lstrip(digits).lstrip(" ").split(" ")[0]
 
 
-def get_txt_triples(files: list[Path]):
+def get_txt_triples(files: list[Path]) -> list[tuple[Path, Path, Path]]:
     """
     Given a list of file paths, group them into triplets of
     (evidence.txt, summary.txt, peptides.txt) based on their parent directory.
