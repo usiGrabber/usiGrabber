@@ -675,7 +675,7 @@ try:
     import _uuid
 
     _generate_time_safe = getattr(_uuid, "generate_time_safe", None)
-    _has_stable_extractable_node = _uuid.has_stable_extractable_node
+    _has_stable_extractable_node = getattr(_uuid, "has_stable_extractable_node", False)
     _UuidCreate = getattr(_uuid, "UuidCreate", None)
 except ImportError:
     _uuid = None

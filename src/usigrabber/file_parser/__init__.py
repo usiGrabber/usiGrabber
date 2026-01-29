@@ -9,7 +9,9 @@ import logging
 from pathlib import Path
 
 from aioftp import StatusCodeError
+from sqlalchemy import Engine
 
+from usigrabber.backends.base import FileMetadata
 from usigrabber.file_parser.base import BaseFileParser, get_parser_for_extension, register_parser
 from usigrabber.file_parser.errors import FileParserError
 from usigrabber.file_parser.helpers import get_txt_triples, log_info
@@ -34,7 +36,14 @@ __all__ = [
 ]
 
 
-async def import_files(engine, ftp_paths: list[str], file_ext, project_accession, tmp_dir) -> None:
+async def import_files(
+    engine: Engine,
+    ftp_paths: list[str],
+    file_ext: str,
+    project_accession: str,
+    tmp_dir: Path,
+    raw_files: list[FileMetadata],
+) -> None:
     """
     Generic file import function for multiple files.
 
@@ -66,7 +75,7 @@ async def import_files(engine, ftp_paths: list[str], file_ext, project_accession
             relevant_paths = extract_relevant_paths(paths, file_ext)
             txt_triplets = get_txt_triples(relevant_paths)
             for triplet in txt_triplets:
-                import_file(engine, triplet, file_ext, project_accession)
+                import_file(engine, triplet, file_ext, project_accession, raw_files)
     # files to handle individually
     else:
         path_coros = [
@@ -82,14 +91,14 @@ async def import_files(engine, ftp_paths: list[str], file_ext, project_accession
                 path = await coro
                 relevant_paths = extract_relevant_paths([path], file_ext)
                 for path in relevant_paths:
-                    import_file(engine, path, file_ext, project_accession)
+                    import_file(engine, path, file_ext, project_accession, raw_files)
             except StatusCodeError as e:
                 logger.error(
                     f"Failed to download file from FTP: {e}",
                     exc_info=True,
                     stack_info=True,
                     extra={
-                        "ext": str(file_ext),
+                        "ext": file_ext,
                     },
                 )
             except Exception:
@@ -97,7 +106,13 @@ async def import_files(engine, ftp_paths: list[str], file_ext, project_accession
                 raise
 
 
-def import_file(engine, path: Path | tuple[Path, Path, Path], file_ext, project_accession) -> None:
+def import_file(
+    engine: Engine,
+    path: Path | tuple[Path, Path, Path],
+    file_ext: str,
+    project_accession: str,
+    raw_files: list[FileMetadata],
+) -> None:
     """
     Generic file import function.
 
@@ -115,7 +130,7 @@ def import_file(engine, path: Path | tuple[Path, Path, Path], file_ext, project_
     file_id_context_token = context_file_id.set(file_id)
 
     try:
-        file_stats = parser.import_file(engine, path, project_accession)
+        file_stats = parser.import_file(engine, path, project_accession, raw_files)
         if file_stats.psm_count:
             log_info(logger, file_stats, file_ext)
     except FileParserError as e:
@@ -124,7 +139,7 @@ def import_file(engine, path: Path | tuple[Path, Path, Path], file_ext, project_
             exc_info=True,
             stack_info=True,
             extra={
-                "ext": str(file_ext),
+                "ext": file_ext,
             },
         )
 

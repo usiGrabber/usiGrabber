@@ -213,6 +213,7 @@ async def build_project(
                     file_ext,
                     project["accession"],
                     tmp_dir,
+                    files["raw"],
                 )
     except Exception:
         raise
