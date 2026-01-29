@@ -15,6 +15,7 @@ class Files(TypedDict):
     search: list[FileMetadata]
     result: list[FileMetadata]
     other: list[FileMetadata]
+    raw_files: list[FileMetadata]
 
 
 class BaseBackend(ABC):

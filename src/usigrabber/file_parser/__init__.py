@@ -5,10 +5,13 @@ Provides a unified interface for importing proteomics files.
 """
 
 import asyncio
+from logging import Logger
 from pathlib import Path
 
 from aioftp import StatusCodeError
+from sqlalchemy import Engine
 
+from usigrabber.backends.base import FileMetadata
 from usigrabber.file_parser.base import BaseFileParser, get_parser_for_extension, register_parser
 from usigrabber.file_parser.errors import FileParserError
 from usigrabber.file_parser.helpers import get_txt_triples, log_info
@@ -31,7 +34,13 @@ __all__ = [
 
 
 async def import_files(
-    engine, ftp_paths: list[str], file_ext, project_accession, tmp_dir, logger
+    engine: Engine,
+    ftp_paths: list[str],
+    file_ext: str,
+    project_accession: str,
+    tmp_dir: Path,
+    logger: Logger,
+    raw_files: list[FileMetadata],
 ) -> bool:
     """
     Generic file import function for multiple files.
@@ -76,7 +85,7 @@ async def import_files(
                         exc_info=True,
                         stack_info=True,
                         extra={
-                            "ext": str(file_ext),
+                            "ext": file_ext,
                             "project_accession": project_accession,
                         },
                     )
@@ -106,7 +115,7 @@ async def import_files(
                     exc_info=True,
                     stack_info=True,
                     extra={
-                        "ext": str(file_ext),
+                        "ext": file_ext,
                         "project_accession": project_accession,
                     },
                 )
@@ -118,7 +127,7 @@ async def import_files(
                     exc_info=True,
                     stack_info=True,
                     extra={
-                        "ext": str(file_ext),
+                        "ext": file_ext,
                         "project_accession": project_accession,
                     },
                 )

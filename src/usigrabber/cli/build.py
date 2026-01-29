@@ -208,6 +208,7 @@ async def build_project(
                 project["accession"],
                 tmp_dir,
                 logger,
+                files["raw_files"],
             )
 
 
