@@ -23,6 +23,12 @@ class UnsupportedDatabaseError(Exception):
     pass
 
 
+class MsRunNameValidationError(FileParserError):
+    """MS run name validation failed."""
+
+    pass
+
+
 # mzID-specific errors
 class MzidParseError(FileParserError):
     """Failed to parse mzIdentML file."""

@@ -12,6 +12,7 @@ from sqlalchemy.orm.session import Session
 
 from usigrabber.backends.base import FileMetadata
 from usigrabber.db.schema import ImportedFile
+from usigrabber.file_parser.errors import MsRunNameValidationError
 from usigrabber.file_parser.models import (  # Import models
     ImportStats,
     ParsedMzidData,
@@ -150,8 +151,7 @@ class BaseFileParser(ABC):
 
             ms_run_valid = self.validate_ms_run_names(parsed_data, raw_files)
             if not ms_run_valid:
-                stats.mark_failed("MS run name validation failed.")
-                return stats
+                raise MsRunNameValidationError("MS run name validation failed.")
 
             self.persist(engine, parsed_data, stats)
             stats.mark_complete()
