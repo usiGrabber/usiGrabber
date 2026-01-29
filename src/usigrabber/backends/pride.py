@@ -195,7 +195,7 @@ class PrideBackend(BaseBackend):
                         raw_files.append(file)
 
                 return Files(
-                    search=search_files, result=result_files, other=other_files, raw_files=raw_files
+                    search=search_files, result=result_files, other=other_files, raw=raw_files
                 )
             else:
                 logger.error(
@@ -204,7 +204,7 @@ class PrideBackend(BaseBackend):
                     response.status,
                     response.reason,
                 )
-                return Files(search=[], result=[], other=[], raw_files=[])
+                return Files(search=[], result=[], other=[], raw=[])
 
     @classmethod
     async def _parse_and_add_cv_params(
