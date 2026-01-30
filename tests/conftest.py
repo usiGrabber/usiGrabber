@@ -45,3 +45,20 @@ def seeded_session(engine: Engine) -> Generator[Session, Any, None]:
     logger.warning("Using seeded in-memory sqlite database for testing.")
     with Session(engine) as session:
         yield session
+
+
+@pytest.fixture
+def mzid_fixtures_dir() -> Path:
+    """Return path to the mzID fixtures directory."""
+    return Path("tests/file_parser/mzid/fixtures")
+
+
+@pytest.fixture
+def full_mzid_path(mzid_fixtures_dir: Path) -> Path:
+    """Return path to a full example mzID file."""
+    return mzid_fixtures_dir / "full_small.mzid"
+
+
+@pytest.fixture
+def mzid_file_path_2(mzid_fixtures_dir: Path) -> Path:
+    return mzid_fixtures_dir / "threshold_empty_value.mzid"

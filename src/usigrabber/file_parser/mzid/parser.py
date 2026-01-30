@@ -20,7 +20,10 @@ from usigrabber.db.schema import (
 from usigrabber.file_parser.base import BaseFileParser, register_parser
 from usigrabber.file_parser.errors import MzidImportError, MzidParseError
 from usigrabber.file_parser.helpers import get_db_insert_function
-from usigrabber.file_parser.models import ImportStats, ParsedMzidData
+from usigrabber.file_parser.models import (
+    ImportStats,
+    ParsedMzidData,
+)
 from usigrabber.file_parser.mzid.parsing_functions import (
     parse_db_sequences,
     parse_mzid_metadata,
@@ -39,12 +42,21 @@ class MzidFileParser(BaseFileParser):
     def file_extensions(self) -> set[str]:
         return {".mzid"}
 
+    def get_file_id(self, path: Path | tuple[Path, Path, Path]) -> str:
+        path = path if isinstance(path, Path) else path[0]
+        return str(path)
+
     @property
     def format_name(self) -> str:
         return "mzIdentML"
 
     def parse_file(self, path, project_accession: str) -> ParsedMzidData:
         """Parse the mzID file into ParsedMzidData."""
+        if isinstance(path, tuple):
+            logger.warning(
+                "mzID file parser called with tuple of paths: %s. We are only using the first path!",
+                path,
+            )
         path = path if isinstance(path, Path) else path[0]
         logger.debug(f"Parsing mzID file: '{path.name}'")
 
@@ -125,9 +137,7 @@ class MzidFileParser(BaseFileParser):
                     conn.execute(stmt, sorted_peptides)
                     db_time = time.time() - db_start
                     stats.peptide_count = len(sorted_peptides)
-                    logger.info(
-                        f"[{stats.file_name}] ModifiedPeptide: {db_time - db_start:.3f}s total"
-                    )
+                    logger.info(f"[{stats.file_name}] ModifiedPeptide: {db_time:.3f}s total")
 
                 if parsed.modifications:
                     # Sort by primary key to minimize deadlocks
@@ -139,9 +149,7 @@ class MzidFileParser(BaseFileParser):
                     conn.execute(stmt, sorted_modifications)
                     db_time = time.time() - db_start
                     stats.modification_count = len(sorted_modifications)
-                    logger.info(
-                        f"[{stats.file_name}] Modification: {db_time - db_start:.3f}s total"
-                    )
+                    logger.info(f"[{stats.file_name}] Modification: {db_time:.3f}s total")
 
                 if parsed.modified_peptide_modification_junctions:
                     # Sort by composite primary key to minimize deadlocks
@@ -156,7 +164,7 @@ class MzidFileParser(BaseFileParser):
                     conn.execute(stmt, sorted_junctions)
                     db_time = time.time() - db_start
                     logger.info(
-                        f"[{stats.file_name}] ModifiedPeptideModificationJunction: {db_time - db_start:.3f}s total"
+                        f"[{stats.file_name}] ModifiedPeptideModificationJunction: {db_time:.3f}s total"
                     )
 
                 if parsed.peptide_evidence:
@@ -166,9 +174,7 @@ class MzidFileParser(BaseFileParser):
                     conn.execute(insert(PeptideEvidence), sorted_evidence)
                     db_time = time.time() - db_start
                     stats.peptide_evidence_count = len(sorted_evidence)
-                    logger.info(
-                        f"[{stats.file_name}] PeptideEvidence: {db_time - db_start:.3f}s total"
-                    )
+                    logger.info(f"[{stats.file_name}] PeptideEvidence: {db_time:.3f}s total")
 
                 if parsed.psms:
                     # Sort by primary key to minimize deadlocks
@@ -177,9 +183,7 @@ class MzidFileParser(BaseFileParser):
                     conn.execute(insert(PeptideSpectrumMatch), sorted_psms)
                     db_time = time.time() - db_start
                     stats.psm_count = len(sorted_psms)
-                    logger.info(
-                        f"[{stats.file_name}] PeptideSpectrumMatch: {db_time - db_start:.3f}s total"
-                    )
+                    logger.info(f"[{stats.file_name}] PeptideSpectrumMatch: {db_time:.3f}s total")
 
                 if parsed.psm_peptide_evidence_junctions:
                     # Sort by primary key to minimize deadlocks
@@ -189,16 +193,18 @@ class MzidFileParser(BaseFileParser):
                     db_start = time.time()
                     conn.execute(insert(PSMPeptideEvidence), sorted_pe_junctions)
                     db_time = time.time() - db_start
-                    logger.info(
-                        f"[{stats.file_name}] PSMPeptideEvidence: {db_time - db_start:.3f}s total"
-                    )
+                    logger.info(f"[{stats.file_name}] PSMPeptideEvidence: {db_time:.3f}s total")
 
                 if parsed.search_modifications:
+                    sorted_search_mods = sorted(parsed.search_modifications, key=lambda x: x["id"])
                     stmt = insert_func(SearchModification).on_conflict_do_nothing()
+                    db_start = time.time()
                     conn.execute(
                         stmt,
-                        parsed.search_modifications,
+                        sorted_search_mods,
                     )
+                    db_time = time.time() - db_start
+                    logger.info(f"[{stats.file_name}] SearchModification: {db_time:.3f}s total")
             logger.debug(f"Successfully imported mzID data for file '{stats.file_name}'")
         except Exception as e:
             error_msg = f"Database import failed for file '{stats.file_name}': {e}"

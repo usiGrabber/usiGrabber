@@ -1,14 +1,15 @@
 import logging
 import os
-import uuid
 from datetime import datetime
 from pathlib import Path
 from typing import Any
+from uuid import UUID
 
 from lxml import etree as ET  # pyright: ignore
 from pyteomics import mzid
 
 from usigrabber.db.schema import IndexType, MzidFile
+from usigrabber.file_parser.errors import MzidParseError
 from usigrabber.file_parser.helpers import (
     create_search_mod_log_str,
     extract_index_type_and_number,
@@ -33,6 +34,7 @@ from usigrabber.file_parser.uuid_helpers import (
 )
 from usigrabber.utils import lookup_unimod_id_by_name
 from usigrabber.utils.file import parse_basename
+from usigrabber.utils.uuid import uuid7
 
 logger = logging.getLogger(__name__)
 
@@ -51,16 +53,22 @@ def parse_spectra_data(mzid_path: Path) -> dict[str, tuple[str, IndexType | None
     spectra_data_map: dict[str, tuple[str, IndexType | None]] = {}
 
     xml_snippet = extract_xml_subtree(mzid_path, tag="Inputs")
+    if not xml_snippet:
+        raise MzidParseError(
+            f"Inputs section not found in mzIdentML file '{mzid_path.name}'"
+            "which is not compliant with mzIdentML specs."
+        )
     root = ET.fromstring(xml_snippet)
 
-    for child in root:
-        if child.tag != "SpectraData":
-            continue
+    # namespace changes between mzIdentML versions, some files don't have a namespace
+    ns = root.tag.split("}")[0] + "}" if root.tag.startswith("{") else ""
 
-        spectra_id = child.get("id")
+    for spectra_data in root.findall(f"{ns}SpectraData"):
+        spectra_id = spectra_data.get("id")
         if not spectra_id:
             continue
-        ms_run_name = child.get("name") or child.get("location")
+
+        ms_run_name = spectra_data.get("name") or spectra_data.get("location")
         if not ms_run_name:
             logger.warning(
                 "SpectraData element with id '%s' has no 'name' or 'location' attribute. File: %s",
@@ -68,30 +76,40 @@ def parse_spectra_data(mzid_path: Path) -> dict[str, tuple[str, IndexType | None
                 mzid_path.name,
             )
             continue
+
         basename = parse_basename(ms_run_name)
         ms_run_name, ext = os.path.splitext(basename)
+        prev_ext = ""
 
         # keep stripping extensions until none left
         while ext != "":
+            prev_ext = ext
             ms_run_name, ext = os.path.splitext(ms_run_name)
+        ms_run_name += prev_ext  # add back last extension
 
-        # Extract SpectrumIDFormat accession from nested cvParam
-        spectrum_id_format: str | None = None
-        spectrum_id_format_cv = child.find(".//SpectrumIDFormat/cvParam")
-        if spectrum_id_format_cv is not None:
-            spectrum_id_format = spectrum_id_format_cv.get("accession")
+        cv_param = spectra_data.find(f"{ns}SpectrumIDFormat/{ns}cvParam")
+        if cv_param is None:
+            spectra_data.find(f".//{ns}spectrumIDFormat/{ns}cvParam")
 
-        if spectrum_id_format is None:
-            logger.warning(
-                "SpectraData element with id '%s' has no SpectrumIDFormat cvParam. File: %s",
-                spectra_id,
-                mzid_path.name,
+        if cv_param is None:
+            raise MzidParseError(
+                f"SpectrumIDFormat cvParam not found in file '{mzid_path.name}' which is not compliant with mzIdentML specs."
             )
-            continue
+
+        spectrum_id_format: str | None = cv_param.get("accession")
+        if spectrum_id_format is None:
+            raise MzidParseError(
+                f"SpectrumIDFormat cvParam has no accession attribute in file '{mzid_path.name}' which is not compliant with mzIdentML specs."
+            )
 
         spectra_data_map[spectra_id] = (
             ms_run_name,
             get_spectrum_id_format(cv_param=spectrum_id_format),
+        )
+
+    if len(spectra_data_map) == 0:
+        raise MzidParseError(
+            "No valid SpectraData elements found in mzIdentML file which is not compliant with mzIdentML specs."
         )
 
     return spectra_data_map
@@ -239,7 +257,7 @@ def parse_db_sequences(reader: mzid.MzIdentML) -> dict[str, str]:
 def parse_peptides_and_modifications(
     reader: mzid.MzIdentML,
 ) -> tuple[
-    dict[str, uuid.UUID],
+    dict[str, UUID],
     list[ModifiedPeptideDict],
     list[ModificationDict],
     list[ModifiedPeptideModificationJunctionDict],
@@ -260,13 +278,13 @@ def parse_peptides_and_modifications(
         - List of ModifiedPeptideModificationJunction records
     """
 
-    peptide_id_map: dict[str, uuid.UUID] = {}
+    peptide_id_map: dict[str, UUID] = {}
     # Use dict for deduplication - same modified peptide UUID = same record
-    peptides_dict: dict[uuid.UUID, ModifiedPeptideDict] = {}
+    peptides_dict: dict[UUID, ModifiedPeptideDict] = {}
 
     # Track modifications as we parse peptides
-    modifications_dict: dict[uuid.UUID, ModificationDict] = {}
-    junction_set: set[tuple[uuid.UUID, uuid.UUID]] = set()  # (modified_peptide_id, mod_id)
+    modifications_dict: dict[UUID, ModificationDict] = {}
+    junction_set: set[tuple[UUID, UUID]] = set()  # (modified_peptide_id, mod_id)
 
     for peptide_elem in reader.iterfind("Peptide"):
         mzid_peptide_id: str = peptide_elem.get("id", "")
@@ -360,7 +378,7 @@ def parse_modification_list(modifications: list[dict[str, Any]]) -> list[Modific
 def parse_peptide_evidence(
     reader: mzid.MzIdentML,
     db_sequence_map: dict[str, str],
-) -> tuple[dict[str, uuid.UUID], list[PeptideEvidenceDict]]:
+) -> tuple[dict[str, UUID], list[PeptideEvidenceDict]]:
     """
     Parse PeptideEvidence elements.
 
@@ -374,7 +392,7 @@ def parse_peptide_evidence(
                     - List of PeptideEvidence records created
     """
 
-    pe_id_map: dict[str, uuid.UUID] = {}
+    pe_id_map: dict[str, UUID] = {}
 
     peptide_evidence_batch: list[PeptideEvidenceDict] = []
 
@@ -389,7 +407,7 @@ def parse_peptide_evidence(
         protein_accession: str | None = db_sequence_map.get(db_sequence_ref)
 
         # Create peptide evidence record
-        pe_id = uuid.uuid4()
+        pe_id = uuid7()
         pe_dict: PeptideEvidenceDict = {
             "id": pe_id,
             "protein_accession": protein_accession,
@@ -409,9 +427,9 @@ def parse_peptide_evidence(
 def parse_psms(
     reader: mzid.MzIdentML,
     project_accession: str,
-    mzid_file_id: uuid.UUID,
-    peptide_id_map: dict[str, uuid.UUID],
-    pe_id_map: dict[str, uuid.UUID],
+    mzid_file_id: UUID,
+    peptide_id_map: dict[str, UUID],
+    pe_id_map: dict[str, UUID],
     spectra_data_map: dict[str, tuple[str, IndexType | None]],
 ) -> tuple[
     list[PeptideSpectrumMatchDict], list[PSMPeptideEvidenceDict], list[SearchModificationDict]
@@ -466,6 +484,7 @@ def parse_psms(
 
             # Extract USI-related fields from the SpectrumIdentificationResult
             ms_run: str | None = None
+            ms_run_ext: str | None = None
             index_type, index_number = extract_index_type_and_number(sir)
 
             # Get list of spectrum identification items (PSMs)
@@ -478,7 +497,7 @@ def parse_psms(
             for sii in sii_list:
                 # Look up modified peptide ID using mzID peptide reference
                 peptide_ref: str = sii.get("peptide_ref", "")
-                modified_peptide_id: uuid.UUID | None = peptide_id_map.get(peptide_ref)
+                modified_peptide_id: UUID | None = peptide_id_map.get(peptide_ref)
 
                 if not modified_peptide_id:
                     logger.warning(f"Peptide_ref '{peptide_ref}' not found in map")
@@ -490,12 +509,13 @@ def parse_psms(
                 spectraData_ref = sir.get("spectraData_ref", "")
                 spectra_data = spectra_data_map.get(spectraData_ref)
                 if spectra_data:
-                    ms_run = spectra_data[0]
+                    ms_run, ms_run_ext = os.path.splitext(spectra_data[0])
+                    ms_run_ext = ms_run_ext.lstrip(".") if ms_run_ext else None
                     if spectra_data[1]:
                         index_type = spectra_data[1]
 
                 # Create PSM record
-                psm_id = uuid.uuid4()
+                psm_id = uuid7()
                 psm: PeptideSpectrumMatchDict = {
                     "id": psm_id,
                     "project_accession": project_accession,
@@ -511,6 +531,7 @@ def parse_psms(
                     "index_type": index_type,
                     "index_number": index_number,
                     "ms_run": ms_run,
+                    "ms_run_ext": ms_run_ext,
                 }
                 psm_batch.append(psm)
 
@@ -519,7 +540,7 @@ def parse_psms(
                 ):
                     # create search modification record
                     search_mod: SearchModificationDict = {
-                        "id": uuid.uuid4(),
+                        "id": uuid7(),
                         "psm_id": psm["id"],
                         "unimod_id": unimod_id,
                     }
@@ -531,11 +552,11 @@ def parse_psms(
                     pe_refs = [pe_refs]
                 for pe_ref in pe_refs:
                     pe_ref_id: str = pe_ref.get("peptideEvidence_ref", "")
-                    db_pe_id: uuid.UUID | None = pe_id_map.get(pe_ref_id)
+                    db_pe_id: UUID | None = pe_id_map.get(pe_ref_id)
 
                     if db_pe_id:
                         junction_dict: PSMPeptideEvidenceDict = {
-                            "id": uuid.uuid4(),
+                            "id": uuid7(),
                             "psm_id": psm_id,
                             "peptide_evidence_id": db_pe_id,
                         }

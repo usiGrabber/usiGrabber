@@ -15,6 +15,7 @@ class Files(TypedDict):
     search: list[FileMetadata]
     result: list[FileMetadata]
     other: list[FileMetadata]
+    raw: list[FileMetadata]
 
 
 class BaseBackend(ABC):
@@ -60,7 +61,7 @@ class BaseBackend(ABC):
 
     @classmethod
     @abstractmethod
-    def get_files_for_project(cls, project_accession: str) -> Files:
+    async def get_files_for_project(cls, project_accession: str) -> Files:
         """
         Retrieve file information for a specific project.
 

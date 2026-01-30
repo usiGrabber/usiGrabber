@@ -2,6 +2,12 @@
 Unit tests for individual mzID parsing functions.
 """
 
+import os
+from collections.abc import Generator
+from pathlib import Path
+
+import pytest
+
 from usigrabber.db.schema import IndexType
 from usigrabber.file_parser.mzid.parsing_functions import (
     parse_db_sequences,
@@ -12,6 +18,7 @@ from usigrabber.file_parser.mzid.parsing_functions import (
     parse_spectra_data,
     parse_threshold_info,
 )
+from usigrabber.utils.file import temporary_path
 
 # ============================================================================
 # Tests for parse_software_info()
@@ -221,5 +228,69 @@ def test_parse_spectra_data(full_mzid_path) -> None:
     assert len(spectra_data) == 1
 
     ms_run_name, spectrum_id_format = spectra_data["SD_1"]
+    ms_run_name, ms_run_ext = os.path.splitext(ms_run_name)
     assert ms_run_name == "OTE0019_York_060813_JH16"
+    assert ms_run_ext == ".mgf"
     assert spectrum_id_format == IndexType.index
+
+
+@pytest.fixture(
+    params=[
+        "",  # some mzid files have no namespace
+        "http://psidev.info/psi/pi/mzIdentML/1.1",  # test with different namespaces
+        "http://psidev.info/psi/pi/mzIdentML/1.3",
+    ]
+)
+def spectra_data_xml_generator(request) -> Generator[Path, None, None]:
+    ns = request.param
+
+    with temporary_path() as tmp_folder:
+        temp_path = tmp_folder / "temp_mzid.xml"
+        with open(temp_path, "w", encoding="utf-8") as f:
+            f.write(f"""
+                <Inputs{' xmlns="' + ns + '"' if ns else ""}>
+                    <SourceFile location="file:/E:/pp-2020-005%20Peaks%20Project/" id="PROJECT_1">
+                    <FileFormat>
+                        <cvParam accession="MS:1001107" cvRef="PSI-MS" name="data stored in database"/>
+                    </FileFormat>
+                    </SourceFile>
+                    <SearchDatabase numDatabaseSequences="20274" location="file:/D:/Databases/uniprot_sprot%20(2).fasta" id="SEARCHDATABASE_1" name="UniProt_All">
+                    <FileFormat>
+                        <cvParam accession="MS:1001348" cvRef="PSI-MS" name="FASTA format"/>
+                    </FileFormat>
+                    <DatabaseName>
+                        <userParam name="UniProt_All"/>
+                    </DatabaseName>
+                    </SearchDatabase>
+                    <SpectraData location="file:/E:/vWA-related/pp-2020-005%20Peaks%20Project_PEAKS_56_HEK293_3/pp_2020_005_5_HEK293_3.mgf" id="SPECTRADATA_29">
+                        <FileFormat>
+                            <cvParam accession="MS:1001062" cvRef="PSI-MS" name="Mascot MGF file"/>
+                        </FileFormat>
+                        <SpectrumIDFormat>
+                            <cvParam accession="MS:1000774" cvRef="PSI-MS" name="multiple peak list nativeID format"/>
+                        </SpectrumIDFormat>
+                    </SpectraData>
+                    <SpectraData location="file:/E:/vWA-related/pp-2020-005%20Peaks%20Project_PEAKS_56_HEK293_3/pp_2020_005_5_HEK293_3.mgf" id="SPECTRADATA_30">
+                        <FileFormat>
+                            <cvParam accession="MS:1001062" cvRef="PSI-MS" name="Mascot MGF file"/>
+                        </FileFormat>
+                        <SpectrumIDFormat>
+                            <cvParam accession="MS:1000774" cvRef="PSI-MS" name="multiple peak list nativeID format"/>
+                        </SpectrumIDFormat>
+                    </SpectraData>
+                </Inputs>
+                """)
+
+        yield temp_path
+
+
+def test_parse_spectra_data_custom_ns(spectra_data_xml_generator: Path) -> None:
+    spectra_data = parse_spectra_data(spectra_data_xml_generator)
+
+    assert len(spectra_data) == 2
+
+    for ms_run_name, spectrum_id_format in spectra_data.values():
+        ms_run_name, ms_run_ext = os.path.splitext(ms_run_name)
+        assert ms_run_name == "pp_2020_005_5_HEK293_3"
+        assert ms_run_ext == ".mgf"
+        assert spectrum_id_format == IndexType.index

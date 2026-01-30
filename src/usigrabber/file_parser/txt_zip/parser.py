@@ -37,6 +37,10 @@ class TxtZipFileParser(BaseFileParser):
     def file_extensions(self) -> set[str]:
         return {".txt", ""}
 
+    def get_file_id(self, path: Path | tuple[Path, Path, Path]) -> str:
+        assert isinstance(path, tuple)
+        return "|".join(map(str, path))
+
     @property
     def format_name(self) -> str:
         return "txt"
@@ -84,9 +88,7 @@ class TxtZipFileParser(BaseFileParser):
                     conn.execute(stmt, sorted_peptides)
                     db_time = time.time() - db_start
                     stats.peptide_count = len(sorted_peptides)
-                    logger.info(
-                        f"[{stats.file_name}] ModifiedPeptide: {db_time - db_start:.3f}s total"
-                    )
+                    logger.info(f"[{stats.file_name}] ModifiedPeptide: {db_time:.3f}s total")
 
                 if parsed.modifications:
                     # Sort by primary key to minimize deadlocks
@@ -98,9 +100,7 @@ class TxtZipFileParser(BaseFileParser):
                     conn.execute(stmt, sorted_modifications)
                     db_time = time.time() - db_start
                     stats.modification_count = len(sorted_modifications)
-                    logger.info(
-                        f"[{stats.file_name}] Modification: {db_time - db_start:.3f}s total"
-                    )
+                    logger.info(f"[{stats.file_name}] Modification: {db_time:.3f}s total")
 
                 if parsed.modified_peptide_modification_junctions:
                     # Sort by composite primary key to minimize deadlocks
@@ -115,7 +115,7 @@ class TxtZipFileParser(BaseFileParser):
                     conn.execute(stmt, sorted_junctions)
                     db_time = time.time() - db_start
                     logger.info(
-                        f"[{stats.file_name}] ModifiedPeptideModificationJunction: {db_time - db_start:.3f}s total"
+                        f"[{stats.file_name}] ModifiedPeptideModificationJunction: {db_time:.3f}s total"
                     )
 
                 if parsed.peptide_evidence:
@@ -125,9 +125,7 @@ class TxtZipFileParser(BaseFileParser):
                     conn.execute(insert(PeptideEvidence), sorted_evidence)
                     db_time = time.time() - db_start
                     stats.peptide_evidence_count = len(sorted_evidence)
-                    logger.info(
-                        f"[{stats.file_name}] PeptideEvidence: {db_time - db_start:.3f}s total "
-                    )
+                    logger.info(f"[{stats.file_name}] PeptideEvidence: {db_time:.3f}s total ")
 
                 if parsed.psms:
                     # Sort by primary key to minimize deadlocks
@@ -136,9 +134,7 @@ class TxtZipFileParser(BaseFileParser):
                     conn.execute(insert(PeptideSpectrumMatch), sorted_psms)
                     db_time = time.time() - db_start
                     stats.psm_count = len(sorted_psms)
-                    logger.info(
-                        f"[{stats.file_name}] PeptideSpectrumMatch: {db_time - db_start:.3f}s total"
-                    )
+                    logger.info(f"[{stats.file_name}] PeptideSpectrumMatch: {db_time:.3f}s total")
 
                 if parsed.psm_peptide_evidence_junctions:
                     # Sort by primary key to minimize deadlocks
@@ -148,16 +144,18 @@ class TxtZipFileParser(BaseFileParser):
                     db_start = time.time()
                     conn.execute(insert(PSMPeptideEvidence), sorted_pe_junctions)
                     db_time = time.time() - db_start
-                    logger.info(
-                        f"[{stats.file_name}] PSMPeptideEvidence: {db_time - db_start:.3f}s total"
-                    )
+                    logger.info(f"[{stats.file_name}] PSMPeptideEvidence: {db_time:.3f}s total")
 
                 if parsed.search_modifications:
+                    sorted_search_mods = sorted(parsed.search_modifications, key=lambda x: x["id"])
                     stmt = insert_func(SearchModification).on_conflict_do_nothing()
+                    db_start = time.time()
                     conn.execute(
                         stmt,
-                        parsed.search_modifications,
+                        sorted_search_mods,
                     )
+                    db_time = time.time() - db_start
+                    logger.info(f"[{stats.file_name}] SearchModification: {db_time:.3f}s total")
             logger.debug(f"Successfully imported mzID data for file '{stats.file_name}'")
         except Exception as e:
             error_msg = f"Database import failed for file '{stats.file_name}': {e}"
@@ -192,41 +190,92 @@ def parse_txt_zip(
     )
 
     try:
+        # Validate required columns for USI extraction
+        EVIDENCE_COLS_REQUIRED = {
+            "Sequence": True,
+            "Modifications": True,
+            "Modified sequence": True,
+            "Raw file": True,
+            "Charge": True,
+            "m/z": False,
+            "Mass": False,
+            "MS/MS scan number": True,
+        }
+        evidence_cols_present = {col: False for col in EVIDENCE_COLS_REQUIRED}
+        evidence_header = pd.read_csv(evidence_path, sep="\t", nrows=0)
+        for col in EVIDENCE_COLS_REQUIRED:
+            if col in evidence_header.columns:
+                evidence_cols_present[col] = True
+        evidence_missing_required_cols = [
+            col
+            for col, required in EVIDENCE_COLS_REQUIRED.items()
+            if required and not evidence_cols_present[col]
+        ]
+
+        if evidence_missing_required_cols:
+            raise TxtZipParseError(
+                f"Missing required columns in evidence.txt: {', '.join(evidence_missing_required_cols)}"
+            )
+
+        evidence_missing_cols = [
+            col for col in EVIDENCE_COLS_REQUIRED if not evidence_cols_present[col]
+        ]
+
+        # summary columns are not required for USI extraction
+        SUMMARY_COLS = {
+            "Raw file",
+            "Variable modifications",
+            "Fixed modifications",
+        }
+        summary_cols_present = {col: False for col in SUMMARY_COLS}
+        summary_header = pd.read_csv(summary_path, sep="\t", nrows=0)
+        for col in SUMMARY_COLS:
+            if col in summary_header.columns:
+                summary_cols_present[col] = True
+        summary_missing_cols = [col for col in SUMMARY_COLS if not summary_cols_present[col]]
+
+        # peptides columns are not required for USI extraction
+        PEPTIDES_COLS = {
+            "Sequence",
+            "Amino acid before",
+            "Amino acid after",
+            "Proteins",
+            "Leading razor protein",
+            "Start position",
+            "End position",
+        }
+        peptides_cols_present = {col: False for col in PEPTIDES_COLS}
+        peptides_header = pd.read_csv(peptides_path, sep="\t", nrows=0)
+        for col in PEPTIDES_COLS:
+            if col in peptides_header.columns:
+                peptides_cols_present[col] = True
+        peptides_missing_cols = [col for col in PEPTIDES_COLS if not peptides_cols_present[col]]
+
+        if evidence_missing_cols or summary_missing_cols or peptides_missing_cols:
+            logger.warning(
+                f"Missing non-required columns - Evidence: {', '.join(evidence_missing_cols) if evidence_missing_cols else 'None'}; "
+                f"Summary: {', '.join(summary_missing_cols) if summary_missing_cols else 'None'}; "
+                f"Peptides: {', '.join(peptides_missing_cols) if peptides_missing_cols else 'None'}; "
+                f"Parsing results may be incomplete, but all relevant information for USI extraction is present."
+            )
+
+        evidence_usecols = [col for col, present in evidence_cols_present.items() if present]
         evidence: DataFrame = pd.read_csv(  # pyright: ignore[reportCallIssue]
             filepath_or_buffer=evidence_path,
             sep="\t",
-            usecols=[  # pyright: ignore[reportArgumentType]
-                "Sequence",
-                "Modifications",
-                "Modified sequence",
-                "Raw file",
-                "Charge",
-                "m/z",
-                "Mass",
-                "MS/MS scan number",
-            ],
+            usecols=evidence_usecols,  # pyright: ignore[reportArgumentType]
         )
+        summary_usecols = [col for col, present in summary_cols_present.items() if present]
         summary: DataFrame = pd.read_csv(  # pyright: ignore[reportCallIssue]
             summary_path,
             sep="\t",
-            usecols=[  # pyright: ignore[reportArgumentType]
-                "Raw file",
-                "Variable modifications",
-                "Fixed modifications",
-            ],
+            usecols=summary_usecols,  # pyright: ignore[reportArgumentType]
         )
+        peptides_usecols = [col for col, present in peptides_cols_present.items() if present]
         peptides: DataFrame = pd.read_csv(  # pyright: ignore[reportCallIssue]
             peptides_path,
             sep="\t",
-            usecols=[  # pyright: ignore[reportArgumentType]
-                "Sequence",
-                "Amino acid before",
-                "Amino acid after",
-                "Proteins",
-                "Leading razor protein",
-                "Start position",
-                "End position",
-            ],
+            usecols=peptides_usecols,  # pyright: ignore[reportArgumentType]
         )
 
         evidence = evidence[evidence["MS/MS scan number"].notna()]
@@ -237,12 +286,14 @@ def parse_txt_zip(
         )
 
         logger.debug("Phase 2: Parsing peptide evidence...")
-        pe_id_map, peptide_evidence_batch = parse_peptide_evidence(peptides)
+        pe_id_map, peptide_evidence_batch = parse_peptide_evidence(peptides, peptides_usecols)
 
         logger.debug("Phase 3: Parsing spectrum identification results...")
         psm_batch, junction_batch, search_mod_batch = parse_psms(
             evidence,
+            evidence_usecols,
             summary,
+            summary_usecols,
             project_accession,
             peptide_id_map,
             pe_id_map,

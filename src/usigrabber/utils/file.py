@@ -177,13 +177,11 @@ async def get_interesting_files(files: list[FileMetadata], accession: str) -> tu
 
         # find actual file extension, without archives
         file_base, file_ext = os.path.splitext(filename)
-        while file_ext in ARCHIVE_TYPES:
+        while file_ext in ARCHIVE_TYPES and not file_ext.lstrip(".").isdigit():
             file_base, file_ext = os.path.splitext(file_base)
 
         if file_ext not in filetype_allowlist:
             logger.debug(f"Skipping file {filename} with unsupported extension '{file_ext}'.")
-            continue
-        if file_ext == "" and not filename.endswith("txt.zip"):
             continue
         if file_ext == ".txt" and file_base not in INTERESTING_TXT_FILES:
             logger.debug(f"Skipping .txt file {filename} as it is not interesting.")
@@ -191,9 +189,10 @@ async def get_interesting_files(files: list[FileMetadata], accession: str) -> tu
 
         all_files[file_ext].append(file)
 
-    interesting_files, file_ext = get_prioritized_files(all_files)
+    prioritized_files, file_ext = get_prioritized_files(all_files)
+    interesting_files = prioritized_files.copy()
 
-    for file in interesting_files:
+    for file in prioritized_files:
         if file["file_size"] > MAX_FILESIZE_BYTES:
             logger.warning(
                 "Skipping file '%s' in project %s due to size (%.2f GiB > %.2f GiB).",
@@ -242,9 +241,7 @@ def get_prioritized_files(
 
     # 3. Next prefer txt.zip/.txt files
     else:
-        txt_zip_files = [
-            f for f in all_files.get("", []) if f["filepath"].lower().endswith("txt.zip")
-        ]
+        txt_zip_files = [f for f in all_files.get("", []) if f["filepath"].lower().endswith(".zip")]
         txt_files = all_files.get(".txt", [])
         if txt_zip_files or txt_files:
             return txt_zip_files + txt_files, ".txt"

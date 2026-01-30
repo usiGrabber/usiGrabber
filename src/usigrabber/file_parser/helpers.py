@@ -64,7 +64,6 @@ def extract_unimod_id_or_name(mod_data: dict) -> tuple[int | None, str | None]:
         uid = lookup_unimod_id_by_name(mod_name)
 
     if uid is None:
-        logger.debug("No UNIMOD ID found for modification: %s", mod_data)
         return None, mod_name
     else:
         return uid, None
@@ -205,6 +204,7 @@ SPECTRUM_ID_FORMAT_MAPPING = {
     "MS:1000776": IndexType.scan,
     "MS:1000768": IndexType.scan,
     "MS:1001530": IndexType.nativeId,
+    "MS:1001562": IndexType.nativeId,
 }
 
 # Set to track already logged exceptions
@@ -236,7 +236,7 @@ def extract_xml_subtree(xml_path: Path, tag: str) -> str:
     """
     Use sed to extract XML subtree from a file and return as string.
     """
-    cmd = ["sed", "-n", rf"/<{tag}>/,/<\/{tag}>/p", str(xml_path)]
+    cmd = ["sed", "-n", rf"/<{tag}[ >]/,/<\/{tag}>/p", str(xml_path)]
     proc = subprocess.run(
         cmd,
         text=True,
@@ -455,7 +455,7 @@ def simple_mod_name(mod_name: str) -> str:
     return mod_name.lstrip(digits).lstrip(" ").split(" ")[0]
 
 
-def get_txt_triples(files: list[Path]):
+def get_txt_triples(files: list[Path]) -> list[tuple[Path, Path, Path]]:
     """
     Given a list of file paths, group them into triplets of
     (evidence.txt, summary.txt, peptides.txt) based on their parent directory.

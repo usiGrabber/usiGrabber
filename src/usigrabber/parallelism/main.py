@@ -4,6 +4,7 @@ import os
 from collections import deque
 from collections.abc import AsyncGenerator, Callable
 from concurrent.futures import FIRST_COMPLETED, Future, ProcessPoolExecutor, wait
+from concurrent.futures.process import BrokenProcessPool
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
@@ -24,6 +25,10 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 mp_context = multiprocessing.get_context("spawn")
+
+SKIP_NON_COMPLETE = os.getenv("SKIP_NON_COMPLETE", "1") == "1"
+
+WORKER_TIMEOUT_SECONDS = 60 * 60
 
 
 def init_worker() -> None:
@@ -63,6 +68,18 @@ async def iterate_projects(
         async for project in current_backend.value.get_new_projects(
             existing_accessions=existing_accessions
         ):
+            submission_type = project.get("submissionType")
+            if submission_type is None:
+                logger.warning(
+                    f"Project {project.get('accession')} has no submissionType, skipping",
+                    extra={
+                        "project_accession": project.get("accession"),
+                        "backend": current_backend.name,
+                    },
+                )
+                continue
+            if SKIP_NON_COMPLETE and submission_type != "COMPLETE":
+                continue
             yield project, current_backend
 
 
@@ -146,12 +163,25 @@ class FutureHolder:
     def count_of(self, future_type: type[WorkFuture]) -> int:
         return sum(1 for future in self._futures.values() if isinstance(future, future_type))
 
-    def process_first_completed(self):
+    def process_first_completed(self, timeout: float = WORKER_TIMEOUT_SECONDS):
         """
         Processes the first completed future.
+
+        Args:
+            timeout: Maximum seconds to wait for a worker to complete.
+                     If no worker completes within this time, raises RuntimeError.
         """
         futures = list(self._futures.keys())
-        done_futures, waiting_futures = wait(futures, return_when=FIRST_COMPLETED)
+        done_futures, waiting_futures = wait(futures, return_when=FIRST_COMPLETED, timeout=timeout)
+
+        if not done_futures:
+            pending_projects = [
+                self._futures[f]._context.project_accession for f in waiting_futures
+            ]
+            raise RuntimeError(
+                f"No workers completed within {timeout}s. "
+                f"Possible deadlock or hung worker. Pending projects: {pending_projects}"
+            )
 
         for future in done_futures:
             future_wrapper = self._futures[future]
@@ -172,6 +202,9 @@ class OntologyWorkFuture(WorkFuture):
     def get_and_process_result(self):
         try:
             self.future.result()
+        except BrokenProcessPool:
+            # Worker crashed - re-raise to crash the program
+            raise
         except Exception as e:
             logger.error(
                 f"Error for ontologies occurred in {self._context.project_accession} for backend {self._context.backend.name}: {e}",
@@ -186,6 +219,9 @@ class MainWorkFuture(WorkFuture):
     def get_and_process_result(self):
         try:
             self.future.result()
+        except BrokenProcessPool:
+            # Worker crashed - re-raise to crash the program
+            raise
         except Exception as e:
             logger.error(
                 f"Error occurred in {self._context.project_accession} for backend {self._context.backend.name}: {e}",

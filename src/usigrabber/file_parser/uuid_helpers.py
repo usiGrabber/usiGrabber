@@ -1,11 +1,12 @@
-import uuid
+from uuid import UUID
 
 from usigrabber.file_parser.models import ModificationDict
+from usigrabber.utils.uuid import uuid5
 
 # Namespace UUIDs for generating deterministic UUIDs
 # These ensure the same properties always generate the same UUID
-MODIFICATION_NAMESPACE = uuid.UUID("a8f3c5e7-9b2d-4f1a-8c6e-3d7b5a9f2e4c")
-PEPTIDE_NAMESPACE = uuid.UUID("b9e4d6f8-0c3a-5e2b-9d7f-4a8c6e1b3d5a")
+MODIFICATION_NAMESPACE = UUID("a8f3c5e7-9b2d-4f1a-8c6e-3d7b5a9f2e4c")
+PEPTIDE_NAMESPACE = UUID("b9e4d6f8-0c3a-5e2b-9d7f-4a8c6e1b3d5a")
 
 
 def generate_deterministic_modification_uuid(
@@ -13,7 +14,7 @@ def generate_deterministic_modification_uuid(
     name: str | None,
     location: int | None,
     modified_residue: str | None,
-) -> uuid.UUID:
+) -> UUID:
     """
     Generate a deterministic UUID for a modification based on its properties.
 
@@ -40,13 +41,13 @@ def generate_deterministic_modification_uuid(
     mod_string = "|".join(parts)
 
     # Generate UUID v5 using the namespace and modification string
-    return uuid.uuid5(MODIFICATION_NAMESPACE, mod_string)
+    return uuid5(MODIFICATION_NAMESPACE, mod_string)
 
 
 def generate_deterministic_peptide_uuid(
     sequence: str,
     parsed_mods: list[ModificationDict],
-) -> uuid.UUID:
+) -> UUID:
     """
     Generate a deterministic UUID for a modified peptide based on its properties.
 
@@ -86,4 +87,4 @@ def generate_deterministic_peptide_uuid(
     peptide_string = f"seq:{sequence}|mods:{modification_signature or 'none'}"
 
     # Generate UUID v5 using the namespace and peptide string
-    return uuid.uuid5(PEPTIDE_NAMESPACE, peptide_string)
+    return uuid5(PEPTIDE_NAMESPACE, peptide_string)

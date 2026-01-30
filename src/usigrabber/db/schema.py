@@ -2,8 +2,26 @@ import uuid
 from datetime import date, datetime
 from enum import Enum
 
-from sqlalchemy import CheckConstraint, UniqueConstraint
+import psycopg
+from psycopg.adapt import Dumper
+from psycopg.pq import Format
+from sqlalchemy import CHAR, CheckConstraint, UniqueConstraint
 from sqlmodel import JSON, Column, Field, Relationship, SQLModel
+
+from usigrabber.utils.uuid import UUID as UUID7
+from usigrabber.utils.uuid import uuid7
+
+
+class UUID7Dumper(Dumper):
+    # Tell psycopg this dumper produces binary data (Format.BINARY = 1)
+    format = Format.BINARY
+
+    def dump(self, obj) -> bytes:
+        return obj.bytes
+
+
+# since we are not yet using stdlib UUID, we need to register a custom dumper for our own class
+psycopg.adapters.register_dumper(UUID7, UUID7Dumper)
 
 
 class IndexType(str, Enum):
@@ -23,8 +41,8 @@ class IndexType(str, Enum):
 class CvJunctionTable(SQLModel, table=True):
     __tablename__ = "project_cv_params"
 
-    cv_param_id: int = Field(foreign_key="cv_params.id", primary_key=True, index=True)
-    project_accession: str = Field(foreign_key="projects.accession", primary_key=True, index=True)
+    cv_param_id: int = Field(foreign_key="cv_params.id", primary_key=True)
+    project_accession: str = Field(foreign_key="projects.accession", primary_key=True)
 
 
 class CvParam(SQLModel, table=True):
@@ -42,7 +60,7 @@ class Project(SQLModel, table=True):
 
     __tablename__ = "projects"
 
-    accession: str = Field(primary_key=True, index=True)
+    accession: str = Field(primary_key=True)
     title: str
     project_description: str | None = Field(default=None, alias="projectDescription")
     sample_processing_protocol: str | None = Field(default=None, alias="sampleProcessingProtocol")
@@ -84,7 +102,7 @@ class Reference(SQLModel, table=True):
     __tablename__ = "references"
 
     id: int | None = Field(default=None, primary_key=True)
-    project_accession: str = Field(foreign_key="projects.accession", index=True)
+    project_accession: str = Field(foreign_key="projects.accession")
     reference_line: str | None = Field(default=None, alias="referenceLine")
     pubmed_id: int | None = Field(default=None, alias="pubmedID")
     doi: str | None = None
@@ -104,7 +122,7 @@ class ProjectKeyword(SQLModel, table=True):
     __tablename__ = "project_keywords"
 
     id: int | None = Field(default=None, primary_key=True)
-    project_accession: str = Field(foreign_key="projects.accession", index=True)
+    project_accession: str = Field(foreign_key="projects.accession")
     keyword: str
 
     # Relationships
@@ -117,7 +135,7 @@ class ProjectTag(SQLModel, table=True):
     __tablename__ = "project_tags"
 
     id: int | None = Field(default=None, primary_key=True)
-    project_accession: str = Field(foreign_key="projects.accession", index=True)
+    project_accession: str = Field(foreign_key="projects.accession")
     tag: str
 
     # Relationships
@@ -130,7 +148,7 @@ class ProjectCountry(SQLModel, table=True):
     __tablename__ = "project_countries"
 
     id: int | None = Field(default=None, primary_key=True)
-    project_accession: str = Field(foreign_key="projects.accession", index=True)
+    project_accession: str = Field(foreign_key="projects.accession")
     country: str
 
     # Relationships
@@ -143,7 +161,7 @@ class ProjectAffiliation(SQLModel, table=True):
     __tablename__ = "project_affiliations"
 
     id: int | None = Field(default=None, primary_key=True)
-    project_accession: str = Field(foreign_key="projects.accession", index=True)
+    project_accession: str = Field(foreign_key="projects.accession")
     affiliation: str
 
     # Relationships
@@ -156,7 +174,7 @@ class ProjectOtherOmicsLink(SQLModel, table=True):
     __tablename__ = "project_other_omics_links"
 
     id: int | None = Field(default=None, primary_key=True)
-    project_accession: str = Field(foreign_key="projects.accession", index=True)
+    project_accession: str = Field(foreign_key="projects.accession")
     link: str
 
     # Relationships
@@ -173,8 +191,8 @@ class MzidFile(SQLModel, table=True):
 
     __tablename__ = "mzid_files"
 
-    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
-    project_accession: str = Field(foreign_key="projects.accession", index=True)
+    id: uuid.UUID = Field(default_factory=uuid7, primary_key=True)
+    project_accession: str = Field(foreign_key="projects.accession")
     file_name: str
     file_path: str | None = None
     software_name: str | None = None
@@ -187,12 +205,10 @@ class MzidFile(SQLModel, table=True):
     )
     threshold_type: str | None = Field(
         default=None,
-        index=True,
         description="Type of threshold used (e.g., 'FDR', 'q-value', 'e-value', 'Mascot:identity')",
     )
     threshold_value: float | None = Field(
         default=None,
-        index=True,
         description="Threshold value (e.g., 0.01 for 1% FDR)",
     )
     creation_date: datetime | None = None
@@ -204,6 +220,34 @@ class MzidFile(SQLModel, table=True):
     )
 
 
+class ImportedFile(SQLModel, table=True):
+    __tablename__ = "imported_files"
+
+    id: int | None = Field(default=None, primary_key=True)
+    project_accession: str = Field(foreign_key="projects.accession")
+    file_id: str
+    format: str
+
+    psm_count: int | None = Field(default=None)
+    start_time: datetime = Field(
+        default_factory=datetime.now,
+    )
+    end_time: datetime | None = Field(default=None)
+    is_processed_successfully: bool | None = Field(default=None)
+    error_message: str | None = Field(default=None)
+    traceback: str | None = Field(default=None)
+    worker_pid: int
+    job_id: str
+    checksum: str = Field(
+        sa_column=Column(CHAR(32), nullable=False),
+        description="MD5 checksum of the mzID file",
+    )
+
+    __table_args__ = (
+        UniqueConstraint("file_id", "project_accession", name="unique_file_constraint"),
+    )
+
+
 # ============================================================================
 # General Data Tables
 # ============================================================================
@@ -212,10 +256,8 @@ class MzidFile(SQLModel, table=True):
 class ModifiedPeptideModificationJunction(SQLModel, table=True):
     __tablename__ = "modified_peptide_modification_junction"
 
-    modified_peptide_id: uuid.UUID = Field(
-        foreign_key="modified_peptides.id", primary_key=True, index=True
-    )
-    modification_id: uuid.UUID = Field(foreign_key="modifications.id", primary_key=True, index=True)
+    modified_peptide_id: uuid.UUID = Field(foreign_key="modified_peptides.id", primary_key=True)
+    modification_id: uuid.UUID = Field(foreign_key="modifications.id", primary_key=True)
 
 
 class ModifiedPeptide(SQLModel, table=True):
@@ -270,16 +312,15 @@ class PeptideSpectrumMatch(SQLModel, table=True):
 
     __tablename__ = "peptide_spectrum_matches"
 
-    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
-    project_accession: str = Field(foreign_key="projects.accession", index=True)
+    id: uuid.UUID = Field(default_factory=uuid7, primary_key=True)
+    project_accession: str = Field(foreign_key="projects.accession")
     mzid_file_id: uuid.UUID | None = Field(
         default=None,
         foreign_key="mzid_files.id",
-        index=True,
         description="Optional: can be NULL for non-mzID sources",
     )
-    modified_peptide_id: uuid.UUID = Field(foreign_key="modified_peptides.id", index=True)
-    spectrum_id: str | None = Field(index=True, description="Spectrum identifier/index")
+    modified_peptide_id: uuid.UUID = Field(foreign_key="modified_peptides.id")
+    spectrum_id: str | None = Field(description="Spectrum identifier/index")
     charge_state: int | None
     experimental_mz: float | None = Field(description="Experimental m/z value")
     calculated_mz: float | None = Field(description="Calculated m/z value")
@@ -309,9 +350,12 @@ class PeptideSpectrumMatch(SQLModel, table=True):
         default=None,
         description="MS run identifier from raw file name. Part of USI specification.",
     )
+    ms_run_ext: str | None = Field(
+        default=None,
+        description="File extension of MS run. Part of USI specification.",
+    )
     is_usi_validated: bool | None = Field(
         default=None,
-        index=True,
         description="USI validation status: True (valid), False (invalid), None (not validated)",
     )
 
@@ -332,7 +376,7 @@ class PeptideEvidence(SQLModel, table=True):
 
     __tablename__ = "peptide_evidence"
 
-    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    id: uuid.UUID = Field(default_factory=uuid7, primary_key=True)
     protein_accession: str | None = Field(default=None, description="Protein accession.")
     is_decoy: bool | None = Field(default=None, description="Whether the protein is a decoy")
     start_position: int | None = Field(
@@ -363,9 +407,9 @@ class PSMPeptideEvidence(SQLModel, table=True):
 
     __tablename__ = "psm_peptide_evidence"
 
-    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
-    psm_id: uuid.UUID = Field(foreign_key="peptide_spectrum_matches.id", index=True)
-    peptide_evidence_id: uuid.UUID = Field(foreign_key="peptide_evidence.id", index=True)
+    id: uuid.UUID = Field(default_factory=uuid7, primary_key=True)
+    psm_id: uuid.UUID = Field(foreign_key="peptide_spectrum_matches.id")
+    peptide_evidence_id: uuid.UUID = Field(foreign_key="peptide_evidence.id")
 
     # Relationships
     psm: "PeptideSpectrumMatch" = Relationship(back_populates="psm_peptide_evidences")
@@ -375,8 +419,8 @@ class PSMPeptideEvidence(SQLModel, table=True):
 class SearchModification(SQLModel, table=True):
     __tablename__ = "search_modifications"
 
-    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
-    psm_id: uuid.UUID = Field(foreign_key="peptide_spectrum_matches.id", index=True)
+    id: uuid.UUID = Field(default_factory=uuid7, primary_key=True)
+    psm_id: uuid.UUID = Field(foreign_key="peptide_spectrum_matches.id")
     unimod_id: int = Field()
 
     # Relationships
