@@ -116,7 +116,7 @@ async def process_row(row):
 
     # 1. Query PRIDE for file list
     try:
-        files = PrideBackend.get_files_for_project(pxd)
+        files = await PrideBackend.get_files_for_project(pxd)
     except Exception as e:
         print(f"Error fetching files for {pxd}: {e}")
         return row
