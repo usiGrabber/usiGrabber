@@ -30,6 +30,7 @@ logger = logging.getLogger(__name__)
 def register_parser[T: BaseFileParser](cls: type[T]) -> type[T]:
     """Decorator to auto-register parsers by extensions."""
     instance = cls()
+    logger.info("Registering file parser for extensions: %s", instance.file_extensions)
     for ext in instance.file_extensions:
         PARSER_REGISTRY[ext.lower()] = instance
     return cls

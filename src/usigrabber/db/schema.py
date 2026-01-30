@@ -71,9 +71,15 @@ class Project(SQLModel, table=True):
     submission_date: date | None = Field(default=None, alias="submissionDate")
     publication_date: date | None = Field(default=None, alias="publicationDate")
     total_file_downloads: int = Field(default=0, alias="totalFileDownloads")
-    fully_processed: bool = Field(
-        default=False, description="Flag indicating if project is fully processed or not"
-    )
+
+    # Error tracking for project-level failures
+    error_message: str | None = Field(default=None)
+    traceback: str | None = Field(default=None)
+    start_time: datetime = Field(default_factory=datetime.now)
+    end_time: datetime | None = Field(default=None)
+
+    job_id: str
+    worker_pid: int
 
     # Complex nested data stored as JSON
     sample_attributes: dict | None = Field(
@@ -245,6 +251,35 @@ class ImportedFile(SQLModel, table=True):
 
     __table_args__ = (
         UniqueConstraint("file_id", "project_accession", name="unique_file_constraint"),
+    )
+
+
+class DownloadedFile(SQLModel, table=True):
+    """Tracks file download and extraction attempts."""
+
+    __tablename__ = "downloaded_files"
+
+    id: int | None = Field(default=None, primary_key=True)
+    project_accession: str
+    file_name: str
+    file_size: int | None = Field(default=None, description="File size in bytes")
+    checksum: str | None = Field(
+        default=None,
+        sa_column=Column(CHAR(32)),
+        description="MD5 checksum of the downloaded file",
+    )
+
+    start_time: datetime = Field(default_factory=datetime.now)
+    end_time: datetime | None = Field(default=None)
+    is_successful: bool | None = Field(default=None)
+    error_message: str | None = Field(default=None)
+    traceback: str | None = Field(default=None)
+
+    job_id: str
+    worker_pid: int
+
+    __table_args__ = (
+        UniqueConstraint("file_name", "project_accession", name="unique_download_file_constraint"),
     )
 
 
