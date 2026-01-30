@@ -52,7 +52,7 @@ __all__ = [
 
 @dataclass
 class DownloadResult:
-    """Result of download + extraction attempt."""
+    """Result of download + extraction."""
 
     file_name: str
     start_time: float
@@ -118,7 +118,9 @@ async def _download_and_extract(
     engine: Engine,
     project_accession: str,
 ) -> DownloadResult:
-    """Download and extract a file. Always returns a DownloadResult."""
+    """Download and extract a file.
+    Returns DownloadResult or raises asyncio.CancelledError
+    """
     import time
 
     file_name: str = os.path.basename(url)
