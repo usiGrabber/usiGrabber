@@ -107,9 +107,14 @@ class BaseFileParser(ABC):
         # Check all PSMs for ms_run validation
         for psm in parsed_data.psms:
             ms_runs = psm.get("ms_run", "") or ""
+            if not ms_runs:
+                logger.warning("PSM is missing ms_run information")
+                return False
+
             for ms_run in ms_runs.split("|"):
                 if ms_run.lower() in raw_file_names_lower:
                     psm["ms_run"] = ms_run  # set to the valid ms_run
+                    break
             else:
                 logger.warning(
                     f"PSM has ms_run '{ms_run}' that doesn't match any available raw files"
