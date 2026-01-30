@@ -172,8 +172,20 @@ def test_cv_injector_shared_cv_param_across_projects(engine: Engine):
     """Test that the same cv_param can be linked to multiple projects."""
     # Create two projects
     with Session(engine) as session:
-        project1 = Project(accession="PXD000001", title="Project 1", submissionType="COMPLETE")
-        project2 = Project(accession="PXD000002", title="Project 2", submissionType="COMPLETE")
+        project1 = Project(
+            accession="PXD000001",
+            title="Project 1",
+            submissionType="COMPLETE",
+            worker_pid=0,
+            job_id="testing",
+        )
+        project2 = Project(
+            accession="PXD000002",
+            title="Project 2",
+            submissionType="COMPLETE",
+            worker_pid=0,
+            job_id="testing",
+        )
         session.add(project1)
         session.add(project2)
         session.commit()

@@ -9,7 +9,13 @@ from usigrabber.utils.uuid import uuid7
 
 @pytest.fixture
 def sample_psm():
-    project = Project(accession="PXD000001", title="Test", submissionType="COMPLETE")
+    project = Project(
+        accession="PXD000001",
+        title="Test",
+        submissionType="COMPLETE",
+        worker_pid=0,
+        job_id="testing",
+    )
     modified_peptide = ModifiedPeptide(peptide_sequence="PEPTIDE", id=uuid7())
     return PeptideSpectrumMatch(
         id=uuid7(),
