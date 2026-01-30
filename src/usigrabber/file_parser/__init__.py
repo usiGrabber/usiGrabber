@@ -11,7 +11,6 @@ import traceback as tb
 from dataclasses import dataclass
 from pathlib import Path
 
-from aioftp import StatusCodeError
 from sqlalchemy import Engine
 from sqlmodel import Session
 
@@ -128,7 +127,8 @@ async def _download_and_extract(
 
     download_result = None
     try:
-        local_path = await download_ftp_with_semaphore(sem, url, out_dir)
+        coro = download_ftp_with_semaphore(sem, url, out_dir)
+        local_path = await asyncio.wait_for(coro, timeout=600)  # 10 minute timeout per file
         file_size = local_path.stat().st_size
         checksum = md5_checksum(local_path)
         extract_dir = local_path.stem + "_extracted"
@@ -144,6 +144,16 @@ async def _download_and_extract(
             checksum=checksum,
         )
         return download_result
+    except TimeoutError:
+        logger.error(f"Download of {url} timed out.", exc_info=True)
+        download_result = DownloadResult(
+            file_name=file_name,
+            start_time=start_time,
+            end_time=time.time(),
+            error_message="Download timed out",
+            traceback_str=tb.format_exc(),
+        )
+        raise  # Re-raise so user cancellation still works
     except asyncio.CancelledError:
         download_result = DownloadResult(
             file_name=file_name,
