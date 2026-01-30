@@ -178,8 +178,6 @@ def extract_usi_location(sir: dict) -> tuple[str | None, IndexType, int]:
         Tuple of (ms_run, index_type, index_number)
     """
 
-    index_type: IndexType | None = None
-
     name: str = sir.get("name", "")
     if name:
         match = extract_usi_location_from_string(name)
@@ -207,18 +205,16 @@ def extract_usi_location(sir: dict) -> tuple[str | None, IndexType, int]:
         if match:
             try:
                 index_number = int(match.group("scan"))
-                index_type = IndexType.scan
-                return None, index_type, index_number
+                return None, IndexType.scan, index_number
             except ValueError:
                 pass
 
     # Parse scan number(s) (MS:1001115)
     scan_number_value: str | None = sir.get("scan number(s)")
-    if scan_number_value and index_type is None:
+    if scan_number_value:
         try:
             index_number = int(scan_number_value)
-            index_type = IndexType.scan
-            return None, index_type, index_number
+            return None, IndexType.scan, index_number
         except ValueError:
             pass
 
