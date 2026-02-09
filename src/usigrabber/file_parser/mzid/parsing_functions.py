@@ -526,6 +526,10 @@ def parse_psms(
                 if not ms_run:
                     raise MzidParseError("No valid ms_run name found in SpectraData or PSM")
 
+                if " " in ms_run:
+                    # pride seems to automatically remove spaces from raw file names
+                    ms_run = ms_run.replace(" ", "")
+
                 # Create PSM record
                 psm_id = uuid7()
                 psm: PeptideSpectrumMatchDict = {

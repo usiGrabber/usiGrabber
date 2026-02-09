@@ -117,7 +117,7 @@ class BaseFileParser(ABC):
                     break
             else:
                 logger.warning(
-                    f"PSM has ms_run '{ms_run}' that doesn't match any available raw files"
+                    f"PSM has ms_run names '{ms_runs.split('|')}' that don't match any available raw files"
                 )
                 return False
 
