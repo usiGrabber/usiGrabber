@@ -5,11 +5,14 @@ Unit tests for pure parsing helper functions with no database dependencies.
 Tests edge cases, error handling, and data transformations.
 """
 
+import pytest
+
 from usigrabber.db.schema import IndexType
+from usigrabber.file_parser.errors import MzidParseError
 from usigrabber.file_parser.helpers import (
-    extract_index_type_and_number,
     extract_score_values,
     extract_unimod_id_or_name,
+    extract_usi_location,
     parse_modification_location,
 )
 
@@ -148,32 +151,72 @@ def test_parse_modification_location_empty_dict():
 
 
 # ============================================================================
-# Tests for extract_index_type_and_number()
+# Tests for extract_usi_location()
 # ============================================================================
 
 
-def test_extract_index_type_and_number() -> None:
-    index_type, index_number = extract_index_type_and_number({"spectrumID": "scan=1234"})
-    assert index_type == IndexType.scan
-    assert index_number == 1234
+@pytest.mark.parametrize(
+    "sir, expected_ms_run, expected_index_type, expected_index_number",
+    [
+        (
+            {"name": "qe2_062414_10_uc_xw7_kof1b.5888.5888.2"},
+            "qe2_062414_10_uc_xw7_kof1b",
+            IndexType.index,
+            5888,
+        ),
+        (
+            {"spectrum title": "20130101_IFIXGFP-3207-4374_4374"},
+            "20130101_IFIXGFP",
+            IndexType.index,
+            4374,
+        ),
+        (
+            {
+                "name": r"1800: Scan 8420 [\\hlm\data\dept\Lab_Proteomics\Backup\For Upload to PRIDE\Ritin HDAC8 OE shRNA\20160326_Ritin-TMT-IMAC-fx04-2.raw]",
+            },
+            "20160326_Ritin-TMT-IMAC-fx04-2",
+            IndexType.index,
+            8420,
+        ),
+        (
+            {
+                "spectrum title": r"Scan 1755 (rt=13.312) [Asynchronous_cells_Scc2_band_excision.raw]"
+            },
+            "Asynchronous_cells_Scc2_band_excision",
+            IndexType.index,
+            1755,
+        ),
+        (
+            {
+                "spectrum title": r'File: "D:\2016_QEx_Raw-Data\2019_S17\CStoetzel_PSMC3_fibroblastes_SvsM\2019_S17_Cstoetzel_PSMC3_CTRL3.raw"; SpectrumID: "26291"; scans: "31956"'
+            },
+            "2019_S17_Cstoetzel_PSMC3_CTRL3",
+            IndexType.index,
+            31956,
+        ),
+    ],
+    ids=[f"Pattern {i + 1}" for i in range(5)],
+)
+def test_extract_usi_location(
+    sir, expected_ms_run, expected_index_type, expected_index_number
+) -> None:
+    ms_run, index_type, index_number = extract_usi_location(sir)
+    assert ms_run == expected_ms_run
+    assert index_type == expected_index_type
+    assert index_number == expected_index_number
 
-    index_type, index_number = extract_index_type_and_number({"spectrumID": "index=1234"})
-    assert index_type == IndexType.index
-    assert index_number == 1234
 
-
-def test_extract_index_type_and_number_from_spectrum_title() -> None:
+def test_extract_usi_location_from_spectrum_title() -> None:
     spectrum_title = (
         r"OTE0019_York_060813_JH16.3285.3285.2 File:\"OTE0019_York_060813_JH16.raw\", "
         + r"NativeID:\"controllerType=0 controllerNumber=1 scan=3285\""
     )
 
-    index_type, index_number = extract_index_type_and_number({"spectrum title": spectrum_title})
-    assert index_type == IndexType.scan
+    ms_runs, index_type, index_number = extract_usi_location({"spectrum title": spectrum_title})
+    assert index_type == IndexType.index
     assert index_number == 3285
 
 
-def test_extract_index_type_and_number_no_valid_info() -> None:
-    index_type, index_number = extract_index_type_and_number({"spectrumID": "invalid_format"})
-    assert index_type is None
-    assert index_number is None
+def test_extract_usi_location_no_valid_info() -> None:
+    with pytest.raises(MzidParseError, match="Could not extract USI location"):
+        extract_usi_location({"spectrumID": "invalid_format"})
