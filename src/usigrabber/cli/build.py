@@ -12,13 +12,14 @@ import typer
 from pydantic import BaseModel
 from sqlalchemy import Engine, inspect
 from sqlalchemy import exc as sa_exc
-from sqlmodel import Session, select
+from sqlmodel import Session, col, delete, select
 
 from usigrabber.backends import BackendEnum
+from usigrabber.backends.base import Files
 from usigrabber.cli import app
 from usigrabber.db import create_db_and_tables, load_db_engine
 from usigrabber.db.cli import reset as db_reset
-from usigrabber.db.schema import Project
+from usigrabber.db.schema import DownloadedFile, Project
 from usigrabber.file_parser import import_files
 from usigrabber.utils import get_cache_dir
 from usigrabber.utils.context import context_project_accession
@@ -133,7 +134,8 @@ def build(
 
     with Session(db_engine) as session:
         statement = select(Project.accession)
-        existing_accessions: set[str] = set(session.exec(statement).all())
+        # existing_accessions: set[str] = set(session.exec(statement).all())
+        existing_accessions: set[str] = set()
         logger.info(f"Found {len(existing_accessions)} existing projects.")
 
     asyncio.run(build_all_projects(backends, config, existing_accessions, db_engine))
@@ -186,8 +188,14 @@ async def build_project(
         )
 
     with Session(engine) as session:
-        await backend.dump_project_to_db(session, project)
-        session.commit()
+        project_exists = (
+            session.exec(select(Project).where(Project.accession == project_accession)).first()
+            is not None
+        )
+        if not project_exists:
+            # create project entry in db
+            await backend.dump_project_to_db(session, project)
+            session.commit()
 
     error: None | str = None
     traceback_str: None | str = None
@@ -195,6 +203,89 @@ async def build_project(
     try:
         # download files
         files = await backend.get_files_for_project(project["accession"])
+        new_files: Files = Files({category: [] for category in FILE_CATEGORIES})  # type: ignore
+        with Session(engine) as session:
+            delete_files = []
+            # get all existing files for this project
+            statement = select(DownloadedFile).where(
+                DownloadedFile.project_accession == project_accession,
+            )
+            db_files = session.exec(statement).all()
+
+            if len(db_files) == 0:
+                logger.info(
+                    f"No existing files found for project {project_accession}. "
+                    "All files will be downloaded."
+                )
+                new_files = files
+            else:
+                # dict mapping filename -> checksum for all existing files
+                # enables faster access by avoiding O(n²) loops when checking which files need to be downloaded
+                db_file_lookup: dict[str, tuple[Any, ...]] = {
+                    db_file.file_name: (
+                        db_file.is_successful,
+                        db_file.checksum,
+                        db_file.error_message,
+                        db_file.id,
+                    )
+                    for db_file in db_files
+                }
+
+                for category in FILE_CATEGORIES:
+                    for file in files[category]:
+                        filename = Path(file["filepath"]).name
+
+                        # decide if file needs to be downloaded or can be skipped
+                        db_file = db_file_lookup.get(filename)
+                        if db_file is not None:
+                            # check if unsuccessful
+                            if not db_file[0]:
+                                if not db_file[2]:
+                                    logger.warning(
+                                        "No error message for unsuccessful file '%s' in project %s. It will be skipped.",
+                                        filename,
+                                    )
+                                    continue
+
+                                # check if it is a retryable error
+                                if db_file[2].startswith(
+                                    (
+                                        "[Errno 111]",  # Connect call failed
+                                        "[Errno 28]",  # No space left on device
+                                        "Download timed out",
+                                        "Waiting for ('2xx',) but got 426 [' Failure writing network stream.']",
+                                    )
+                                ):
+                                    logger.info(
+                                        f"Retrying download of file '{filename}' in project {project_accession} due to previous error: {db_file[2]}"
+                                    )
+                                    new_files[category].append(file)
+                                    # mark for deletion to allow re-download
+                                    delete_files.append(db_file[3])
+                            else:
+                                # file is marked as successful in the db
+                                if db_file[1] == file["checksum"]:
+                                    # file is already in the db and checksum matches, skip it
+                                    continue
+
+                                logger.warning(
+                                    f"Checksum verification for '{filename}' failed. "
+                                    "It will still be skipped for now.",
+                                    extra={
+                                        "event": "checksum_mismatch",
+                                        "project_accession": project_accession,
+                                        "backend": backend_enum.name,
+                                    },
+                                )
+                                continue
+                        else:
+                            # file is not in the db -> download it
+                            new_files[category].append(file)
+
+                # delete files with retryable errors to allow re-download
+                session.exec(delete(DownloadedFile).where(col(DownloadedFile.id).in_(delete_files)))
+                session.commit()
+
         with temporary_path() as tmp_dir:
             main_source_type = None
             for category in FILE_CATEGORIES:

@@ -47,7 +47,14 @@ def setup_logger(is_main_process: bool, logger_name: str | None = None):
     logger.setLevel(level=LOGLEVEL)
 
     # mute noisy libraries
-    for child in ["sqlalchemy", "aioftp", "urllib3"]:
+    for child in [
+        "sqlalchemy",
+        "aioftp",
+        "urllib3",
+        "aiosqlite",
+        "aiohttp_client_cache",
+        "aiohttp_retry",
+    ]:
         logging.getLogger(child).setLevel("WARNING")
 
     terminal_handler = logging.StreamHandler(sys.stdout)

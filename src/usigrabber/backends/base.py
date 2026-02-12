@@ -9,6 +9,7 @@ class FileMetadata(TypedDict):
     filepath: str
     file_size: int
     category: str
+    checksum: str
 
 
 class Files(TypedDict):
