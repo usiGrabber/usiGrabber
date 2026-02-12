@@ -18,7 +18,7 @@ from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.engine import Engine
 
 from usigrabber.db.schema import IndexType
-from usigrabber.file_parser.errors import UnsupportedDatabaseError
+from usigrabber.file_parser.errors import MzidParseError, UnsupportedDatabaseError
 from usigrabber.utils import logger, lookup_unimod_id_by_name
 
 
@@ -128,11 +128,49 @@ def normalize_residues(residues: Any) -> str:
     return str(residues) if residues else ""
 
 
-def extract_index_type_and_number(sir: dict) -> tuple[IndexType | None, int | None]:
+def extract_spectrum_location_from_string(name_str: str) -> tuple[str, IndexType, int] | None:
+    if not name_str:
+        return None
+
+    patterns = [
+        # qe2_062414_10_uc_xw7_kof1b.5888.5888.2
+        (r"^(.*?)(?:\.raw.*?|)\.(\d+)\.\2\.\d+", 2, 1),
+        # "20130101_IFIXGFP-3207-4374_4374"
+        (r"^(.*?)(?:\.raw.*?|[\s-]+)\d+-(\d+)_\2", 2, 1),
+        # "1800: Scan 8420 [\\hlm\data\dept\Lab_Proteomics\Backup\For Upload to PRIDE\Ritin HDAC8 OE shRNA\20160326_Ritin-TMT-IMAC-fx04-2.raw]"
+        (r"^\d+:\s+Scan\s+(\d+)\s+\[(?:.*[\\/])?(.*?)\.[rR][aA][wW].*\]", 1, 2),
+        # "Scan 1755 (rt=13.312) [Asynchronous_cells_Scc2_band_excision.raw]"
+        (r"^Scan\s+(\d+)\s+\(rt=[\d\.]+\)\s+\[(?:.*[\\/])?(.*?)\.[rR][aA][wW]\]", 1, 2),
+        # "File: "D:\2016_QEx_Raw-Data\2019_S17\CStoetzel_PSMC3_fibroblastes_SvsM\2019_S17_Cstoetzel_PSMC3_CTRL3.raw"; SpectrumID: "26291"; scans: "31956"" />
+        (r'[\\/](?P<filename>[^\\/]+)\.[rR][aA][wW]";.*scans:\s*"(?P<index>\d+)"', 2, 1),
+    ]
+
+    for pat, scan_idx, name_idx in patterns:
+        match = re.search(pat, name_str)
+        if match:
+            scan_number = match.group(scan_idx)
+            ms_run_name = match.group(name_idx)
+
+            try:
+                scan_number_int = int(scan_number)
+            except ValueError:
+                logger.warning(
+                    f"Failed to parse scan number '{scan_number}' as int from string: '{name_str}'"
+                )
+                continue
+
+            # Return the triple: (ms_run, index_type, scan_number)
+            return ms_run_name, IndexType.index, scan_number_int
+
+    return None
+
+
+def extract_spectrum_location(sir: dict) -> tuple[str | None, IndexType, int]:
     """
     Extract USI-related fields from SpectrumIdentificationResult.
 
-    Parses spectrum title (MS:1000796) or scan number (MS:1001115) cvParams to extract:
+    Parses `name`, `spectrum title`, `spectrumID`, and/or `scan number(s)` fields to extract:
+    - ms_run: MS run name
     - index_type: Type of spectrum index (scan, index, nativeId, or trace)
     - index_number: Spectrum index number
 
@@ -140,63 +178,51 @@ def extract_index_type_and_number(sir: dict) -> tuple[IndexType | None, int | No
         sir: SpectrumIdentificationResult dictionary
 
     Returns:
-        Tuple of (index_type, index_number)
+        Tuple of (ms_run, index_type, index_number)
     """
-    index_type: IndexType | None = None
-    index_number: int | None = None
 
-    # First try to parse from spectrumID attribute
-    spectrum_id = sir.get("spectrumID", "")
-    if spectrum_id:
-        # Check for "index=" pattern
-        if spectrum_id.startswith("index="):
-            try:
-                index_type = IndexType.index
-                index_number = int(spectrum_id.split("=")[1])
-            except (ValueError, IndexError):
-                pass
-        # Check for "scan=" pattern
-        elif spectrum_id.startswith("scan="):
-            try:
-                index_type = IndexType.scan
-                index_number = int(spectrum_id.split("=")[1])
-            except (ValueError, IndexError):
-                pass
-        else:
-            # Fallback: try to parse integer directly
-            try:
-                index_number = int(spectrum_id)
-                index_type = IndexType.scan
-            except ValueError:
-                pass
-
-    spectrum_title: str | None = sir.get("spectrum title")
-    scan_number_value: str | None = sir.get("scan number(s)")
+    name: str = sir.get("name", "")
+    if name:
+        match = extract_spectrum_location_from_string(name)
+        if match:
+            return match
 
     # Parse spectrum title (MS:1000796)
-    if spectrum_title and "scan=" in spectrum_title:
+    spectrum_title: str | None = sir.get("spectrum title")
+    if spectrum_title:
         # Example format:
         # "OTE0019_York_060813_JH16.3285.3285.2 File:\"OTE0019_York_060813_JH16.raw\",
         #  NativeID:\"controllerType=0 controllerNumber=1 scan=3285\""
 
         # Extract scan number from NativeID if present (overwrites existing spectrum id)
-        try:
-            match = re.search(r"scan=(\d+)", spectrum_title)
-            if match:
-                index_number = int(match.group(1))
-            index_type = IndexType.scan
-        except (ValueError, IndexError):
-            pass
+        match = extract_spectrum_location_from_string(spectrum_title)
+        if match:
+            return match
+
+    # First try to parse from spectrumID attribute
+    spectrum_id: str = sir.get("spectrumID", "")
+    if spectrum_id:
+        pattern2 = r"controllerType=\d+\s+controllerNumber=\d+\s+scan=(?P<scan>\d+)"
+        match = re.fullmatch(pattern2, spectrum_id)
+
+        if match:
+            try:
+                index_number = int(match.group("scan"))
+                return None, IndexType.scan, index_number
+            except ValueError:
+                pass
 
     # Parse scan number(s) (MS:1001115)
-    if scan_number_value and index_type is None:
+    scan_number_value: str | None = sir.get("scan number(s)")
+    if scan_number_value:
         try:
             index_number = int(scan_number_value)
-            index_type = IndexType.scan
-        except (ValueError, TypeError):
+            return None, IndexType.scan, index_number
+        except ValueError:
             pass
 
-    return index_type, index_number
+    # no way to extract scan number, USI would be incomplete
+    raise MzidParseError("Could not extract USI location from SpectrumIdentificationResult")
 
 
 SPECTRUM_ID_FORMAT_MAPPING = {

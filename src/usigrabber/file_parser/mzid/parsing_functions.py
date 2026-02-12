@@ -12,8 +12,8 @@ from usigrabber.db.schema import IndexType, MzidFile
 from usigrabber.file_parser.errors import MzidParseError
 from usigrabber.file_parser.helpers import (
     create_search_mod_log_str,
-    extract_index_type_and_number,
     extract_score_values,
+    extract_spectrum_location,
     extract_unimod_id_or_name,
     extract_xml_subtree,
     get_spectrum_id_format,
@@ -483,9 +483,8 @@ def parse_psms(
             spectrum_id: str = sir.get("spectrumID", "")
 
             # Extract USI-related fields from the SpectrumIdentificationResult
-            ms_run: str | None = None
             ms_run_ext: str | None = None
-            index_type, index_number = extract_index_type_and_number(sir)
+            ms_run, index_type, index_number = extract_spectrum_location(sir)
 
             # Get list of spectrum identification items (PSMs)
             sii_list: dict[str, Any] | list[dict[str, Any]] = sir.get(
@@ -509,10 +508,27 @@ def parse_psms(
                 spectraData_ref = sir.get("spectraData_ref", "")
                 spectra_data = spectra_data_map.get(spectraData_ref)
                 if spectra_data:
-                    ms_run, ms_run_ext = os.path.splitext(spectra_data[0])
+                    sd_ms_run, ms_run_ext = os.path.splitext(spectra_data[0])
+                    # append ms runs with "|", will be split in validate_ms_run_names
+                    # this is ugly and will hopefully be refactored later
+                    # otherwise we need to change a lot of function signatures and logic,
+                    # because we need to validate every psm immediately when parsing
+                    if sd_ms_run:
+                        if ms_run:
+                            ms_run += "|" + sd_ms_run  # merge both ms_run names
+                        else:
+                            ms_run = sd_ms_run  # set ms_run from SpectraData
+
                     ms_run_ext = ms_run_ext.lstrip(".") if ms_run_ext else None
                     if spectra_data[1]:
                         index_type = spectra_data[1]
+
+                if not ms_run:
+                    raise MzidParseError("No valid ms_run name found in SpectraData or PSM")
+
+                if " " in ms_run:
+                    # pride seems to automatically remove spaces from raw file names
+                    ms_run = ms_run.replace(" ", "")
 
                 # Create PSM record
                 psm_id = uuid7()

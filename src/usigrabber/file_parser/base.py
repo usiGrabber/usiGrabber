@@ -13,7 +13,7 @@ from sqlalchemy.orm.session import Session
 from usigrabber.backends.base import FileMetadata
 from usigrabber.db.schema import ImportedFile
 from usigrabber.file_parser.errors import MsRunNameValidationError
-from usigrabber.file_parser.models import (  # Import models
+from usigrabber.file_parser.models import (
     ImportStats,
     ParsedMzidData,
     ParsedMztabData,
@@ -106,10 +106,18 @@ class BaseFileParser(ABC):
 
         # Check all PSMs for ms_run validation
         for psm in parsed_data.psms:
-            ms_run = psm.get("ms_run")
-            if ms_run and ms_run.lower() not in raw_file_names_lower:
+            ms_runs = psm.get("ms_run") or ""
+            if not ms_runs:
+                logger.warning("PSM is missing ms_run information")
+                return False
+
+            for ms_run in ms_runs.split("|"):
+                if ms_run.lower() in raw_file_names_lower:
+                    psm["ms_run"] = ms_run  # set to the valid ms_run
+                    break
+            else:
                 logger.warning(
-                    f"PSM has ms_run '{ms_run}' that doesn't match any available raw files"
+                    f"PSM has ms_run names '{ms_runs.split('|')}' that don't match any available raw files"
                 )
                 return False
 
