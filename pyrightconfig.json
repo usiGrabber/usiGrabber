@@ -11,6 +11,7 @@
 	"reportAny": "none",
 	"reportAssignmentType": "none",
 	"ignore": [
-		"src/usigrabber/utils/uuid.py"
+		"src/usigrabber/utils/uuid.py",
+		"experimental/*",
 	]
 }
