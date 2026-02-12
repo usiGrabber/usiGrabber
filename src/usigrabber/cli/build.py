@@ -6,7 +6,7 @@ import os
 import traceback
 import warnings
 from pathlib import Path
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 
 import typer
 from pydantic import BaseModel
@@ -26,7 +26,8 @@ from usigrabber.utils.context import context_project_accession
 from usigrabber.utils.file import get_interesting_files, temporary_path
 from usigrabber.utils.setup import setup_logger
 
-FILE_CATEGORIES = ["result", "search", "other"]
+FileCategory = Literal["result", "search", "other"]
+FILE_CATEGORIES: list[FileCategory] = ["result", "search", "other"]
 
 CACHE_DIR = get_cache_dir()
 STANDARD_BACKENDS = [enum for enum in BackendEnum]
@@ -132,19 +133,12 @@ def build(
         logger.info("No preexisting database found. Database will be initialized.")
         create_db_and_tables(db_engine)
 
-    with Session(db_engine) as session:
-        statement = select(Project.accession)
-        # existing_accessions: set[str] = set(session.exec(statement).all())
-        existing_accessions: set[str] = set()
-        logger.info(f"Found {len(existing_accessions)} existing projects.")
-
-    asyncio.run(build_all_projects(backends, config, existing_accessions, db_engine))
+    asyncio.run(build_all_projects(backends, config, db_engine))
 
 
 async def build_all_projects(
     backends: list[BackendEnum],
     config: BuildConfiguration,
-    existing_accessions: set[str],
     engine: Engine,
 ):
     from usigrabber.parallelism.main import (
@@ -153,9 +147,9 @@ async def build_all_projects(
     )
 
     if config.max_workers == 1:
-        await build_all_projects_in_single_process(backends, existing_accessions, engine=engine)
+        await build_all_projects_in_single_process(backends, engine=engine)
     else:
-        await build_all_projects_in_process_pool(backends, config, existing_accessions)
+        await build_all_projects_in_process_pool(backends, config)
 
 
 async def build_project(

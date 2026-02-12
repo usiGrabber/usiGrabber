@@ -108,7 +108,7 @@ class PrideBackend(BaseBackend):
 
     @classmethod
     async def get_project(cls, project_accession: str) -> dict[str, Any]:
-        projects = cls.get_new_projects(existing_accessions=set())
+        projects = cls.get_projects()
         total_searched_projects = 0
         async for project in projects:
             total_searched_projects += 1
@@ -123,10 +123,7 @@ class PrideBackend(BaseBackend):
         return project.get("submissionType") == "COMPLETE"
 
     @classmethod
-    async def get_new_projects(
-        cls,
-        existing_accessions: set[str],
-    ) -> AsyncGenerator[dict[str, Any], None]:
+    async def get_projects(cls) -> AsyncGenerator[dict[str, Any], None]:
         projects_file = os.getenv("PROJECTS_FILE")
         if projects_file:
             file_path = Path(projects_file)
@@ -149,8 +146,7 @@ class PrideBackend(BaseBackend):
 
         with open(file_path, encoding="utf-8") as in_f:
             for project in ijson.items(in_f, "item"):
-                if project["accession"] not in existing_accessions:
-                    yield project
+                yield project
 
     @classmethod
     async def get_files_for_project(

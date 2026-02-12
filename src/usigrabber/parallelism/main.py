@@ -60,14 +60,12 @@ def init_ontology_worker() -> None:
 
 
 async def iterate_projects(
-    backends: list[BackendEnum], existing_accessions: set[str]
+    backends: list[BackendEnum],
 ) -> AsyncGenerator[tuple[dict[str, Any], BackendEnum], None]:
     backend_queue = deque(backends)
     while len(backend_queue) > 0:
         current_backend = backend_queue.popleft()
-        async for project in current_backend.value.get_new_projects(
-            existing_accessions=existing_accessions
-        ):
+        async for project in current_backend.value.get_projects():
             submission_type = project.get("submissionType")
             if submission_type is None:
                 logger.warning(
@@ -85,12 +83,11 @@ async def iterate_projects(
 
 async def build_all_projects_in_single_process(
     backends: list[BackendEnum],
-    existing_accessions: set[str],
     engine: Engine,
 ) -> None:
     from usigrabber.cli.build import build_project
 
-    async for project, backend in iterate_projects(backends, existing_accessions):
+    async for project, backend in iterate_projects(backends):
         try:
             await build_project(backend, project, engine)
         except Exception as e:
@@ -241,7 +238,7 @@ class MainWorkFuture(WorkFuture):
 
 
 async def build_all_projects_in_process_pool(
-    backends: list[BackendEnum], config: "BuildConfiguration", existing_accessions: set[str]
+    backends: list[BackendEnum], config: "BuildConfiguration"
 ) -> None:
     from usigrabber.cli.build import build_project_sync
 
@@ -270,7 +267,7 @@ async def build_all_projects_in_process_pool(
                 mp_context=mp_context,
             ) as onto_executor,
         ):
-            async for project, current_backend in iterate_projects(backends, existing_accessions):
+            async for project, current_backend in iterate_projects(backends):
                 future_context = FutureContext(
                     config=config,
                     project_accession=current_backend.value.get_project_accession(project),
