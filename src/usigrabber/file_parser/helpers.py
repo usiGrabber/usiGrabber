@@ -128,7 +128,7 @@ def normalize_residues(residues: Any) -> str:
     return str(residues) if residues else ""
 
 
-def extract_usi_location_from_string(name_str: str) -> tuple[str, IndexType, int] | None:
+def extract_spectrum_location_from_string(name_str: str) -> tuple[str, IndexType, int] | None:
     if not name_str:
         return None
 
@@ -154,6 +154,9 @@ def extract_usi_location_from_string(name_str: str) -> tuple[str, IndexType, int
             try:
                 scan_number_int = int(scan_number)
             except ValueError:
+                logger.warning(
+                    f"Failed to parse scan number '{scan_number}' as int from string: '{name_str}'"
+                )
                 continue
 
             # Return the triple: (ms_run, index_type, scan_number)
@@ -162,14 +165,14 @@ def extract_usi_location_from_string(name_str: str) -> tuple[str, IndexType, int
     return None
 
 
-def extract_usi_location(sir: dict) -> tuple[str | None, IndexType, int]:
+def extract_spectrum_location(sir: dict) -> tuple[str | None, IndexType, int]:
     """
     Extract USI-related fields from SpectrumIdentificationResult.
 
-    Parses spectrum title (MS:1000796) or scan number (MS:1001115) cvParams to extract:
+    Parses `name`, `spectrum title`, `spectrumID`, and/or `scan number(s)` fields to extract:
+    - ms_run: MS run name
     - index_type: Type of spectrum index (scan, index, nativeId, or trace)
     - index_number: Spectrum index number
-    - ms_run: MS run name
 
     Args:
         sir: SpectrumIdentificationResult dictionary
@@ -180,7 +183,7 @@ def extract_usi_location(sir: dict) -> tuple[str | None, IndexType, int]:
 
     name: str = sir.get("name", "")
     if name:
-        match = extract_usi_location_from_string(name)
+        match = extract_spectrum_location_from_string(name)
         if match:
             return match
 
@@ -192,7 +195,7 @@ def extract_usi_location(sir: dict) -> tuple[str | None, IndexType, int]:
         #  NativeID:\"controllerType=0 controllerNumber=1 scan=3285\""
 
         # Extract scan number from NativeID if present (overwrites existing spectrum id)
-        match = extract_usi_location_from_string(spectrum_title)
+        match = extract_spectrum_location_from_string(spectrum_title)
         if match:
             return match
 

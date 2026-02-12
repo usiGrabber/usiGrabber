@@ -13,8 +13,8 @@ from usigrabber.file_parser.errors import MzidParseError
 from usigrabber.file_parser.helpers import (
     create_search_mod_log_str,
     extract_score_values,
+    extract_spectrum_location,
     extract_unimod_id_or_name,
-    extract_usi_location,
     extract_xml_subtree,
     get_spectrum_id_format,
     parse_modification_location,
@@ -484,7 +484,7 @@ def parse_psms(
 
             # Extract USI-related fields from the SpectrumIdentificationResult
             ms_run_ext: str | None = None
-            ms_run, index_type, index_number = extract_usi_location(sir)
+            ms_run, index_type, index_number = extract_spectrum_location(sir)
 
             # Get list of spectrum identification items (PSMs)
             sii_list: dict[str, Any] | list[dict[str, Any]] = sir.get(
@@ -512,7 +512,7 @@ def parse_psms(
                     # append ms runs with "|", will be split in validate_ms_run_names
                     # this is ugly and will hopefully be refactored later
                     # otherwise we need to change a lot of function signatures and logic,
-                    # because we need to validate every psm immiediately when parsing
+                    # because we need to validate every psm immediately when parsing
                     if sd_ms_run:
                         if ms_run:
                             ms_run += "|" + sd_ms_run  # merge both ms_run names

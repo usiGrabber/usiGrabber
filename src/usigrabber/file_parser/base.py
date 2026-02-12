@@ -106,7 +106,7 @@ class BaseFileParser(ABC):
 
         # Check all PSMs for ms_run validation
         for psm in parsed_data.psms:
-            ms_runs = psm.get("ms_run", "") or ""
+            ms_runs = psm.get("ms_run") or ""
             if not ms_runs:
                 logger.warning("PSM is missing ms_run information")
                 return False

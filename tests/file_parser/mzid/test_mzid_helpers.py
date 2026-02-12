@@ -11,8 +11,8 @@ from usigrabber.db.schema import IndexType
 from usigrabber.file_parser.errors import MzidParseError
 from usigrabber.file_parser.helpers import (
     extract_score_values,
+    extract_spectrum_location,
     extract_unimod_id_or_name,
-    extract_usi_location,
     parse_modification_location,
 )
 
@@ -200,7 +200,7 @@ def test_parse_modification_location_empty_dict():
 def test_extract_usi_location(
     sir, expected_ms_run, expected_index_type, expected_index_number
 ) -> None:
-    ms_run, index_type, index_number = extract_usi_location(sir)
+    ms_run, index_type, index_number = extract_spectrum_location(sir)
     assert ms_run == expected_ms_run
     assert index_type == expected_index_type
     assert index_number == expected_index_number
@@ -212,11 +212,12 @@ def test_extract_usi_location_from_spectrum_title() -> None:
         + r"NativeID:\"controllerType=0 controllerNumber=1 scan=3285\""
     )
 
-    ms_runs, index_type, index_number = extract_usi_location({"spectrum title": spectrum_title})
+    ms_run, index_type, index_number = extract_spectrum_location({"spectrum title": spectrum_title})
+    assert ms_run == "OTE0019_York_060813_JH16"
     assert index_type == IndexType.index
     assert index_number == 3285
 
 
 def test_extract_usi_location_no_valid_info() -> None:
     with pytest.raises(MzidParseError, match="Could not extract USI location"):
-        extract_usi_location({"spectrumID": "invalid_format"})
+        extract_spectrum_location({"spectrumID": "invalid_format"})

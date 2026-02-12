@@ -22,12 +22,8 @@ from usigrabber.file_parser.helpers import get_txt_triples, log_info
 from usigrabber.file_parser.models import ImportStats
 
 # Import to register parsers
-from usigrabber.file_parser.mzid.parser import (
-    MzidFileParser,  # noqa: F401
-)
-from usigrabber.file_parser.mztab.parser import (
-    MztabFileParser,  # noqa: F401
-)
+from usigrabber.file_parser.mzid.parser import MzidFileParser  # noqa: F401
+from usigrabber.file_parser.mztab.parser import MztabFileParser  # noqa: F401
 from usigrabber.file_parser.txt_zip.parser import TxtZipFileParser  # noqa: F401
 from usigrabber.utils.checksum import md5_checksum
 from usigrabber.utils.context import context_file_id
@@ -153,7 +149,6 @@ async def _download_and_extract(
             error_message="Download timed out",
             traceback_str=tb.format_exc(),
         )
-        raise  # Re-raise so user cancellation still works
     except asyncio.CancelledError:
         download_result = DownloadResult(
             file_name=file_name,
