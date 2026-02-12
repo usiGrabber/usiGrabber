@@ -149,6 +149,7 @@ async def _download_and_extract(
             error_message="Download timed out",
             traceback_str=tb.format_exc(),
         )
+        return download_result
     except asyncio.CancelledError:
         download_result = DownloadResult(
             file_name=file_name,
