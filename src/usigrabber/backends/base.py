@@ -47,7 +47,7 @@ class BaseBackend(ABC):
     async def get_projects(cls) -> AsyncGenerator[dict[str, Any], None]:
         """
         Iterate over all projects.
-        :param is_test: Whether to operate in test mode.
+
         :yield: A dictionary containing project metadata for each new project.
         """
         # This is an abstract method and should not be called.

@@ -175,7 +175,7 @@ class PrideBackend(BaseBackend):
                     # strip possible extensions
                     fn_stripped: str = filename
                     for ext in [".gz", ".rar", ".zip"]:
-                        fn_stripped = fn_stripped.rstrip(ext)
+                        fn_stripped = fn_stripped.removesuffix(ext)
 
                     # only parse files we can actually handle
                     # other files might not have checksums

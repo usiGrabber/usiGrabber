@@ -197,7 +197,7 @@ async def build_project(
     try:
         # download files
         files = await backend.get_files_for_project(project["accession"])
-        new_files: Files = Files({category: [] for category in FILE_CATEGORIES})  # type: ignore
+        new_files: Files = {"result": [], "search": [], "other": [], "raw": []}
         with Session(engine) as session:
             delete_files = []
             # get all existing files for this project
@@ -236,8 +236,10 @@ async def build_project(
                             if not db_file[0]:
                                 if not db_file[2]:
                                     logger.warning(
-                                        "No error message for unsuccessful file '%s' in project %s. It will be skipped.",
+                                        "No error message for unsuccessful file '%s' in project %s. "
+                                        "It will be skipped.",
                                         filename,
+                                        project_accession,
                                     )
                                     continue
 
@@ -283,11 +285,11 @@ async def build_project(
         with temporary_path() as tmp_dir:
             main_source_type = None
             for category in FILE_CATEGORIES:
-                if not files[category] or main_source_type is not None:
+                if not new_files[category] or main_source_type is not None:
                     continue
 
                 interesting_ftp_paths, file_ext = await get_interesting_files(
-                    files[category], project["accession"]
+                    new_files[category], project["accession"]
                 )
 
                 if not interesting_ftp_paths:
@@ -300,7 +302,7 @@ async def build_project(
                     file_ext,
                     project["accession"],
                     tmp_dir,
-                    files["raw"],
+                    new_files["raw"],
                 )
     except Exception as e:
         error = str(e)

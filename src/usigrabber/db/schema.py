@@ -259,7 +259,7 @@ class DownloadedFile(SQLModel, table=True):
 
     __tablename__ = "downloaded_files"
 
-    id: int = Field(default=None, primary_key=True)
+    id: int | None = Field(default=None, primary_key=True)
     project_accession: str
     file_name: str
     file_size: int | None = Field(default=None, description="File size in bytes")
