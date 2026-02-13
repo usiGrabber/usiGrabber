@@ -3,7 +3,7 @@ import logging
 import subprocess
 import tempfile
 import time
-from multiprocessing.synchronize import LockType
+from multiprocessing.synchronize import Lock
 from pathlib import Path
 from typing import Any
 
@@ -184,7 +184,7 @@ def extract_and_export(
     scan_numbers: list[int],
     output_dir: Path,
     chunk_df: pd.DataFrame,
-    charge_mismatch_lock: LockType,
+    charge_mismatch_lock: Lock,
     no_validate_charge: bool = False,
     convert_to_mgf: bool = False,
 ) -> float:

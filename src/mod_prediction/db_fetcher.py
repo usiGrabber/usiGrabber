@@ -11,6 +11,7 @@ from uuid import UUID
 
 import pandas as pd
 import psycopg
+import pyarrow as pa
 import pyarrow.parquet as pq
 from dotenv import load_dotenv
 from rich.progress import (
@@ -170,9 +171,9 @@ def main() -> None:
         args.output = args.output.with_suffix("")
 
     # Get connection string
-    connection_string = os.getenv("DATABASE_URL", "")
+    connection_string = os.getenv("DB_URL", "")
     if not connection_string:
-        logger.error("No database connection string provided. Set DATABASE_URL env variable.")
+        logger.error("No database connection string provided. Set DB_URL env variable.")
         return
 
     sql_to_file(

@@ -10,7 +10,7 @@ from collections.abc import Generator
 from concurrent.futures import ProcessPoolExecutor
 from dataclasses import asdict, dataclass
 from datetime import datetime, timedelta
-from multiprocessing.synchronize import LockType
+from multiprocessing.synchronize import Lock
 from pathlib import Path
 from typing import cast
 from urllib.parse import ParseResult, urlparse
@@ -190,7 +190,7 @@ async def process_chunk(
     output_dir: Path,
     temp_dir: Path,
     pool: ProcessPoolExecutor,
-    charge_mismatch_lock: LockType,
+    charge_mismatch_lock: Lock,
     no_validate_charge: bool = False,
     keep_temp_files: bool = False,
     convert_to_mgf: bool = False,
