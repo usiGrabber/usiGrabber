@@ -307,6 +307,7 @@ async def get_filtered_files(
                                     "[Errno 28]",  # No space left on device
                                     "Download timed out",
                                     "Waiting for ('2xx',) but got 426 [' Failure writing network stream.']",
+                                    "Task was cancelled",
                                 )
                             ):
                                 logger.info(

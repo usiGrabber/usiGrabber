@@ -123,8 +123,7 @@ async def _download_and_extract(
 
     download_result = None
     try:
-        coro = download_ftp_with_semaphore(sem, url, out_dir)
-        local_path = await asyncio.wait_for(coro, timeout=600)  # 10 minute timeout per file
+        local_path = await download_ftp_with_semaphore(sem, url, out_dir)
         file_size = local_path.stat().st_size
         checksum = md5_checksum(local_path)
         extract_dir = local_path.stem + "_extracted"
