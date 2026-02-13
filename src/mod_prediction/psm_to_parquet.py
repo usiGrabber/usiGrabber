@@ -26,6 +26,7 @@ from mod_prediction.pride_fetcher import download_spectra
 setup_logging()
 logger: Logger = logging.getLogger()
 
+
 class PSMRow(NamedTuple):
     """PSM data from parquet row."""
 

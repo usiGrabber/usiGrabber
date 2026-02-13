@@ -188,4 +188,3 @@ class EnrichedPSM(PSMWithModifications):
                 f"mz_array={len(self.mz_array)}, "
                 f"intensity_array={len(self.intensity_array)}"
             )
-

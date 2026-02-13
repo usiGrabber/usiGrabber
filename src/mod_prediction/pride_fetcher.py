@@ -1,4 +1,3 @@
-
 """PROXI API interaction for downloading spectra."""
 
 import logging
@@ -6,12 +5,7 @@ import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from pyteomics.usi import USI, proxi
-from tenacity import (
-    RetryError,
-    retry,
-    stop_after_attempt,
-    wait_exponential,
-)
+from tenacity import RetryError, retry, stop_after_attempt, wait_exponential
 
 from mod_prediction.models import PyteomicsSpectrum
 
@@ -60,9 +54,7 @@ def download_spectrum(usi: USI) -> PyteomicsSpectrum | None:
     try:
         return _download_spectrum_with_retry(usi)
     except RetryError as e:
-        logger.warning(
-            f"All 5 retries exhausted for {usi}: {e.last_attempt.exception()}"
-        )
+        logger.warning(f"All 5 retries exhausted for {usi}: {e.last_attempt.exception()}")
         return None
     except Exception as e:
         logger.warning(f"Failed to download spectrum {usi}: {e}")

@@ -1,24 +1,25 @@
 """Convert enriched PSM parquet files to MGF format."""
 
-from concurrent.futures import ProcessPoolExecutor, as_completed
-import multiprocessing
-import os
-from typing import Literal
 import argparse
 import logging
 import logging.handlers
+import multiprocessing
+import os
 import sys
+from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
+from typing import Literal
+
 import pyarrow.dataset as ds
+from dotenv import load_dotenv
 from rich.progress import (
+    BarColumn,
+    MofNCompleteColumn,
     Progress,
     SpinnerColumn,
     TextColumn,
-    BarColumn,
-    MofNCompleteColumn,
     TimeElapsedColumn,
 )
-from dotenv import load_dotenv
 
 from mod_prediction.logging_config import setup_logging, worker_log_configurer
 from mod_prediction.mgf import append_mgf, spectrum_from_parquet_row, write_mgf
@@ -28,6 +29,7 @@ load_dotenv()
 NUM_WORKERS = int(os.getenv("NUM_WORKERS", multiprocessing.cpu_count() - 1))
 
 logger = logging.getLogger("export-mgf")
+
 
 def convert_parquet_to_mgf(
     parquet_path: Path,
@@ -149,17 +151,15 @@ def convert_parallel(
 
         with (
             ProcessPoolExecutor(
-                max_workers=num_workers,
-                initializer=worker_log_configurer,
-                initargs=(log_queue,)
+                max_workers=num_workers, initializer=worker_log_configurer, initargs=(log_queue,)
             ) as executor,
             Progress(
-                SpinnerColumn(),        # Adds a spinning icon
+                SpinnerColumn(),  # Adds a spinning icon
                 TextColumn("[progress.description]{task.description}"),
-                BarColumn(),            # This will pulse back and forth
+                BarColumn(),  # This will pulse back and forth
                 MofNCompleteColumn(),  # <--- This shows the current count
-                TimeElapsedColumn(),   # <--- Shows how long it's been running
-                transient=True,          # Optional: clears the bar from screen when done
+                TimeElapsedColumn(),  # <--- Shows how long it's been running
+                transient=True,  # Optional: clears the bar from screen when done
             ) as progress,
         ):
             task = progress.add_task("Converting parquet files to MGF", total=total_files)
@@ -168,9 +168,7 @@ def convert_parallel(
             # and writing them to your elaborate handlers.
             root_logger = logging.getLogger()
             listener = logging.handlers.QueueListener(
-                log_queue,
-                *root_logger.handlers,
-                respect_handler_level=True
+                log_queue, *root_logger.handlers, respect_handler_level=True
             )
             listener.start()
 
@@ -181,8 +179,9 @@ def convert_parallel(
                         file,
                         output_dir / f"{file.stem}.mgf",
                         batch_size,
-                        nrows
-                    ): file for file in files
+                        nrows,
+                    ): file
+                    for file in files
                 }
                 for future in as_completed(futures):
                     n = futures[future]
@@ -258,7 +257,7 @@ def main():
 
     args = parse_args()
 
-    input_type: Literal['directory', 'file'] = "directory" if args.input.is_dir() else "file"
+    input_type: Literal["directory", "file"] = "directory" if args.input.is_dir() else "file"
     logger.info("Starting parquet to MGF conversion...")
     logger.info(f"Input {input_type}: {args.input}")
     logger.info(f"Output: {args.output}")
@@ -292,6 +291,7 @@ def main():
     logger.info("Conversion complete!")
     logger.info(f"Total spectra written: {total_spectra:,}")
     logger.info(f"Output file: '{args.output}'")
+
 
 if __name__ == "__main__":
     main()

@@ -1,28 +1,28 @@
-import time
 import csv
 import logging
-import multiprocessing
 import subprocess
 import tempfile
+import time
+from multiprocessing.synchronize import LockType
 from pathlib import Path
 from typing import Any
 
 import pandas as pd
 
 from mod_prediction.models import EnrichedPSM, Spectrum
-from mod_prediction.parquet_utils import write_batch_parquet
 from mod_prediction.parquet_to_mgf import convert_parquet_to_mgf
+from mod_prediction.parquet_utils import write_batch_parquet
 from mod_prediction.raw_to_psm.utils import (
+    ChargeMismatchError,
+    ThermoRawFileParserError,
     extract_charge_state_from_attributes,
     format_scan_ranges,
     json_to_spectra,
-    ThermoRawFileParserError,
-    ChargeMismatchError
 )
 
-
-
-THERMO_PARSER_PATH: Path = Path(__file__).parent.parent.parent.parent / "thermo" / "ThermoRawFileParser"
+THERMO_PARSER_PATH: Path = (
+    Path(__file__).parent.parent.parent.parent / "thermo" / "ThermoRawFileParser"
+)
 logger = logging.getLogger(__name__)
 
 
@@ -56,7 +56,7 @@ def extract_spectra_with_parser(
         "[%s] Extracting %d unique scans from '%s'...",
         raw_file_path.name,
         len(scan_numbers),
-        raw_file_path.name
+        raw_file_path.name,
     )
 
     spectra: list[Spectrum] = []
@@ -65,7 +65,6 @@ def extract_spectra_with_parser(
     with tempfile.TemporaryDirectory() as temp_dir:
         # Format scan numbers for ThermoRawFileParser
         for i, formatted_scans in enumerate(format_scan_ranges(scan_numbers)):
-
             logger.debug("[%s] Extracting batch %d...", raw_file_path.name, i + 1)
 
             temp_json = Path(temp_dir) / f"{i + 1}.json"
@@ -154,22 +153,26 @@ def write_charge_mismatch(
         with open(charge_mismatch_file, "a", newline="") as f:
             writer = csv.writer(f)
             if not file_exists:
-                writer.writerow([
-                    "psm_id",
-                    "project_accession",
-                    "ms_run",
-                    "scan_number",
-                    "spectrum_charge",
-                    "psm_charge",
-                ])
-            writer.writerow([
-                psm_id,
-                project_accession,
-                ms_run,
-                scan_number,
-                spectrum_charge,
-                psm_charge,
-            ])
+                writer.writerow(
+                    [
+                        "psm_id",
+                        "project_accession",
+                        "ms_run",
+                        "scan_number",
+                        "spectrum_charge",
+                        "psm_charge",
+                    ]
+                )
+            writer.writerow(
+                [
+                    psm_id,
+                    project_accession,
+                    ms_run,
+                    scan_number,
+                    spectrum_charge,
+                    psm_charge,
+                ]
+            )
     except Exception as e:
         logger.error(f"Failed to write charge mismatch record: {e}")
 
@@ -181,7 +184,7 @@ def extract_and_export(
     scan_numbers: list[int],
     output_dir: Path,
     chunk_df: pd.DataFrame,
-    charge_mismatch_lock: multiprocessing.Lock,
+    charge_mismatch_lock: LockType,
     no_validate_charge: bool = False,
     convert_to_mgf: bool = False,
 ) -> float:
@@ -278,7 +281,7 @@ def extract_and_export(
                 )
                 enriched_psms.append(enriched_psm)
             except ChargeMismatchError:
-                raise # re-raise to skip entire file on charge mismatch
+                raise  # re-raise to skip entire file on charge mismatch
             except Exception as e:
                 logger.warning(
                     f"Failed to create EnrichedPSM for PSM {psm_row.get('psm_id', 'unknown')}: {e}"

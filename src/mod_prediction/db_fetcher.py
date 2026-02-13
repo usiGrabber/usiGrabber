@@ -11,16 +11,16 @@ from uuid import UUID
 
 import pandas as pd
 import psycopg
+import pyarrow.parquet as pq
+from dotenv import load_dotenv
 from rich.progress import (
+    BarColumn,
+    MofNCompleteColumn,
     Progress,
     SpinnerColumn,
     TextColumn,
-    BarColumn,
-    MofNCompleteColumn,
     TimeElapsedColumn,
 )
-import pyarrow.parquet as pq
-from dotenv import load_dotenv
 
 from mod_prediction.logging_config import setup_logging
 
@@ -71,18 +71,16 @@ def sql_to_file(
 
             # Fetch column names
             columns: list[str] = (
-                [desc[0] for desc in cursor.description]
-                if cursor.description
-                else []
+                [desc[0] for desc in cursor.description] if cursor.description else []
             )
 
             with Progress(
-                SpinnerColumn(),        # Adds a spinning icon
+                SpinnerColumn(),  # Adds a spinning icon
                 TextColumn("[progress.description]{task.description}"),
-                BarColumn(),            # This will pulse back and forth
+                BarColumn(),  # This will pulse back and forth
                 # transient=True          # Optional: clears the bar from screen when done
                 MofNCompleteColumn(),  # <--- This shows the current count
-                TimeElapsedColumn(),   # <--- Shows how long it's been running
+                TimeElapsedColumn(),  # <--- Shows how long it's been running
             ) as progress:
                 task = progress.add_task("Writing rows to file", total=None)
 
@@ -103,10 +101,7 @@ def sql_to_file(
 
                     # Write to CSV
                     chunk.to_csv(
-                        csv_file,
-                        mode='w' if first_chunk else 'a',
-                        header=first_chunk,
-                        index=False
+                        csv_file, mode="w" if first_chunk else "a", header=first_chunk, index=False
                     )
 
                     # Write to Parquet
@@ -119,7 +114,6 @@ def sql_to_file(
                     first_chunk = False
 
                     progress.advance(task, len(chunk))
-
 
         logger.info(f"Exported {total_rows:,} rows to:")
         logger.info(f"  {csv_file}")
@@ -149,8 +143,7 @@ def main() -> None:
         "--output",
         type=Path,
         help=(
-            "Base output path (extensions .csv and .parquet will be added, "
-            "default: <sql_filename>)"
+            "Base output path (extensions .csv and .parquet will be added, default: <sql_filename>)"
         ),
     )
     parser.add_argument(

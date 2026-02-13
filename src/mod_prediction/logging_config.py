@@ -3,12 +3,13 @@
 import logging
 import logging.config
 import logging.handlers
-from pathlib import Path
 import os
+from pathlib import Path
 
 CONSOLE_LOG_LEVEL = os.getenv("CONSOLE_LOG_LEVEL", "INFO").upper()
 USE_PLAIN_LOGGING = os.getenv("USE_PLAIN_LOGGING", "false").lower() in ["1", "true", "yes", "on"]
-LOG_DIR = Path("./logs")
+LOG_DIR = Path("./logs/modification-prediction")
+
 
 def worker_log_configurer(queue):
     """

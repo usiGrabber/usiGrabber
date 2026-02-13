@@ -113,6 +113,7 @@ def read_psm_parquet(parquet_path: Path) -> pd.DataFrame:
     logger.debug("Read %d rows with %d columns", len(df), len(df.columns))
     return df
 
+
 def read_psm_data(input_path: Path) -> pd.DataFrame:
     """
     Read PSM data from either CSV or Parquet file.
@@ -131,8 +132,7 @@ def read_psm_data(input_path: Path) -> pd.DataFrame:
         df = read_psm_parquet(input_path)
     else:
         raise ValueError(
-            f"Unsupported file format: {input_path.suffix}. "
-            "Please use .csv or .parquet files."
+            f"Unsupported file format: {input_path.suffix}. Please use .csv or .parquet files."
         )
     # Convert NaN to None for nullable fields (pandas uses NaN, Pydantic expects None)
     df = df.where(pd.notna(df), None)
@@ -140,9 +140,7 @@ def read_psm_data(input_path: Path) -> pd.DataFrame:
     return df
 
 
-def write_batch_parquet(
-    enriched_psms: list[EnrichedPSM], output_dir: Path, file_name: str
-) -> Path:
+def write_batch_parquet(enriched_psms: list[EnrichedPSM], output_dir: Path, file_name: str) -> Path:
     """
     Write enriched PSM data to a batch parquet file in an output directory.
 

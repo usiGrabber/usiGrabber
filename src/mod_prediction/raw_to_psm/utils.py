@@ -1,7 +1,7 @@
 import json
 import logging
-from pathlib import Path
 from collections.abc import Iterator
+from pathlib import Path
 
 from mod_prediction.models import Spectrum
 
@@ -10,16 +10,19 @@ logger = logging.getLogger(__name__)
 
 class NonRetryableError(Exception):
     """Base class for non-retryable errors."""
+
     pass
 
 
 class ThermoRawFileParserError(NonRetryableError):
     """Custom exception for ThermoRawFileParser errors."""
+
     pass
 
 
 class ChargeMismatchError(NonRetryableError):
     """Exception raised when there is a charge state mismatch."""
+
     pass
 
 
@@ -141,4 +144,3 @@ def json_to_spectra(json_file: Path) -> list[Spectrum]:
     except Exception as e:
         logger.error(f"Failed to convert JSON to spectra: {e}")
         return []
-

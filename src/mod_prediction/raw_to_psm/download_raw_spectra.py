@@ -2,21 +2,23 @@
 
 import argparse
 import asyncio
-from concurrent.futures import ProcessPoolExecutor
-from dataclasses import asdict, dataclass
 import logging
 import logging.handlers
 import multiprocessing
 import os
-from pathlib import Path
-from typing import Any, cast
 from collections.abc import Generator
-from urllib.parse import ParseResult, urlparse
+from concurrent.futures import ProcessPoolExecutor
+from dataclasses import asdict, dataclass
 from datetime import datetime, timedelta
+from multiprocessing.synchronize import LockType
+from pathlib import Path
+from typing import cast
+from urllib.parse import ParseResult, urlparse
 
 import aioftp
 import pandas as pd
 import requests
+from dotenv import load_dotenv
 from pandas.core.frame import DataFrame
 from requests.models import Response
 from tenacity import (
@@ -26,13 +28,9 @@ from tenacity import (
     wait_exponential,
     wait_random_exponential,
 )
-from dotenv import load_dotenv
 
 from mod_prediction.logging_config import setup_logging, worker_log_configurer
-from mod_prediction.parquet_utils import (
-    aggregate_modifications_per_psm,
-    read_psm_data,
-)
+from mod_prediction.parquet_utils import aggregate_modifications_per_psm, read_psm_data
 from mod_prediction.raw_to_psm.worker import extract_and_export
 
 logger = logging.getLogger("mod-prediction")
@@ -41,6 +39,7 @@ DOWNLOAD_SPEED_IN_MBS = int(os.getenv("DOWNLOAD_SPEED_MBPS", 100)) / 8  # 100 Mb
 BASE_URL = "https://www.ebi.ac.uk/pride/ws/archive/v3"
 
 DEFAULT_TEMP_DIR: Path = Path.cwd() / "pride_raw_files"
+
 
 @dataclass
 class ParsedFileInfo:
@@ -53,6 +52,7 @@ class ParsedFileInfo:
     error_class: str | None = None
     error_message: str | None = None
 
+
 # storage for timings
 run_infos: dict[str, ParsedFileInfo] = {}
 "map `project_accession-ms_run` to `ParsedFileInfo`"
@@ -63,10 +63,7 @@ run_infos: dict[str, ParsedFileInfo] = {}
     wait=wait_exponential(multiplier=1, max=60),
     reraise=True,
 )
-def get_raw_file_info(
-    project_accession: str,
-    filename_filter: str
-) -> list | None:
+def get_raw_file_info(project_accession: str, filename_filter: str) -> list | None:
     """
     Fetch raw file information from PRIDE API with exponential backoff retry.
 
@@ -89,8 +86,7 @@ def get_raw_file_info(
     raw_files = [
         f
         for f in files
-        if f.get("fileCategory", {}).get("value") == "RAW"
-        and f.get("publicFileLocations")
+        if f.get("fileCategory", {}).get("value") == "RAW" and f.get("publicFileLocations")
     ]
 
     logger.debug("Found %d raw files for project %s", len(raw_files), project_accession)
@@ -194,7 +190,7 @@ async def process_chunk(
     output_dir: Path,
     temp_dir: Path,
     pool: ProcessPoolExecutor,
-    charge_mismatch_lock: multiprocessing.Lock,
+    charge_mismatch_lock: LockType,
     no_validate_charge: bool = False,
     keep_temp_files: bool = False,
     convert_to_mgf: bool = False,
@@ -244,9 +240,7 @@ async def process_chunk(
         download_duration = 0.0
         if not raw_file_path.exists():
             download_duration = await ftp_download(
-                ftp_url,
-                raw_file_path,
-                filesize_bytes=filesize_bytes
+                ftp_url, raw_file_path, filesize_bytes=filesize_bytes
             )
         else:
             logger.info("Using cached raw file: %s", raw_file_path)
@@ -390,7 +384,7 @@ def parse_args() -> argparse.Namespace:
         "--workers",
         type=int,
         default=8,
-        help="Number of parallel workers for extracting files (default: 8)"
+        help="Number of parallel workers for extracting files (default: 8)",
     )
     parser.add_argument(
         "--convert-to-mgf",
@@ -481,17 +475,13 @@ async def _async_main() -> None:
                 background_tasks.discard(task)
 
         with ProcessPoolExecutor(
-            max_workers=args.workers,
-            initializer=worker_log_configurer,
-            initargs=(log_queue,)
+            max_workers=args.workers, initializer=worker_log_configurer, initargs=(log_queue,)
         ) as pool:
             # This thread runs in the main process, pulling logs from the queue
             # and writing them to your elaborate handlers.
             root_logger = logging.getLogger()
             listener = logging.handlers.QueueListener(
-                log_queue,
-                *root_logger.handlers,
-                respect_handler_level=True
+                log_queue, *root_logger.handlers, respect_handler_level=True
             )
             listener.start()
 
@@ -505,21 +495,25 @@ async def _async_main() -> None:
                     await sem.acquire()
 
                     try:
-                        logger.info(f"Processing '{project_accession}/{ms_run}' with {len(chunk_df)} PSMs")
+                        logger.info(
+                            f"Processing '{project_accession}/{ms_run}' with {len(chunk_df)} PSMs"
+                        )
 
                         # spawn the task
-                        task = asyncio.create_task(process_chunk(
-                            project_accession,
-                            ms_run,
-                            chunk_df,
-                            parquet_output_dir,
-                            tmp_dir,
-                            pool,
-                            charge_mismatch_lock=charge_mismatch_lock,
-                            no_validate_charge=args.no_validate,
-                            keep_temp_files=args.keep_temp_files,
-                            convert_to_mgf=args.convert_to_mgf,
-                        ))
+                        task = asyncio.create_task(
+                            process_chunk(
+                                project_accession,
+                                ms_run,
+                                chunk_df,
+                                parquet_output_dir,
+                                tmp_dir,
+                                pool,
+                                charge_mismatch_lock=charge_mismatch_lock,
+                                no_validate_charge=args.no_validate,
+                                keep_temp_files=args.keep_temp_files,
+                                convert_to_mgf=args.convert_to_mgf,
+                            )
+                        )
                     except Exception:
                         sem.release()
                         raise
@@ -544,12 +538,23 @@ async def _async_main() -> None:
                 logger.info(f"Saving timings to {str(timings_path)}")
                 timings = pd.DataFrame(
                     [asdict(info) for info in run_infos.values()],
-                    columns=["accession", "ms_run", "num_scans", "download_time", "extraction_time", "success", "error_class", "error_message"],
+                    columns=[
+                        "accession",
+                        "ms_run",
+                        "num_scans",
+                        "download_time",
+                        "extraction_time",
+                        "success",
+                        "error_class",
+                        "error_message",
+                    ],
                 )
                 timings.to_csv(timings_path, index=False)
 
                 total_duration = asyncio.get_event_loop().time() - start_time
-                total_scans = sum(t.num_scans for t in run_infos.values() if t.num_scans is not None and t.success)
+                total_scans = sum(
+                    t.num_scans for t in run_infos.values() if t.num_scans is not None and t.success
+                )
 
                 logger.info(
                     "Successfully processed %d project/ms_run combinations with %d scans in %s (%.2f scans/second)",
