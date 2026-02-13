@@ -19,7 +19,6 @@ import aioftp
 import pandas as pd
 import requests
 from dotenv import load_dotenv
-from pandas.core.frame import DataFrame
 from requests.models import Response
 from tenacity import (
     retry,
@@ -283,12 +282,11 @@ async def process_chunk(
 def data_generator(
     input_file: Path,
     limit: int | None = None,
-) -> Generator[tuple[str, str, DataFrame], None, None]:
+) -> Generator[tuple[str, str, pd.DataFrame], None, None]:
     # reading, grouping and sorting this file may take a while for large input files
     # we save a copy of the aggregated/sorted file for faster retrying
 
     aggregated_sorted_file = input_file.parent / f"{input_file.stem}_aggregated{input_file.suffix}"
-    df_aggregated: DataFrame
 
     if aggregated_sorted_file.exists():
         logger.info(f"Using cached aggregated/sorted file: '{aggregated_sorted_file}'")
@@ -298,7 +296,7 @@ def data_generator(
         logger.info("No pre-aggregated file found, processing input file...")
 
         # Read and prepare data
-        df: DataFrame = read_psm_data(input_file)
+        df: pd.DataFrame = read_psm_data(input_file)
 
         df_aggregated = aggregate_modifications_per_psm(df)
         df_aggregated = df_aggregated.sort_values(by=["project_accession", "ms_run"])
@@ -306,15 +304,15 @@ def data_generator(
         logger.info(f"Saved aggregated/sorted file to '{aggregated_sorted_file}'")
 
     if limit:
-        df_aggregated: DataFrame = df_aggregated.head(limit)
+        df_aggregated: pd.DataFrame = df_aggregated.head(limit)
         logger.info(f"Limited to {limit} rows for testing")
 
     grouped = df_aggregated.groupby(["project_accession", "ms_run"], sort=False)
-    group_counts = grouped.size().sort_values(ascending=False)
+    group_counts = grouped.size().sort_values(ascending=False)  # type: ignore
 
     for group_key in group_counts.index:
         project_accession, ms_run = cast(tuple[str, str], group_key)
-        chunk_df = grouped.get_group(group_key)
+        chunk_df = cast(pd.DataFrame, grouped.get_group(group_key))
 
         # skip files with less than 5 PSMs - download/extraction overhead not worth it
         if len(chunk_df) < 5:
@@ -508,7 +506,7 @@ async def _async_main() -> None:
                                 parquet_output_dir,
                                 tmp_dir,
                                 pool,
-                                charge_mismatch_lock=charge_mismatch_lock,
+                                charge_mismatch_lock=charge_mismatch_lock,  # type: ignore
                                 no_validate_charge=args.no_validate,
                                 keep_temp_files=args.keep_temp_files,
                                 convert_to_mgf=args.convert_to_mgf,
@@ -538,16 +536,18 @@ async def _async_main() -> None:
                 logger.info(f"Saving timings to {str(timings_path)}")
                 timings = pd.DataFrame(
                     [asdict(info) for info in run_infos.values()],
-                    columns=[
-                        "accession",
-                        "ms_run",
-                        "num_scans",
-                        "download_time",
-                        "extraction_time",
-                        "success",
-                        "error_class",
-                        "error_message",
-                    ],
+                    columns=pd.Index(
+                        [
+                            "accession",
+                            "ms_run",
+                            "num_scans",
+                            "download_time",
+                            "extraction_time",
+                            "success",
+                            "error_class",
+                            "error_message",
+                        ]
+                    ),
                 )
                 timings.to_csv(timings_path, index=False)
 
