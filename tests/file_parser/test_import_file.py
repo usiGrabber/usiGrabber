@@ -33,7 +33,14 @@ def test_import_mzid(engine: Engine, full_mzid_path: Path) -> None:
         full_mzid_path,
         ".mzid",
         mock_project_accession,
-        [{"filepath": "OTE0019_York_060813_JH16.raw", "file_size": 1, "category": "raw"}],
+        [
+            {
+                "filepath": "OTE0019_York_060813_JH16.raw",
+                "file_size": 1,
+                "category": "raw",
+                "checksum": "A" * 32,
+            }
+        ],
     )
 
     with Session(engine) as session:

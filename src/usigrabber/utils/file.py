@@ -56,7 +56,17 @@ async def download_ftp(
         user=parsed.username or "anonymous",
         password=parsed.password or "anonymous@",
     ) as client:
-        await client.download(parsed.path, str(out_path), write_into=True)
+        # 10 minute timeout per file
+        # timeout needs to start only after acquiring the semaphore
+        # otherwise, downloads may timeout while waiting for the semaphore
+        await asyncio.wait_for(
+            client.download(
+                parsed.path,
+                str(out_path),
+                write_into=True,
+            ),
+            timeout=600,
+        )
     return out_path
 
 

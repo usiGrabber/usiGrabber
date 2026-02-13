@@ -1,3 +1,5 @@
+import asyncio
+import io
 import os
 from collections.abc import AsyncGenerator
 from pathlib import Path
@@ -5,6 +7,7 @@ from typing import Any
 from urllib.error import HTTPError, URLError
 
 import ijson
+import pandas as pd
 import requests
 from async_http_client import AsyncHttpClient
 from ontology_resolver.ontology_helper import OntologyHelper
@@ -105,7 +108,7 @@ class PrideBackend(BaseBackend):
 
     @classmethod
     async def get_project(cls, project_accession: str) -> dict[str, Any]:
-        projects = cls.get_new_projects(existing_accessions=set())
+        projects = cls.get_projects()
         total_searched_projects = 0
         async for project in projects:
             total_searched_projects += 1
@@ -120,10 +123,7 @@ class PrideBackend(BaseBackend):
         return project.get("submissionType") == "COMPLETE"
 
     @classmethod
-    async def get_new_projects(
-        cls,
-        existing_accessions: set[str],
-    ) -> AsyncGenerator[dict[str, Any], None]:
+    async def get_projects(cls) -> AsyncGenerator[dict[str, Any], None]:
         projects_file = os.getenv("PROJECTS_FILE")
         if projects_file:
             file_path = Path(projects_file)
@@ -146,43 +146,72 @@ class PrideBackend(BaseBackend):
 
         with open(file_path, encoding="utf-8") as in_f:
             for project in ijson.items(in_f, "item"):
-                if project["accession"] not in existing_accessions:
-                    yield project
+                yield project
 
     @classmethod
     async def get_files_for_project(
         cls,
         project_accession: str,
     ) -> Files:
-        url = f"{cls.BASE_URL}/projects/{project_accession}/files/all"
         async with AsyncHttpClient() as client:
-            response = await client.get_response(url)
-            if response.ok:
-                files_info = await response.json()
+            files_response, checksums_response = await asyncio.gather(
+                client.get_response(f"{cls.BASE_URL}/projects/{project_accession}/files/all"),
+                client.get_response(f"{cls.BASE_URL}/files/checksum/{project_accession}"),
+            )
+            if files_response.ok and checksums_response.ok:
+                files_info: dict = await files_response.json()
+                checksums_raw = await checksums_response.text()
+                checksums = pd.read_csv(
+                    io.StringIO(checksums_raw),
+                    sep="\t",
+                )
                 search_files: list[FileMetadata] = []
                 result_files: list[FileMetadata] = []
                 other_files: list[FileMetadata] = []
                 raw_files: list[FileMetadata] = []
                 for file_info in files_info:
+                    filename: str = file_info["fileName"]
+
+                    # strip possible extensions
+                    fn_stripped: str = filename
+                    for ext in [".gz", ".rar", ".zip"]:
+                        fn_stripped = fn_stripped.removesuffix(ext)
+
+                    # only parse files we can actually handle
+                    # other files might not have checksums
+                    suffix = Path(fn_stripped).suffix.lower()
+                    if suffix not in [".raw", ".mzid"]:
+                        # filename doesnt include a valid extension, skip it
+                        continue
+
                     category = file_info["fileCategory"]["value"]
-                    ftp_link = None
+                    ftp_url: str | None = None
                     for loc in file_info.get("publicFileLocations", []):
                         if loc.get("name") == "FTP Protocol":
-                            ftp_link = loc.get("value")
+                            ftp_url = loc.get("value")
                             break
-                    if not ftp_link:
+                    if not ftp_url:
                         logger.warning(
                             "No FTP link found for file %s in project %s. Skipping.",
-                            file_info.get("fileName"),
+                            filename,
                             project_accession,
                         )
                         continue
 
+                    try:
+                        checksum = checksums.loc[
+                            checksums["File-Name"] == filename, "File-MD5Checksum"
+                        ].values[0]
+                    except IndexError:
+                        logger.warning(f"No checksum found for file '{filename}'")
+                        continue
+
                     file = FileMetadata(
                         {
-                            "filepath": ftp_link,
+                            "filepath": ftp_url,
                             "category": category,
                             "file_size": file_info.get("fileSizeBytes"),
+                            "checksum": checksum,
                         }
                     )
 
@@ -200,10 +229,12 @@ class PrideBackend(BaseBackend):
                 )
             else:
                 logger.error(
-                    "Could not retrieve files for accession %s: %s %s",
+                    "Could not retrieve files for accession %s: Files: (%s, %s), Checksums: (%s, %s)",
                     project_accession,
-                    response.status,
-                    response.reason,
+                    files_response.status,
+                    files_response.reason,
+                    checksums_response.status,
+                    checksums_response.reason,
                 )
                 return Files(search=[], result=[], other=[], raw=[])
 
