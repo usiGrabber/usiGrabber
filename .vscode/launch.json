@@ -5,7 +5,7 @@
             "name": "Build database",
             "type": "debugpy",
             "request": "launch",
-            "program": "${workspaceFolder}/src/usigrabber/__init__.py",
+            "program": "${workspaceFolder}/src/usigrabber/main.py",
             "args": [
                 "build",
                 "--projects-file",
@@ -33,6 +33,56 @@
             "cwd": "${workspaceFolder}",
             "console": "integratedTerminal",
             "justMyCode": false
+        },
+        {
+            "name": ".raw file parsing",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/src/mod_prediction/raw_to_psm/download_raw_spectra.py",
+            "args": [
+                "debugging/phospho-tiny.csv",
+                "debugging/output",
+                "-k",
+                "-w",
+                "4",
+                // "-l",
+                // "100",
+                "-t",
+                "./pride_raw_files",
+                // "--no-validate", // skip charge validation
+                "-y", // overwrite output without prompt
+                "--convert-to-mgf"
+            ],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "env": {
+                // "LOGLEVEL": "DEBUG",
+                //"DB_ECHO_SQL": "1",
+                // "DB_URL": "sqlite://", // in-memory database for testing
+                // "NO_ONTOLOGY": "1" // disable ontology lookup for faster testing
+            }
+        },
+        {
+            "name": "MGF export",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/src/mod_prediction/parquet_to_mgf.py",
+            "args": [
+                // input dir
+                "/sc/projects/sci-renard/usi-grabber/shared/mgf_files/final/with_phospho/2026-02-06_14-52-36/output",
+                // output dir
+                "/sc/projects/sci-renard/usi-grabber/experimental/test_mgf_export",
+                // number of workers
+                "-w",
+                "4",
+                // batch size
+                "-b",
+                "5000"
+            ],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "justMyCode": false,
         }
     ]
 }

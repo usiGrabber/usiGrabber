@@ -36,3 +36,10 @@ logs/
 experimental/pride_projects_all.json
 slurm-*
 http_cache
+
+# modification-prediction
+slurm/modification-prediction/logs/*
+thermo/*
+queries/*.csv
+queries/*.parquet
+pride_raw_files/*
