@@ -30,10 +30,12 @@ dependencies = [
     "tenacity>=9.1.2",
     "pyarrow>=23.0.0",
     "numpy>=2.3.4",
+    "duckdb>=1.4.4",
 ]
 
 [project.scripts]
 usigrabber = "usigrabber.main:main"
+export-db = "usigrabber.db_export.export:main"
 
 # mod-prediction scripts
 fetch-psms = "mod_prediction.db_fetcher:main"

@@ -43,3 +43,5 @@ thermo/*
 queries/*.csv
 queries/*.parquet
 pride_raw_files/*
+
+parquet_exports/*
