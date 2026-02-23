@@ -4,17 +4,14 @@ import os
 from collections.abc import AsyncGenerator
 from pathlib import Path
 from typing import Any
-from urllib.error import HTTPError, URLError
 
 import ijson
 import pandas as pd
 import requests
 from async_http_client import AsyncHttpClient
 from ontology_resolver.ontology_helper import OntologyHelper
-from pyteomics.usi import PRIDEBackend
 from sqlalchemy.engine import Engine
 from sqlmodel import Session
-from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential
 
 from usigrabber.backends.base import BaseBackend, FileMetadata, Files
 from usigrabber.cv_parameters.cv_engine import CVInjector, CVParam, CVTuple
@@ -358,60 +355,3 @@ class PrideBackend(BaseBackend):
         # (ontologies will be resolved in separate pass)
         if not os.getenv("NO_ONTOLOGY") and not os.getenv("IS_IN_MULTIPROCESSING_MODE"):
             logger.warning("Getting ontos in single processing mode is currently not supported.")
-
-    @classmethod
-    def validate_usi(cls, usi: str) -> bool:
-        """
-        Validate a USI by checking if the spectrum exists in PRIDE archive.
-
-        Uses pyteomics.usi.PRIDEBackend to retrieve spectrum data. Implements
-        retry logic with exponential backoff for rate limiting and network errors.
-
-        Args:
-            usi: Universal Spectrum Identifier string
-
-        Returns:
-            True if spectrum exists and can be retrieved, False otherwise
-        """
-
-        @retry(
-            retry=retry_if_exception_type((HTTPError, URLError)),
-            stop=stop_after_attempt(5),
-            wait=wait_exponential(multiplier=1, min=1, max=10),
-            reraise=False,
-        )
-        def _validate_with_retry(usi_str: str) -> bool:
-            """Inner function with retry logic."""
-            try:
-                # Attempt to retrieve the spectrum
-                backend = PRIDEBackend()
-                spectrum = backend.get(usi_str)
-
-                # If we got here, the spectrum was found
-                return spectrum is not None
-
-            except HTTPError as e:
-                # HTTP 404 or 500 means spectrum not found - don't retry
-                if e.code in (404, 500):
-                    logger.debug(f"Spectrum not found for USI {usi_str}: HTTP {e.code}")
-                    return False
-                # HTTP 429 or other errors - let retry logic handle it
-                logger.warning(f"HTTP error {e.code} for USI {usi_str}, retrying...")
-                raise
-
-            except URLError as e:
-                # Network errors - retry
-                logger.warning(f"Network error for USI {usi_str}: {e}, retrying...")
-                raise
-
-            except Exception as e:
-                # Other errors - don't retry, just return False
-                logger.error(f"Unexpected error validating USI {usi_str}: {e}", exc_info=True)
-                return False
-
-        try:
-            return _validate_with_retry(usi)
-        except Exception:
-            # If retries exhausted or other error, return False
-            logger.error(f"Failed to validate USI {usi} after retries")
-            return False
