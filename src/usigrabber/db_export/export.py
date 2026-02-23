@@ -1,3 +1,4 @@
+import argparse
 import logging
 import os
 from pathlib import Path
@@ -37,18 +38,34 @@ def duckdb_con() -> duckdb.DuckDBPyConnection:
     return con
 
 
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description="Export PostgreSQL tables to Parquet files using DuckDB."
+    )
+    parser.add_argument(
+        "--output-dir",
+        type=Path,
+        default=OUTPUT_DIR,
+        help=f"Directory to save Parquet files (default: {OUTPUT_DIR})",
+    )
+    return parser.parse_args()
+
+
 def main() -> None:
-    setup_logging()
+    setup_logging(Path(__file__).parent / "logs")
+
+    args = parse_args()
+    output_dir = args.output_dir
 
     # check if output directory exists
-    if not OUTPUT_DIR.exists():
-        logger.warning(f"Output directory '{OUTPUT_DIR}' does not exist. Creating it now...")
-        OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+    if not output_dir.exists():
+        logger.warning(f"Output directory '{output_dir}' does not exist. Creating it now...")
+        output_dir.mkdir(parents=True, exist_ok=True)
 
     # check if output directory is empty
-    if any(OUTPUT_DIR.iterdir()):
+    if any(output_dir.iterdir()):
         raise FileExistsError(
-            f"Output directory '{OUTPUT_DIR}' is not empty. Please clear it before running the export to avoid overwriting existing files."
+            f"Output directory '{output_dir}' is not empty. Please clear it before running the export to avoid overwriting existing files."
         )
 
     logger.info("Initializing DuckDB and connecting to PostgreSQL...")
@@ -81,7 +98,7 @@ def main() -> None:
 
     for table_tuple in track(tables, description="Exporting tables to Parquet"):
         table_name = table_tuple[0]
-        output_file = OUTPUT_DIR / f"{table_name}"
+        output_file = output_dir / f"{table_name}"
 
         logger.info(f"Exporting '{table_name}'...")
 

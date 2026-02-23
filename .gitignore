@@ -45,3 +45,4 @@ queries/*.parquet
 pride_raw_files/*
 
 parquet_exports/*
+src/usigrabber/db_export/logs/*
