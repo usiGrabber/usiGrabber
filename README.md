@@ -27,7 +27,9 @@ The project is organized into two packages. Together they can be used to constru
 ### [usigrabber](./src/usigrabber)
 This is the main package that builds the database containing peptide spectrum matches (PSMs) and associated metadata.
 
-### [modification-prediction](./src/mod_prediction)
-This package provides tools to
-- export PSMs as csv files, which can be used to
-- download raw spectra files from PRIDE and store them as mgf or parquet output
+### [spectrum-toolkit](./src/spectrum_toolkit)
+This package provides generic tools to build datasets from the usigrabber database:
+- export PSMs to CSV/Parquet via custom SQL queries
+- download raw spectra files from PRIDE and store them as Parquet or MGF output
+
+The `queries/` folder inside the package contains example queries (e.g. phosphorylation modification prediction). Write your own queries to support different use cases.

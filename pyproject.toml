@@ -35,10 +35,10 @@ dependencies = [
 [project.scripts]
 usigrabber = "usigrabber.main:main"
 
-# mod-prediction scripts
-fetch-psms = "mod_prediction.db_fetcher:main"
-export-mgf = "mod_prediction.parquet_to_mgf:main"
-download-raw-spectra = "mod_prediction.raw_to_psm.download_raw_spectra:main"
+# spectrum-toolkit scripts
+fetch-psms = "spectrum_toolkit.db_fetcher:main"
+export-mgf = "spectrum_toolkit.parquet_to_mgf:main"
+download-raw-spectra = "spectrum_toolkit.raw_to_psm.download_raw_spectra:main"
 
 [build-system]
 requires = ["uv_build>=0.8.19,<0.9.0"]

@@ -28,11 +28,11 @@ from tenacity import (
     wait_random_exponential,
 )
 
-from mod_prediction.logging_config import setup_logging, worker_log_configurer
-from mod_prediction.parquet_utils import read_psm_data
-from mod_prediction.raw_to_psm.worker import extract_and_export
+from spectrum_toolkit.logging_config import setup_logging, worker_log_configurer
+from spectrum_toolkit.parquet_utils import read_psm_data
+from spectrum_toolkit.raw_to_psm.worker import extract_and_export
 
-logger = logging.getLogger("mod-prediction")
+logger = logging.getLogger("spectrum-toolkit")
 
 DOWNLOAD_SPEED_IN_MBS = int(os.getenv("DOWNLOAD_SPEED_MBPS", 100)) / 8  # 100 Mbps in MB/s
 BASE_URL = "https://www.ebi.ac.uk/pride/ws/archive/v3"

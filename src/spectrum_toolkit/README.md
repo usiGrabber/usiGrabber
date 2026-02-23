@@ -1,15 +1,17 @@
-# Dataset for modification prediction
+# Spectrum Toolkit
 
 ## Overview
 
-This project provides tools to extract PSM (Peptide-Spectrum Match) data from a PostgreSQL database, download spectra from PRIDE, and preserve all metadata in Parquet format for modification prediction tasks. The enriched Parquet files can optionally be exported to MGF format.
+This package provides generic tools to build datasets from the usigrabber database. Write a SQL query to select the PSMs you care about, download the corresponding raw spectra from PRIDE, and export everything as Parquet or MGF for downstream analysis.
+
+The `queries/` folder contains **example queries** for a modification prediction use case (phosphorylation). Use them as a starting point and write your own queries for different experiments.
 
 ## Workflow
 
-1. **Extract PSMs**: Run a SQL query to extract PSMs with modifications from the USI grabber database and save the results as a Parquet or CSV file.
-2. **Download Spectra via raw files**: Download raw files directly from PRIDE and extract spectra using ThermoRawFileParser
-3. **Optional MGF Export**: If needed, convert the enriched Parquet to MGF format for tools that require it.
-4. **Use for Prediction**: The enriched Parquet (or MGF) file can then be used for modification prediction tasks.
+1. **Write a SQL query**: Select PSMs from the usigrabber database that match your use case (see `queries/` for examples).
+2. **Extract PSMs**: Run the query and export results to CSV and Parquet.
+3. **Download Spectra via raw files**: Download raw files directly from PRIDE and extract spectra using ThermoRawFileParser.
+4. **Optional MGF Export**: Convert the enriched Parquet to MGF format for tools that require it.
 
 ## Tools
 
@@ -32,11 +34,14 @@ uv run fetch-psms <sql_file> [options]
 #### Examples
 
 ```bash
-# Export to both formats with default naming (e.g., psms_with_phospho_mod.csv and .parquet)
-uv run fetch-psms queries/psms_with_phospho_mod.sql
+# Export to both formats with default naming
+uv run fetch-psms src/spectrum_toolkit/queries/psms_with_phospho_mod.sql
 
 # Custom output base path (creates output/psm_data.csv and output/psm_data.parquet)
-uv run fetch-psms queries/psms_with_phospho_mod.sql -o output/psm_data
+uv run fetch-psms src/spectrum_toolkit/queries/psms_with_phospho_mod.sql -o output/psm_data
+
+# Use your own query
+uv run fetch-psms path/to/my_query.sql -o output/my_dataset
 ```
 
 #### Environment Setup
@@ -194,9 +199,12 @@ We recommend using the SLURM batch system to run the spectrum download and enric
 
 ## Example End-to-End Workflows
 
+The example below uses the phosphorylation query from `queries/` as an illustration. Substitute any SQL file that selects PSMs you care about.
+
 ```bash
 # Step 1: Export PSM data from database to both CSV and Parquet
-uv run fetch-psms queries/psms_with_phospho_mod.sql -o data/psm_data
+# (use your own SQL file or one of the examples in src/spectrum_toolkit/queries/)
+uv run fetch-psms src/spectrum_toolkit/queries/psms_with_phospho_mod.sql -o data/psm_data
 
 # Step 2: Download raw files and extract spectra directly
 uv run download-raw-spectra data/psm_data.csv data/raw_spectra.parquet

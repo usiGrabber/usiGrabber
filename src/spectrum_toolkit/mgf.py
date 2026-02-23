@@ -7,7 +7,7 @@ from typing import Any
 import numpy as np
 from pyteomics import mgf as pyteomics_mgf
 
-from mod_prediction.models import MGFParams, MGFSpectrum
+from spectrum_toolkit.models import MGFParams, MGFSpectrum
 
 logger = logging.getLogger(__name__)
 

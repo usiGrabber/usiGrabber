@@ -7,7 +7,7 @@ import pandas as pd
 import pyarrow as pa
 import pyarrow.parquet as pq
 
-from mod_prediction.models import EnrichedPSM
+from spectrum_toolkit.models import EnrichedPSM
 
 logger = logging.getLogger(__name__)
 

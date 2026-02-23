@@ -9,10 +9,10 @@ from typing import Any
 
 import pandas as pd
 
-from mod_prediction.models import EnrichedPSM, Spectrum
-from mod_prediction.parquet_to_mgf import convert_parquet_to_mgf
-from mod_prediction.parquet_utils import write_batch_parquet
-from mod_prediction.raw_to_psm.utils import (
+from spectrum_toolkit.models import EnrichedPSM, Spectrum
+from spectrum_toolkit.parquet_to_mgf import convert_parquet_to_mgf
+from spectrum_toolkit.parquet_utils import write_batch_parquet
+from spectrum_toolkit.raw_to_psm.utils import (
     ChargeMismatchError,
     ThermoRawFileParserError,
     extract_charge_state_from_attributes,

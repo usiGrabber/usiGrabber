@@ -22,7 +22,7 @@ from rich.progress import (
 )
 from sqlalchemy import create_engine, text
 
-from mod_prediction.logging_config import setup_logging
+from spectrum_toolkit.logging_config import setup_logging
 
 logger = logging.getLogger("db-fetcher")
 
