@@ -6,6 +6,8 @@ We recommend using a postgres database for local development and production depl
 
 ### Setup and start postgres database
 
+Note: The default settings assume at least 32GB of RAM available. For local setups, you might need to decrease the `shared_buffers` in the `compose.yaml` file.
+
 1. Adjust the following environment variables in your `.env` file or use the defaults:
 - `POSTGRES_USER`
 - `POSTGRES_PASSWORD`
