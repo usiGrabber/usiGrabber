@@ -35,6 +35,7 @@ dependencies = [
 
 [project.scripts]
 usigrabber = "usigrabber.main:main"
+import-db = "usigrabber.db_export.import:main"
 export-db = "usigrabber.db_export.export:main"
 
 # mod-prediction scripts
