@@ -48,6 +48,14 @@ def parse_args() -> argparse.Namespace:
         default=OUTPUT_DIR,
         help=f"Directory to save Parquet files (default: {OUTPUT_DIR})",
     )
+
+    parser.add_argument(
+        "--file-size",
+        type=int,
+        default=75,
+        help="Target file size in GB for Parquet files (default: 75GB). Adjust based on your system's memory and performance characteristics.",
+    )
+
     return parser.parse_args()
 
 
@@ -107,7 +115,7 @@ def main() -> None:
             con.execute(f"""
                 COPY pg.{table_name}
                 TO '{output_file}'
-                (FORMAT PARQUET, CODEC 'ZSTD', FILE_SIZE_BYTES '10MB');
+                (FORMAT PARQUET, CODEC 'ZSTD', FILE_SIZE_BYTES '{args.file_size}GB');
             """)
         except Exception as e:
             logger.error(f"Failed to export {table_name}: {e}")
