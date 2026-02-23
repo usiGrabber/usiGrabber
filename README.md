@@ -1,6 +1,6 @@
 # usi grabber
 
-This project provides the tools to build the usigrabber database which stores proteomics data from PRIDE and allows to query for USIs.
+This project provides the tools to build the usigrabber database which stores proteomics data from PRIDE and allows to query for USIs and download associated raw spectra.
 
 ## Setup
 
@@ -25,7 +25,7 @@ uv run pre-commit install
 The project is organized into two packages. Together they can be used to construct machine learning datasets from proteomics data.
 
 ### [usigrabber](./src/usigrabber)
-This is the main package that builds the PSM database.
+This is the main package that builds the database containing peptide spectrum matches (PSMs) and associated metadata.
 
 ### [modification-prediction](./src/mod_prediction)
 This package provides tools to
