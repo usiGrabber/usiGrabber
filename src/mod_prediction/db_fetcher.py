@@ -6,11 +6,9 @@ import argparse
 import logging
 import os
 from pathlib import Path
-from typing import LiteralString, cast
 from uuid import UUID
 
 import pandas as pd
-import psycopg
 import pyarrow as pa
 import pyarrow.parquet as pq
 from dotenv import load_dotenv
@@ -22,6 +20,7 @@ from rich.progress import (
     TextColumn,
     TimeElapsedColumn,
 )
+from sqlalchemy import create_engine, text
 
 from mod_prediction.logging_config import setup_logging
 
@@ -38,14 +37,17 @@ def sql_to_file(
     """
     Export SQL query results to both CSV and Parquet files in chunks.
 
+    Uses SQLAlchemy with stream_results=True for server-side cursors, which
+    keeps memory usage low even for long-running queries that return many rows.
+
     Args:
         sql_file: Path to SQL file containing the query
         output_base: Base path for output files (extensions will be added)
-        connection_string: PostgreSQL connection string
+        connection_string: SQLAlchemy-compatible database URL
         chunksize: Number of rows per chunk (default: 100,000)
+        no_parquet: Skip Parquet output
     """
-    # Read SQL query and cast to LiteralString for type checker
-    query = cast(LiteralString, sql_file.read_text())
+    query = sql_file.read_text()
 
     # Generate output filenames
     csv_file = output_base.with_suffix(".csv")
@@ -57,41 +59,38 @@ def sql_to_file(
     logger.info(f"Executing query from {sql_file.name}...")
     logger.info("Will export to:")
     logger.info(f"  CSV: {csv_file}")
-    logger.info(f"  Parquet: {parquet_file}")
+    if not no_parquet:
+        logger.info(f"  Parquet: {parquet_file}")
 
     parquet_writer: pq.ParquetWriter | None = None
     first_chunk = True
     total_rows = 0
 
+    engine = create_engine(connection_string)
+
     try:
         logger.info("Connecting to database...")
-        with psycopg.connect(connection_string) as conn, conn.cursor() as cursor:
+        # stream_results=True uses a server-side cursor so rows are fetched
+        # lazily; the full result set is never buffered client-side.
+        with engine.connect().execution_options(stream_results=True) as conn:
             logger.info("Connected to database, executing query...")
-            cursor.execute(query)
-            logger.info("Query executed, fetching results...")
+            result = conn.execute(text(query))
+            logger.info("Query executed, streaming results...")
 
-            # Fetch column names
-            columns: list[str] = (
-                [desc[0] for desc in cursor.description] if cursor.description else []
-            )
+            columns: list[str] = list(result.keys())
 
             with Progress(
-                SpinnerColumn(),  # Adds a spinning icon
+                SpinnerColumn(),
                 TextColumn("[progress.description]{task.description}"),
-                BarColumn(),  # This will pulse back and forth
-                # transient=True          # Optional: clears the bar from screen when done
-                MofNCompleteColumn(),  # <--- This shows the current count
-                TimeElapsedColumn(),  # <--- Shows how long it's been running
+                BarColumn(),
+                MofNCompleteColumn(),
+                TimeElapsedColumn(),
             ) as progress:
                 task = progress.add_task("Writing rows to file", total=None)
 
-                while True:
-                    rows = cursor.fetchmany(chunksize)
-                    if not rows:
-                        break
-
+                for partition in result.partitions(chunksize):
                     # Convert to pandas DataFrame
-                    chunk = pd.DataFrame(rows, columns=pd.Index(columns))
+                    chunk = pd.DataFrame(partition, columns=pd.Index(columns))
 
                     # Convert UUID columns to strings for compatibility
                     for col in chunk.columns:
@@ -124,6 +123,7 @@ def sql_to_file(
     finally:
         if parquet_writer is not None:
             parquet_writer.close()
+        engine.dispose()
 
 
 def main() -> None:
@@ -174,6 +174,12 @@ def main() -> None:
     connection_string = os.getenv("DB_URL", "")
     if not connection_string:
         logger.error("No database connection string provided. Set DB_URL env variable.")
+        return
+
+    if "psycopg" not in connection_string:
+        logger.error(
+            "Unsupported database type in connection string. Please use a PostgreSQL URL with psycopg driver."
+        )
         return
 
     sql_to_file(
