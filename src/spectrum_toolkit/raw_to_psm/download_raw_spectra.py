@@ -297,14 +297,14 @@ def data_generator(
         logger.info("No pre-aggregated file found, processing input file...")
 
         # Read and prepare data
-        df: pd.DataFrame = read_psm_data(input_file)
-        df_aggregated: pd.DataFrame = df.groupby("psm_id", as_index=False).first()
+        df = read_psm_data(input_file)
+        df_aggregated = df.groupby("psm_id", as_index=False).first()
         df_aggregated = df_aggregated.sort_values(by=["project_accession", "ms_run"])
         df_aggregated.to_csv(aggregated_sorted_file, index=False)
         logger.info(f"Saved aggregated/sorted file to '{aggregated_sorted_file}'")
 
     if limit:
-        df_aggregated: pd.DataFrame = df_aggregated.head(limit)
+        df_aggregated = df_aggregated.head(limit)
         logger.info(f"Limited to {limit} rows for testing")
 
     grouped = df_aggregated.groupby(["project_accession", "ms_run"], sort=False)
