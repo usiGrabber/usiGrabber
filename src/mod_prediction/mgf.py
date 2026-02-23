@@ -6,52 +6,10 @@ from typing import Any
 
 import numpy as np
 from pyteomics import mgf as pyteomics_mgf
-from pyteomics.usi import USI
 
-from mod_prediction.models import MGFParams, MGFSpectrum, PyteomicsSpectrum
+from mod_prediction.models import MGFParams, MGFSpectrum
 
 logger = logging.getLogger(__name__)
-
-
-def spectrum_to_mgf(spectrum: PyteomicsSpectrum, usi: USI) -> MGFSpectrum:
-    """
-    Convert PROXI spectrum to MGF format.
-
-    Args:
-            spectrum: Validated PROXI spectrum
-            usi: USI for extracting metadata
-
-    Returns:
-            MGFSpectrum with:
-            - mz_array: numpy array of m/z values
-            - intensity_array: numpy array of intensity values
-            - params: MGFParams dict with metadata (title, scans, charge, etc.)
-    """
-    # Create scan identifier
-    scan_id = str(usi.scan_identifier) if usi.scan_identifier else "unknown"
-
-    # Extract charge from USI interpretation (format: "PEPTIDE/charge")
-    charge = 1  # default
-    if usi.interpretation and "/" in usi.interpretation:
-        try:
-            charge = int(usi.interpretation.split("/")[-1])
-        except (ValueError, IndexError):
-            logger.warning(f"Could not parse charge from USI interpretation: {usi.interpretation}")
-
-    # Build MGF params
-    params: MGFParams = {
-        "title": f"controllerType=0 controllerNumber=1 scan={scan_id}",
-        "scans": scan_id,
-        "charge": [charge],
-    }
-
-    return MGFSpectrum(
-        **{
-            "m/z array": spectrum.mz_array,
-            "intensity array": spectrum.intensity_array,
-            "params": params,
-        }
-    )
 
 
 def write_mgf(spectra: list[MGFSpectrum], output_path: Path) -> None:

@@ -29,7 +29,7 @@ from tenacity import (
 )
 
 from mod_prediction.logging_config import setup_logging, worker_log_configurer
-from mod_prediction.parquet_utils import aggregate_modifications_per_psm, read_psm_data
+from mod_prediction.parquet_utils import read_psm_data
 from mod_prediction.raw_to_psm.worker import extract_and_export
 
 logger = logging.getLogger("mod-prediction")
@@ -291,14 +291,14 @@ def data_generator(
     if aggregated_sorted_file.exists():
         logger.info(f"Using cached aggregated/sorted file: '{aggregated_sorted_file}'")
         input_file = aggregated_sorted_file
-        df_aggregated = aggregate_modifications_per_psm(read_psm_data(input_file))
+        df: pd.DataFrame = read_psm_data(input_file)
+        df_aggregated: pd.DataFrame = df.groupby("psm_id", as_index=False).first()
     else:
         logger.info("No pre-aggregated file found, processing input file...")
 
         # Read and prepare data
         df: pd.DataFrame = read_psm_data(input_file)
-
-        df_aggregated = aggregate_modifications_per_psm(df)
+        df_aggregated: pd.DataFrame = df.groupby("psm_id", as_index=False).first()
         df_aggregated = df_aggregated.sort_values(by=["project_accession", "ms_run"])
         df_aggregated.to_csv(aggregated_sorted_file, index=False)
         logger.info(f"Saved aggregated/sorted file to '{aggregated_sorted_file}'")
