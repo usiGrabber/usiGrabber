@@ -2,6 +2,25 @@ from usigrabber.db.schema import IndexType
 from usigrabber.file_parser.mzid.parser import MzidFileParser
 
 
+def test_mzid_parser_handles_files_without_db_sequences_or_peptides(mzid_fixtures_dir):
+    """Regression test for reader re-use issues in pyteomics iterfind.
+
+    Some valid mzID files do not contain DBSequence/Peptide entries. Re-using a single
+    reader across parsing phases can exhaust the stream and then crash with:
+    "XMLSyntaxError: no element found (line 0)".
+    """
+    file_parser = MzidFileParser()
+    parsed_data = file_parser.parse_file(
+        mzid_fixtures_dir / "no_db_sequences_or_peptides.mzid", "PXD000579"
+    )
+
+    assert parsed_data.mzid_file is not None
+    assert parsed_data.modified_peptides == []
+    assert parsed_data.modifications == []
+    assert parsed_data.peptide_evidence == []
+    assert parsed_data.psms == []
+
+
 def test_mzid_parser_with_full_file(full_mzid_path):
     """
     Integration test for mzID parser with full_small.mzid.
