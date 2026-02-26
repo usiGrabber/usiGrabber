@@ -58,7 +58,24 @@ def parse_spectra_data(mzid_path: Path) -> dict[str, tuple[str, IndexType | None
             f"Inputs section not found in mzIdentML file '{mzid_path.name}'"
             "which is not compliant with mzIdentML specs."
         )
-    root = ET.fromstring(xml_snippet)
+
+    try:
+        root = ET.fromstring(xml_snippet)
+    except ET.XMLSyntaxError as e:
+        # Some mzID files contain malformed XML entities in non-essential Inputs
+        # fields (e.g. unescaped '&' in SearchDatabase metadata).
+        # We only need SpectraData here, so fall back to lxml recovery parsing.
+        logger.warning(
+            "Failed strict parsing of <Inputs> in '%s' (%s). Falling back to recovery parser.",
+            mzid_path.name,
+            e,
+        )
+        try:
+            root = ET.fromstring(xml_snippet.encode('utf-8'), parser=ET.XMLParser(recover=True))
+        except ET.XMLSyntaxError as recover_error:
+            raise MzidParseError(
+                f"Failed to parse Inputs section in mzIdentML file '{mzid_path.name}': {recover_error}"
+            ) from recover_error
 
     # namespace changes between mzIdentML versions, some files don't have a namespace
     ns = root.tag.split("}")[0] + "}" if root.tag.startswith("{") else ""
@@ -89,7 +106,7 @@ def parse_spectra_data(mzid_path: Path) -> dict[str, tuple[str, IndexType | None
 
         cv_param = spectra_data.find(f"{ns}SpectrumIDFormat/{ns}cvParam")
         if cv_param is None:
-            spectra_data.find(f".//{ns}spectrumIDFormat/{ns}cvParam")
+            cv_param = spectra_data.find(f".//{ns}spectrumIDFormat/{ns}cvParam")
 
         if cv_param is None:
             raise MzidParseError(

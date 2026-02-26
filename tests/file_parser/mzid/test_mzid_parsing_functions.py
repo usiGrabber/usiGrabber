@@ -294,3 +294,22 @@ def test_parse_spectra_data_custom_ns(spectra_data_xml_generator: Path) -> None:
         assert ms_run_name == "pp_2020_005_5_HEK293_3"
         assert ms_run_ext == ".mgf"
         assert spectrum_id_format == IndexType.index
+
+
+def test_parse_spectra_data_with_invalid_entityref_in_inputs(mzid_fixtures_dir: Path) -> None:
+    """Regression test for malformed entity refs in non-SpectraData Inputs fields.
+
+    Mirrors PXD048892/pig_sample_34_day_1.mzid, where SearchDatabase metadata
+    contains unescaped '&' and strict lxml parsing fails with:
+    xmlParseEntityRef: no name.
+    """
+    spectra_data = parse_spectra_data(
+        mzid_fixtures_dir / "pig_sample_34_day_1_invalid_entityref.mzid"
+    )
+
+    assert len(spectra_data) == 1
+    ms_run_name, spectrum_id_format = spectra_data["SPECTRADATA_5"]
+    ms_run_name, ms_run_ext = os.path.splitext(ms_run_name)
+    assert ms_run_name == "pig_sample_34_day_1"
+    assert ms_run_ext == ".mgf"
+    assert spectrum_id_format == IndexType.index
