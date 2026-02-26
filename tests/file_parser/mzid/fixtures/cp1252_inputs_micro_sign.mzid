@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="Cp1252"?>
+<MzIdentML xmlns="http://psidev.info/psi/pi/mzIdentML/1.1" id="cp1252" version="1.1.0">
+  <DataCollection>
+    <Inputs>
+      <SearchDatabase id="SEARCHDATABASE_1" name="Peptide µ DB" location="file:/tmp/peptide_db.fasta">
+        <FileFormat>
+          <cvParam accession="MS:1001348" cvRef="PSI-MS" name="FASTA format"/>
+        </FileFormat>
+      </SearchDatabase>
+      <SpectraData location="file:/tmp/cp1252_run.mgf" id="SPECTRADATA_1">
+        <FileFormat>
+          <cvParam accession="MS:1001062" cvRef="PSI-MS" name="Mascot MGF file"/>
+        </FileFormat>
+        <SpectrumIDFormat>
+          <cvParam accession="MS:1000774" cvRef="PSI-MS" name="multiple peak list nativeID format"/>
+        </SpectrumIDFormat>
+      </SpectraData>
+    </Inputs>
+  </DataCollection>
+</MzIdentML>

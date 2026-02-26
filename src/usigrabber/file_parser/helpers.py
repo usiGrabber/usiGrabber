@@ -258,18 +258,67 @@ def get_spectrum_id_format(cv_param: str) -> IndexType | None:
     return id_format
 
 
+def _detect_xml_encoding(xml_path: Path) -> str | None:
+    """Best-effort XML encoding detection from the XML declaration."""
+    with open(xml_path, "rb") as f:
+        head = f.read(512)
+
+    # Example: <?xml version="1.0" encoding="Cp1252"?>
+    match = re.search(br"encoding\s*=\s*['\"]([^'\"]+)['\"]", head)
+    if not match:
+        return None
+
+    try:
+        return match.group(1).decode("ascii")
+    except UnicodeDecodeError:
+        return None
+
+
 def extract_xml_subtree(xml_path: Path, tag: str) -> str:
     """
     Use sed to extract XML subtree from a file and return as string.
+
+    The XML file may use non-UTF-8 encodings (e.g. Cp1252). To avoid decode
+    failures in subprocess output translation, capture bytes and decode with
+    encoding-aware fallbacks.
     """
     cmd = ["sed", "-n", rf"/<{tag}[ >]/,/<\/{tag}>/p", str(xml_path)]
     proc = subprocess.run(
         cmd,
-        text=True,
         capture_output=True,
         check=True,
     )
-    return proc.stdout.strip()
+
+    out_bytes = proc.stdout.strip()
+    if not out_bytes:
+        return ""
+
+    detected_encoding = _detect_xml_encoding(xml_path)
+    encodings_to_try = [
+        detected_encoding,
+        "utf-8",
+        "cp1252",
+        "latin-1",
+    ]
+
+    tried: set[str] = set()
+    for encoding in encodings_to_try:
+        if not encoding or encoding in tried:
+            continue
+        tried.add(encoding)
+        try:
+            return out_bytes.decode(encoding).strip()
+        except UnicodeDecodeError:
+            continue
+
+    logger.warning(
+        "Could not decode extracted <%s> subtree from '%s' with tried encodings %s. "
+        "Falling back to utf-8 with replacement.",
+        tag,
+        xml_path.name,
+        sorted(tried),
+    )
+    return out_bytes.decode("utf-8", errors="replace").strip()
 
 
 def log_info(logger, stats, file_name: str) -> None:

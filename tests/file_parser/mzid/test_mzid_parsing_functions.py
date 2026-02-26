@@ -294,3 +294,16 @@ def test_parse_spectra_data_custom_ns(spectra_data_xml_generator: Path) -> None:
         assert ms_run_name == "pp_2020_005_5_HEK293_3"
         assert ms_run_ext == ".mgf"
         assert spectrum_id_format == IndexType.index
+
+
+def test_parse_spectra_data_cp1252_encoded_file(mzid_fixtures_dir: Path) -> None:
+    """Regression test for non-UTF-8 mzID files (e.g. encoding='Cp1252')."""
+    spectra_data = parse_spectra_data(mzid_fixtures_dir / "cp1252_inputs_micro_sign.mzid")
+
+    assert len(spectra_data) == 1
+
+    ms_run_name, spectrum_id_format = spectra_data["SPECTRADATA_1"]
+    ms_run_name, ms_run_ext = os.path.splitext(ms_run_name)
+    assert ms_run_name == "cp1252_run"
+    assert ms_run_ext == ".mgf"
+    assert spectrum_id_format == IndexType.index
