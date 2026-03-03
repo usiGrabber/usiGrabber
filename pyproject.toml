@@ -1,7 +1,9 @@
 [project]
 name = "usigrabber"
+license = "MIT"
+license-files = ["LICENSE"]
 version = "0.1.0"
-description = "Add your description here"
+description = "Scalable framework for assembling large and diverse proteomics machine learning datasets"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
