@@ -35,8 +35,10 @@ dependencies = [
 
 [project.scripts]
 usigrabber = "usigrabber.main:main"
+
 import-db = "usigrabber.db_export.import:main"
 export-db = "usigrabber.db_export.export:main"
+bundle-exports = "usigrabber.db_export.export:bundle_exports"
 
 # mod-prediction scripts
 fetch-psms = "mod_prediction.db_fetcher:main"

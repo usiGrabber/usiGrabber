@@ -1,6 +1,7 @@
 import argparse
 import logging
 import os
+import tarfile
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -121,6 +122,76 @@ def main() -> None:
             logger.error(f"Failed to export {table_name}: {e}")
 
     logger.info("Export process complete!")
+
+
+def _create_tarball(folder_list, output_file):
+    """Helper to create the tar archive."""
+    with tarfile.open(output_file, "w") as tar:
+        for folder in folder_list:
+            # arcname ensures the internal structure starts at the folder name
+            tar.add(folder, arcname=folder.name)
+    logger.info(f"✅ Created {output_file}")
+
+
+def bundle_exports(source_dir: os.PathLike, output_dir: os.PathLike) -> None:
+    """
+    Groups small folders into one archive and large folders into individual ones.
+
+    Example usage
+    ---
+    >>> bundle_exports("./my_db_export", "./archives")
+    """
+    setup_logging(Path(__file__).parent / "logs")
+
+    parser = argparse.ArgumentParser(
+        description="Bundle exported Parquet folders into tar archives. "
+        "Large tables are archived individually, while small tables are grouped together."
+    )
+    parser.add_argument(
+        "source-dir",
+        type=Path,
+        default=OUTPUT_DIR,
+        help=f"Directory where the exported Parquet files are stored (default: {OUTPUT_DIR})",
+    )
+
+    parser.add_argument(
+        "dest-dir",
+        type=Path,
+        default=OUTPUT_DIR.parent / "bundled-export",
+        help=f"Directory where the bundled archives are stored (default: {OUTPUT_DIR.parent / 'bundled-export'})",
+    )
+
+    args = parser.parse_args()
+
+    source_path = Path(args.source_dir)
+    if not source_path.exists() or not source_path.is_dir():
+        logger.error(f"Source directory '{source_path}' does not exist or is not a directory.")
+        exit(1)
+
+    dest_path = Path(args.dest_dir)
+    dest_path.mkdir(parents=True, exist_ok=True)
+
+    GB_LIMIT = 10 * (2**30)  # 10GB in bytes
+    small_folders: list[Path] = []
+
+    # 1. Analyze folders
+    for entry in source_path.iterdir():
+        if entry.is_dir():
+            # Calculate folder size
+            folder_size = sum(f.stat().st_size for f in entry.glob("**/*") if f.is_file())
+
+            if folder_size >= GB_LIMIT:
+                logger.info(f"📦 Archiving Large Table: {entry.name} ({folder_size / 1e9:.2f} GB)")
+                _create_tarball([entry], dest_path / f"{entry.name}.tar")
+            else:
+                small_folders.append(entry)
+
+    # 2. Bundle small folders
+    if small_folders:
+        logger.info(
+            f"📦 Bundling {len(small_folders)} small tables into small_tables_collection.tar"
+        )
+        _create_tarball(small_folders, dest_path / "small_tables_collection.tar")
 
 
 if __name__ == "__main__":
