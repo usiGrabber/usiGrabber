@@ -1,6 +1,6 @@
-# usi grabber
+# usiGrabber
 
-This project provides the tools to build the usigrabber database which stores proteomics data from PRIDE and allows to query for USIs and download associated raw spectra.
+This project provides the tools to build the usiGrabber database which stores proteomics data from PRIDE and allows to query for USIs and download associated raw spectra.
 
 ## Setup
 
@@ -19,16 +19,21 @@ uv run pre-commit install
 ```
 
 3. Configure environment variables
+
 - Copy `.env.sample` to `.env` and modify as needed or described in the sections below.
 
 ## Packages
+
 The project is organized into two packages. Together they can be used to construct machine learning datasets from proteomics data.
 
-### [usigrabber](./src/usigrabber)
+### [usiGrabber](./src/usigrabber)
+
 This is the main package that builds the database containing peptide spectrum matches (PSMs) and associated metadata.
 
 ### [spectrum-toolkit](./src/spectrum_toolkit)
-This package provides generic tools to build datasets from the usigrabber database:
+
+This package provides generic tools to build datasets from the usiGrabber database:
+
 - export PSMs to CSV/Parquet via custom SQL queries
 - download raw spectra files from PRIDE and store them as Parquet or MGF output
 
