@@ -19,7 +19,7 @@ createdb -U your_user usigrabber
 psql -U your_user -d usigrabber -f 00_schema.sql
 ```
 
-**Note**: If you use docker for the database, you have to run these commands, as well as the ones in step 3 inside the container. To enter the container, use:
+**Note**: If you use docker for the database, you have to run these commands, as well as the ones in step 3 inside the container. In this case, the schema files need to be available inside the container as well. To enter the container, use:
 ```bash
 docker exec -it usigrabber_db bash
 ```
@@ -68,3 +68,10 @@ uv run export-db
 ```bash
 pg_dump -U your_user -d usigrabber --section=post-data -f 99_indices.sql
 ```
+
+## Update schema files
+If you make changes to the database schema, you need to update the SQL files in the `schema/` folder. Follow these steps:
+
+- Connect to a new, empty database
+- Run the db scripts to initialize the schema
+- Export the schema using `pg_dump` as shown above
