@@ -38,3 +38,6 @@ This package provides generic tools to build datasets from the usiGrabber databa
 - download raw spectra files from PRIDE and store them as Parquet or MGF output
 
 The `queries/` folder inside the package contains example queries (e.g. phosphorylation modification prediction). Write your own queries to support different use cases.
+
+## License
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
