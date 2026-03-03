@@ -49,13 +49,12 @@ def main() -> int:
 
     # 2. Count the rows in the original PostgreSQL table
     logger.info(f"1/2: Counting rows in PostgreSQL table '{table_name}'...")
-    # fetchone()[0] simply extracts the raw number from the query result
-    pg_count = con.execute(f"SELECT COUNT(*) FROM pg.{table_name}").fetchone()[0]
+    pg_count: int = con.execute(f"SELECT COUNT(*) FROM pg.{table_name}").fetchone()[0]  # type: ignore
 
     # 3. Count the rows across ALL exported Parquet files simultaneously
     logger.info(f"2/2: Counting rows in Parquet chunks inside '{table_dir}'...")
     # The *.parquet wildcard tells DuckDB to union all files in the folder automatically
-    pq_count = con.execute(f"SELECT COUNT(*) FROM '{table_dir}/*.parquet'").fetchone()[0]
+    pq_count: int = con.execute(f"SELECT COUNT(*) FROM '{table_dir}/*.parquet'").fetchone()[0]  # type: ignore
 
     # 4. Print the comparison
     logger.info("=" * 40)
