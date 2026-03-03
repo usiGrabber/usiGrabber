@@ -28,11 +28,11 @@ from tenacity import (
     wait_random_exponential,
 )
 
-from mod_prediction.logging_config import setup_logging, worker_log_configurer
-from mod_prediction.parquet_utils import aggregate_modifications_per_psm, read_psm_data
-from mod_prediction.raw_to_psm.worker import extract_and_export
+from spectrum_toolkit.logging_config import setup_logging, worker_log_configurer
+from spectrum_toolkit.parquet_utils import read_psm_data
+from spectrum_toolkit.raw_to_psm.worker import extract_and_export
 
-logger = logging.getLogger("mod-prediction")
+logger = logging.getLogger("spectrum-toolkit")
 
 DOWNLOAD_SPEED_IN_MBS = int(os.getenv("DOWNLOAD_SPEED_MBPS", 100)) / 8  # 100 Mbps in MB/s
 BASE_URL = "https://www.ebi.ac.uk/pride/ws/archive/v3"
@@ -291,20 +291,20 @@ def data_generator(
     if aggregated_sorted_file.exists():
         logger.info(f"Using cached aggregated/sorted file: '{aggregated_sorted_file}'")
         input_file = aggregated_sorted_file
-        df_aggregated = aggregate_modifications_per_psm(read_psm_data(input_file))
+        df: pd.DataFrame = read_psm_data(input_file)
+        df_aggregated: pd.DataFrame = df.groupby("psm_id", as_index=False).first()
     else:
         logger.info("No pre-aggregated file found, processing input file...")
 
         # Read and prepare data
-        df: pd.DataFrame = read_psm_data(input_file)
-
-        df_aggregated = aggregate_modifications_per_psm(df)
+        df = read_psm_data(input_file)
+        df_aggregated = df.groupby("psm_id", as_index=False).first()
         df_aggregated = df_aggregated.sort_values(by=["project_accession", "ms_run"])
         df_aggregated.to_csv(aggregated_sorted_file, index=False)
         logger.info(f"Saved aggregated/sorted file to '{aggregated_sorted_file}'")
 
     if limit:
-        df_aggregated: pd.DataFrame = df_aggregated.head(limit)
+        df_aggregated = df_aggregated.head(limit)
         logger.info(f"Limited to {limit} rows for testing")
 
     grouped = df_aggregated.groupby(["project_accession", "ms_run"], sort=False)

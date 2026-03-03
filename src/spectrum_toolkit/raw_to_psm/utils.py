@@ -3,7 +3,7 @@ import logging
 from collections.abc import Iterator
 from pathlib import Path
 
-from mod_prediction.models import Spectrum
+from spectrum_toolkit.models import Spectrum
 
 logger = logging.getLogger(__name__)
 

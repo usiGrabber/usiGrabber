@@ -1,17 +1,17 @@
-# Dataset for modification prediction
+# Spectrum Toolkit
 
 ## Overview
 
-This project provides tools to extract PSM (Peptide-Spectrum Match) data from a PostgreSQL database, download spectra from PRIDE, and preserve all metadata in Parquet format for modification prediction tasks. The enriched Parquet files can optionally be exported to MGF format.
+This package provides generic tools to build datasets from the usigrabber database. Write a SQL query to select the PSMs you care about, download the corresponding raw spectra from PRIDE, and export everything as Parquet or MGF for downstream analysis.
+
+The `queries/` folder contains **example queries** for a modification prediction use case (phosphorylation). Use them as a starting point and write your own queries for different experiments.
 
 ## Workflow
 
-1. **Extract PSMs**: Run a SQL query to extract PSMs with modifications from the USI grabber database and save the results as a Parquet or CSV file.
-2. **Download Spectra** (choose one approach):
-   - **Via PROXI API** (default): Use the enrichment tool to download spectra from PRIDE and merge them with PSM metadata
-   - **Via Raw Files**: Download raw files directly from PRIDE and extract spectra using ThermoRawFileParser
-3. **Optional MGF Export**: If needed, convert the enriched Parquet to MGF format for tools that require it.
-4. **Use for Prediction**: The enriched Parquet (or MGF) file can then be used for modification prediction tasks.
+1. **Write a SQL query**: Select PSMs from the usigrabber database that match your use case (see `queries/` for examples).
+2. **Extract PSMs**: Run the query and export results to CSV and Parquet.
+3. **Download Spectra via raw files**: Download raw files directly from PRIDE and extract spectra using ThermoRawFileParser.
+4. **Optional MGF Export**: Convert the enriched Parquet to MGF format for tools that require it.
 
 ## Tools
 
@@ -34,11 +34,14 @@ uv run fetch-psms <sql_file> [options]
 #### Examples
 
 ```bash
-# Export to both formats with default naming (e.g., psms_with_phospho_mod.csv and .parquet)
-uv run fetch-psms queries/psms_with_phospho_mod.sql
+# Export to both formats with default naming
+uv run fetch-psms src/spectrum_toolkit/queries/psms_with_phospho_mod.sql
 
 # Custom output base path (creates output/psm_data.csv and output/psm_data.parquet)
-uv run fetch-psms queries/psms_with_phospho_mod.sql -o output/psm_data
+uv run fetch-psms src/spectrum_toolkit/queries/psms_with_phospho_mod.sql -o output/psm_data
+
+# Use your own query
+uv run fetch-psms path/to/my_query.sql -o output/my_dataset
 ```
 
 #### Environment Setup
@@ -53,67 +56,15 @@ DATABASE_URL=postgresql://user:password@host:port/database
 
 The SQL query must return these columns:
 
-- `psm_id`, `project_accession`, `spectrum_id`, `charge_state`
-- `experimental_mz`, `calculated_mz`, `pass_threshold`, `rank`
-- `ms_run`, `index_type`, `index_number`
-- `peptide_sequence`, `modified_peptide_id`
-- `unimod_id`, `location`, `modified_residue` (modification data, may have multiple rows per PSM)
+- `psm_id`, `project_accession`, `charge_state`, `ms_run`, `index_type`, `index_number`, `peptide_sequence`
 
-### 2. Spectrum Download & Enrichment (Parquet → Enriched Parquet)
+### 2. Spectrum Download & Enrichment (CSV → Parquet)
 
-The `psm_to_parquet.py` tool downloads spectra from PRIDE and merges them with PSM metadata, preserving everything in an enriched Parquet file.
+The `download_raw_spectra.py` tool downloads raw files directly from PRIDE and extracts spectra data using ThermoRawFileParser, outputting results as Parquet format. This is an alternative to the PROXI API approach and is useful for getting raw MS data directly from the instrument files. We validate that charge state from raw files matches the PSM data. In case of a mismatch we skip the entire raw file and write to `output_dir/charge_mismatches.csv`.
 
-#### Usage
-
-```bash
-uv run download-spectra <input.file> <output.parquet> [options]
-```
-
-#### Arguments
-
-- `input_file`: Path to input Parquet file or input csv file from db_fetcher.py (required)
-- `output_parquet`: Path to output enriched Parquet directory or file (required)
-
-#### Options
-
-- `-n, --nrows`: Number of rows to process (default: all rows)
-- `-b, --batch-size`: Number of USIs to process per batch (default: 100)
-- `-w, --workers`: Number of parallel download threads (default: 5)
-
-#### Examples
-
-```bash
-# Download spectra for all PSMs
-uv run download-spectra output/psm_data.parquet output/enriched_psm_data
-
-# Process first 1000 rows with 10 parallel workers
-uv run download-spectra output/psm_data.parquet output/enriched_psm_data -n 1000 -w 10
-```
-
-#### What This Does
-
-1. Reads PSM data from the input Parquet or csv file
-2. Aggregates modifications per `psm_id` (combines multiple rows into arrays)
-3. Creates USIs (Universal Spectrum Identifiers) for downloading
-4. Downloads spectra from PRIDE in parallel with retry logic
-5. Merges spectrum data (mz_array, intensity_array) with all PSM metadata
-6. Writes enriched Parquet with complete metadata preservation
-
-#### Enriched Parquet Schema
-
-The output contains all original PSM columns plus:
-
-- `unimod_ids`: list[int] - Aggregated modification IDs per PSM
-- `locations`: list[int] - Aggregated modification positions per PSM
-- `modified_residues`: list[str] - Aggregated modified residues per PSM
-- `mz_array`: list[float] - Peak m/z values from spectrum
-- `intensity_array`: list[float] - Peak intensity values from spectrum
-
-### Setup: ThermoRawFileParser
+#### Setup: ThermoRawFileParser
 
 The `download_raw_spectra.py` script requires ThermoRawFileParser to extract spectra from Thermo raw files. Follow these steps to set it up:
-
-#### Installation
 
 1. Download the latest ThermoRawFileParser release from [GitHub releases](https://github.com/CompOmics/ThermoRawFileParser/releases)
 2. Extract it to the `thermo/` directory in the project root:
@@ -134,9 +85,6 @@ unzip ThermoRawFileParser-v.X.X.X-linux.zip -d thermo/
 
 The executable should be at `./thermo/ThermoRawFileParser` (relative to the project root).
 
-### 3. Download Raw Files & Extract Spectra (CSV → Parquet)
-
-The `download_raw_spectra.py` tool downloads raw files directly from PRIDE and extracts spectra data using ThermoRawFileParser, outputting results as Parquet format. This is an alternative to the PROXI API approach and is useful for getting raw MS data directly from the instrument files. We validate that charge state from raw files matches the PSM data. In case of a mismatch we skip the entire raw file and write to `output_dir/charge_mismatches.csv`.
 
 #### Usage
 
@@ -194,9 +142,7 @@ The output contains metadata and spectrum data extracted from raw files. Among o
 #### Requirements
 
 - ThermoRawFileParser must be available at `./thermo/ThermoRawFileParser`
-- Input CSV must have `project_accession` and `ms_run` columns
-- PRIDE API must be accessible for querying raw files
-- FTP access to PRIDE server required for downloads
+- Input CSV must have `project_accession`, `ms_run`, and `index_number` columns
 
 ### 4. Optional MGF Export (Enriched Parquet → MGF)
 
@@ -253,24 +199,12 @@ We recommend using the SLURM batch system to run the spectrum download and enric
 
 ## Example End-to-End Workflows
 
-### Workflow A: Using PROXI API (Default)
+The example below uses the phosphorylation query from `queries/` as an illustration. Substitute any SQL file that selects PSMs you care about.
 
 ```bash
 # Step 1: Export PSM data from database to both CSV and Parquet
-uv run fetch-psms queries/psms_with_phospho_mod.sql -o data/psm_data
-
-# Step 2: Download spectra via PROXI API and create enriched Parquet
-uv run download-spectra data/psm_data.parquet data/enriched_psm_data
-
-# Step 3 (Optional): Export to MGF if needed
-uv run export-mgf data/enriched_psm_data data/spectra.mgf
-```
-
-### Workflow B: Using Raw Files from PRIDE
-
-```bash
-# Step 1: Export PSM data from database to both CSV and Parquet
-uv run fetch-psms queries/psms_with_phospho_mod.sql -o data/psm_data
+# (use your own SQL file or one of the examples in src/spectrum_toolkit/queries/)
+uv run fetch-psms src/spectrum_toolkit/queries/psms_with_phospho_mod.sql -o data/psm_data
 
 # Step 2: Download raw files and extract spectra directly
 uv run download-raw-spectra data/psm_data.csv data/raw_spectra.parquet

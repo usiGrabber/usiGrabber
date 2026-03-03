@@ -21,8 +21,8 @@ from rich.progress import (
     TimeElapsedColumn,
 )
 
-from mod_prediction.logging_config import setup_logging, worker_log_configurer
-from mod_prediction.mgf import append_mgf, spectrum_from_parquet_row, write_mgf
+from spectrum_toolkit.logging_config import setup_logging, worker_log_configurer
+from spectrum_toolkit.mgf import append_mgf, spectrum_from_parquet_row, write_mgf
 
 load_dotenv()
 

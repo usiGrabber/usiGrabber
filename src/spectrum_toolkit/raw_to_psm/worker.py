@@ -9,10 +9,10 @@ from typing import Any
 
 import pandas as pd
 
-from mod_prediction.models import EnrichedPSM, Spectrum
-from mod_prediction.parquet_to_mgf import convert_parquet_to_mgf
-from mod_prediction.parquet_utils import write_batch_parquet
-from mod_prediction.raw_to_psm.utils import (
+from spectrum_toolkit.models import EnrichedPSM, Spectrum
+from spectrum_toolkit.parquet_to_mgf import convert_parquet_to_mgf
+from spectrum_toolkit.parquet_utils import write_batch_parquet
+from spectrum_toolkit.raw_to_psm.utils import (
     ChargeMismatchError,
     ThermoRawFileParserError,
     extract_charge_state_from_attributes,
@@ -262,20 +262,11 @@ def extract_and_export(
                 enriched_psm: EnrichedPSM = EnrichedPSM(
                     psm_id=psm_dict["psm_id"],
                     project_accession=project_accession,
-                    spectrum_id=psm_dict["spectrum_id"],
                     charge_state=psm_dict["charge_state"],
-                    experimental_mz=psm_dict["experimental_mz"],
-                    calculated_mz=psm_dict["calculated_mz"],
-                    pass_threshold=psm_dict["pass_threshold"],
-                    rank=psm_dict["rank"],
                     ms_run=ms_run,
                     index_number=psm_dict["index_number"],
                     index_type=psm_dict["index_type"],
                     peptide_sequence=psm_dict["peptide_sequence"],
-                    modified_peptide_id=psm_dict["modified_peptide_id"],
-                    unimod_ids=psm_dict["unimod_ids"],
-                    locations=psm_dict["locations"],
-                    modified_residues=psm_dict["modified_residues"],
                     mz_array=spectrum_row["mzs"].tolist(),
                     intensity_array=spectrum_row["intensities"].tolist(),
                 )

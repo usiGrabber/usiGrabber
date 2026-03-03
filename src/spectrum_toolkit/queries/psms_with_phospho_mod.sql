@@ -1,36 +1,28 @@
-SELECT
+SELECT 
     psm.id AS psm_id,
     psm.project_accession,
-    psm.spectrum_id,
     psm.charge_state,
-    psm.experimental_mz,
-    psm.calculated_mz,
-    psm.pass_threshold,
-    psm.rank,
 	psm.ms_run,
 	psm.index_number,
 	psm.index_type,
-    mp.peptide_sequence,
-    mp.id AS modified_peptide_id,
-    m.unimod_id,
-    m.location,
-    m.modified_residue
+    mp.peptide_sequence
 FROM peptide_spectrum_matches psm
-INNER JOIN modified_peptides mp
+INNER JOIN modified_peptides mp 
     ON psm.modified_peptide_id = mp.id
 INNER JOIN modified_peptide_modification_junction mpmj
     ON mp.id = mpmj.modified_peptide_id
-INNER JOIN modifications m
+INNER JOIN modifications m 
     ON mpmj.modification_id = m.id
 INNER JOIN search_modifications sm
     ON psm.id = sm.psm_id
-    -- It was searched for phospho modifications
     AND sm.unimod_id = 21
--- It has a phospho modification
+INNER JOIN project_cv_params pcp
+    ON psm.project_accession = pcp.project_accession
+INNER JOIN cv_params cv
+    ON pcp.cv_param_id = cv.id
+    AND cv.accession = 'NCBITaxon:9606'
 WHERE m.unimod_id = 21
--- It passed the FDR threshold
 AND psm.pass_threshold is TRUE
 AND psm.rank = 1
--- LIMIT 10
-;
-
+AND index_number is not null
+LIMIT 40000;

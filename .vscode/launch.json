@@ -38,7 +38,7 @@
             "name": ".raw file parsing",
             "type": "debugpy",
             "request": "launch",
-            "program": "${workspaceFolder}/src/mod_prediction/raw_to_psm/download_raw_spectra.py",
+            "program": "${workspaceFolder}/src/spectrum_toolkit/raw_to_psm/download_raw_spectra.py",
             "args": [
                 "debugging/phospho-tiny.csv",
                 "debugging/output",
@@ -67,7 +67,7 @@
             "name": "MGF export",
             "type": "debugpy",
             "request": "launch",
-            "program": "${workspaceFolder}/src/mod_prediction/parquet_to_mgf.py",
+            "program": "${workspaceFolder}/src/spectrum_toolkit/parquet_to_mgf.py",
             "args": [
                 // input dir
                 "/sc/projects/sci-renard/usi-grabber/shared/mgf_files/final/with_phospho/2026-02-06_14-52-36/output",
