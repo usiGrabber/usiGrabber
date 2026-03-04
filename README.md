@@ -15,7 +15,7 @@ This repository contains two packages that together implement the full dataset c
 
 As a proof of concept, we used usiGrabber to curate a dataset for retraining a binary phosphorylation classifier based on the AHLF model architecture. Adjustments to the original code and the weights of our retrained model are available in the [AHLF-fork](https://github.com/usiGrabber/AHLF-fork) repository.
 
-## Setup
+## General Setup
 
 1. Install prerequisites
    - [uv](https://docs.astral.sh/uv/getting-started/installation/)
