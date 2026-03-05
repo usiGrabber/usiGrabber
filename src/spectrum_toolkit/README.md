@@ -35,21 +35,13 @@ uv run fetch-psms <sql_file> [options]
 
 ```bash
 # Export to both formats with default naming
-uv run fetch-psms src/spectrum_toolkit/queries/psms_with_phospho_mod.sql
+uv run fetch-psms src/spectrum_toolkit/queries/psms_example.sql
 
 # Custom output base path (creates output/psm_data.csv and output/psm_data.parquet)
-uv run fetch-psms src/spectrum_toolkit/queries/psms_with_phospho_mod.sql -o output/psm_data
+uv run fetch-psms src/spectrum_toolkit/queries/psms_example.sql -o output/psm_data
 
 # Use your own query
 uv run fetch-psms path/to/my_query.sql -o output/my_dataset
-```
-
-#### Environment Setup
-
-Create a `.env` file with your database connection:
-
-```
-DATABASE_URL=postgresql://user:password@host:port/database
 ```
 
 #### Required Database Columns
@@ -74,10 +66,12 @@ The `download_raw_spectra.py` script requires ThermoRawFileParser to extract spe
 mkdir -p thermo
 
 # Extract the downloaded archive
-unzip ThermoRawFileParser-v.X.X.X-linux.zip -d thermo/
+unzip ThermoRawFileParser-v.X.X.X-linux.zip -d thermo
 ```
 
 3. Verify the installation:
+
+Note: If you are running this locally on a mac, you might need to bypass security settings to run the executable. We recommend to only run this in a sand-boxed linux environment.
 
 ```bash
 ./thermo/ThermoRawFileParser --help
