@@ -78,6 +78,19 @@ uv run usigrabber db drop --force
 uv run pyinstrument -o db_build_profile.html $(which usigrabber) build
 ```
 
+## Monitoring with Grafana
+
+`docker compose up -d` also starts **Grafana** (port `3000`) and **Loki** (port `3100`) alongside the database. Data sources and dashboards are provisioned automatically — no manual setup needed.
+
+Open [http://localhost:3000](http://localhost:3000) and log in with `admin` / `admin`. The two dashboards under **Dashboards** will already be available:
+
+| Dashboard | Description |
+|---|---|
+| `dashboard-db.json` | Database statistics and pipeline run overview |
+| `error-dashboard.json` | Failed files per project with drill-down into Loki logs |
+
+> Provisioning config lives in [`grafana/provisioning/`](../../grafana/provisioning/). Data source credentials are read from the same environment variables as the database (`POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`).
+
 ## Running on a SLURM Cluster
 
 If you have access to a SLURM-based HPC cluster, you can use the provided batch script to run large builds that would time out locally.
