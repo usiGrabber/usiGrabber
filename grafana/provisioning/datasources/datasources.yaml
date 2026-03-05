@@ -6,7 +6,7 @@ datasources:
     type: grafana-postgresql-datasource
     access: proxy
     url: host.docker.internal:5433
-    database: ${POSTGRES_DB:-usigrabber}
+    database: ${POSTGRES_DB}
     user: ${POSTGRES_USER}
     secureJsonData:
       password: ${POSTGRES_PASSWORD}
