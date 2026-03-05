@@ -25,7 +25,7 @@
     {
       "datasource": {
         "type": "grafana-postgresql-datasource",
-        "uid": "d1aecafa-1947-4a22-ac5c-5d75f06814e3"
+        "uid": "usigrabber-postgres"
       },
       "fieldConfig": {
         "defaults": {
@@ -75,7 +75,7 @@
         {
           "datasource": {
             "type": "grafana-postgresql-datasource",
-            "uid": "d1aecafa-1947-4a22-ac5c-5d75f06814e3"
+            "uid": "usigrabber-postgres"
           },
           "editorMode": "builder",
           "format": "table",
@@ -120,7 +120,7 @@
     {
       "datasource": {
         "type": "grafana-postgresql-datasource",
-        "uid": "d1aecafa-1947-4a22-ac5c-5d75f06814e3"
+        "uid": "usigrabber-postgres"
       },
       "fieldConfig": {
         "defaults": {
@@ -169,7 +169,7 @@
         {
           "datasource": {
             "type": "grafana-postgresql-datasource",
-            "uid": "d1aecafa-1947-4a22-ac5c-5d75f06814e3"
+            "uid": "usigrabber-postgres"
           },
           "editorMode": "code",
           "format": "table",
@@ -198,7 +198,7 @@
         {
           "datasource": {
             "type": "grafana-postgresql-datasource",
-            "uid": "d1aecafa-1947-4a22-ac5c-5d75f06814e3"
+            "uid": "usigrabber-postgres"
           },
           "editorMode": "code",
           "format": "table",
@@ -227,7 +227,7 @@
         {
           "datasource": {
             "type": "grafana-postgresql-datasource",
-            "uid": "d1aecafa-1947-4a22-ac5c-5d75f06814e3"
+            "uid": "usigrabber-postgres"
           },
           "editorMode": "code",
           "format": "table",
@@ -256,7 +256,7 @@
         {
           "datasource": {
             "type": "grafana-postgresql-datasource",
-            "uid": "d1aecafa-1947-4a22-ac5c-5d75f06814e3"
+            "uid": "usigrabber-postgres"
           },
           "editorMode": "code",
           "format": "table",
@@ -324,7 +324,7 @@
     {
       "datasource": {
         "type": "grafana-postgresql-datasource",
-        "uid": "d1aecafa-1947-4a22-ac5c-5d75f06814e3"
+        "uid": "usigrabber-postgres"
       },
       "description": "Empty projects have 0 mzID files (and therefor 0 PSMs) associated with them",
       "fieldConfig": {
@@ -430,7 +430,7 @@
         {
           "datasource": {
             "type": "grafana-postgresql-datasource",
-            "uid": "d1aecafa-1947-4a22-ac5c-5d75f06814e3"
+            "uid": "usigrabber-postgres"
           },
           "editorMode": "code",
           "format": "table",
@@ -458,7 +458,7 @@
         {
           "datasource": {
             "type": "grafana-postgresql-datasource",
-            "uid": "d1aecafa-1947-4a22-ac5c-5d75f06814e3"
+            "uid": "usigrabber-postgres"
           },
           "editorMode": "code",
           "format": "table",
@@ -502,7 +502,7 @@
     {
       "datasource": {
         "type": "grafana-postgresql-datasource",
-        "uid": "d1aecafa-1947-4a22-ac5c-5d75f06814e3"
+        "uid": "usigrabber-postgres"
       },
       "fieldConfig": {
         "defaults": {
@@ -657,7 +657,7 @@
         {
           "datasource": {
             "type": "grafana-postgresql-datasource",
-            "uid": "d1aecafa-1947-4a22-ac5c-5d75f06814e3"
+            "uid": "usigrabber-postgres"
           },
           "editorMode": "code",
           "format": "table",
@@ -704,7 +704,7 @@
     {
       "datasource": {
         "type": "grafana-postgresql-datasource",
-        "uid": "d1aecafa-1947-4a22-ac5c-5d75f06814e3"
+        "uid": "usigrabber-postgres"
       },
       "fieldConfig": {
         "defaults": {
@@ -758,7 +758,7 @@
         {
           "datasource": {
             "type": "grafana-postgresql-datasource",
-            "uid": "d1aecafa-1947-4a22-ac5c-5d75f06814e3"
+            "uid": "usigrabber-postgres"
           },
           "editorMode": "code",
           "format": "table",
@@ -790,7 +790,7 @@
     {
       "datasource": {
         "type": "grafana-postgresql-datasource",
-        "uid": "d1aecafa-1947-4a22-ac5c-5d75f06814e3"
+        "uid": "usigrabber-postgres"
       },
       "fieldConfig": {
         "defaults": {
@@ -841,7 +841,7 @@
         {
           "datasource": {
             "type": "grafana-postgresql-datasource",
-            "uid": "d1aecafa-1947-4a22-ac5c-5d75f06814e3"
+            "uid": "usigrabber-postgres"
           },
           "editorMode": "code",
           "format": "table",

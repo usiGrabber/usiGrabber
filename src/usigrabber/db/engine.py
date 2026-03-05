@@ -19,8 +19,8 @@ def build_postgres_url() -> str:
     """
 
     url = urlparse(os.environ.get("DB_URL", ""))
-    assert url.scheme in ("postgresql", "postgres"), (
-        "DB_URL must start with postgresql:// or postgres://"
+    assert url.scheme in ("postgresql", "postgres", "postgresql+psycopg"), (
+        "DB_URL must start with postgresql://, postgres://, or postgresql+psycopg://."
     )
 
     # user and pwd can also be empty if connection is anonymous
@@ -44,7 +44,11 @@ def load_db_engine(debug_sql: bool = False) -> Engine:
     if kwargs["url"].startswith("sqlite://"):
         kwargs |= {"connect_args": {"check_same_thread": False}, "poolclass": StaticPool}
         logger.info("Using SQLite database at %s", kwargs["url"])
-    elif kwargs["url"].startswith("postgresql://") or kwargs["url"].startswith("postgres://"):
+    elif (
+        kwargs["url"].startswith("postgresql://")
+        or kwargs["url"].startswith("postgres://")
+        or kwargs["url"].startswith("postgresql+psycopg://")
+    ):
         kwargs["url"] = build_postgres_url()
         logger.info("Using PostgreSQL database at %s", urlparse(kwargs["url"]).hostname)
     else:

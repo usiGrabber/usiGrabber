@@ -6,6 +6,7 @@ import argparse
 import logging
 import os
 from pathlib import Path
+from urllib.parse import urlparse
 from uuid import UUID
 
 import pandas as pd
@@ -25,6 +26,32 @@ from sqlalchemy import create_engine, text
 from spectrum_toolkit.logging_config import setup_logging
 
 logger = logging.getLogger("db-fetcher")
+
+
+def build_postgres_url() -> str:
+    """
+    Build PostgreSQL connection URL from environment variables.
+    Information from DB_URL takes precedence over individual components.
+    """
+
+    url = urlparse(os.environ.get("DB_URL", ""))
+    assert url.scheme in ("postgresql", "postgres", "postgresql+psycopg"), (
+        "DB_URL must start with postgresql://, postgres://, or postgresql+psycopg://."
+    )
+
+    # user and pwd can also be empty if connection is anonymous
+    user = url.username or os.environ.get("POSTGRES_USER")
+    pwd = url.password or os.environ.get("POSTGRES_PASSWORD")
+    assert user is not None, "Postgres user must be set via DB_URL or POSTGRES_USER"
+    assert pwd is not None, "Postgres password must be set via DB_URL or POSTGRES_PASSWORD"
+
+    host = url.hostname or os.environ.get("POSTGRES_HOST", "localhost")
+    port = url.port or os.environ.get("POSTGRES_PORT", "5432")
+    name = url.path.lstrip("/") or os.environ.get("POSTGRES_DB", "usigrabber")
+
+    # Construct the final URL
+    # we want to force psycopg(3) as the driver, as the default is the predecessor (psycopg2)
+    return f"postgresql+psycopg://{user}:{pwd}@{host}:{port}/{name}"
 
 
 def sql_to_file(
@@ -171,15 +198,10 @@ def main() -> None:
         args.output = args.output.with_suffix("")
 
     # Get connection string
-    connection_string = os.getenv("DB_URL", "")
-    if not connection_string:
-        logger.error("No database connection string provided. Set DB_URL env variable.")
-        return
-
-    if "psycopg" not in connection_string:
-        logger.error(
-            "Unsupported database type in connection string. Please use a PostgreSQL URL with psycopg driver."
-        )
+    try:
+        connection_string = build_postgres_url()
+    except AssertionError as e:
+        logger.error("Failed to build database connection URL: %s", e)
         return
 
     sql_to_file(

@@ -85,16 +85,14 @@ def build(
         typer.Option(
             help="Path to the cache dir.",
             envvar="CACHE_DIR",
-            exists=True,
             dir_okay=True,
             file_okay=False,
-            writable=True,
-            readable=True,
             resolve_path=True,
         ),
     ] = CACHE_DIR,
     max_workers: int | None = 1,
 ):
+    cache_dir.mkdir(parents=True, exist_ok=True)
     setup_logger(is_main_process=True)
 
     if os.name == "nt":
