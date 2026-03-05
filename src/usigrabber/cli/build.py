@@ -90,7 +90,7 @@ def build(
             resolve_path=True,
         ),
     ] = CACHE_DIR,
-    max_workers: int | None = 1,
+    max_workers: int | None = 3,
 ):
     cache_dir.mkdir(parents=True, exist_ok=True)
     setup_logger(is_main_process=True)
