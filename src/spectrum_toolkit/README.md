@@ -95,21 +95,25 @@ uv run download-raw-spectra <input_file> <output_dir> [options]
 - `-t, --temp-dir`: Temporary directory for downloaded raw files (default: `./pride_raw_files`)
 - `-l, --limit`: Limit number of rows to process (useful for testing)
 - `-k, --keep-temp-files`: Keep downloaded raw files and extraction directories after processing
+- `--convert-to-mgf`: After each raw file is processed, also export the enriched spectra as an MGF file. One MGF file is written per `project_accession`/`ms_run` combination into `<output_dir>/../mgf_output/`.
 
 #### Examples
 
 ```bash
 # Download and extract spectra, cleanup temp files automatically
-uv run download-raw-spectra data/psm_data.csv raw_spectra.parquet
+uv run download-raw-spectra output/psm_data.csv output/spectra
 
 # Keep raw files for inspection or reuse
-uv run download-raw-spectra data/psm_data.csv raw_spectra.parquet --keep-temp-files
+uv run download-raw-spectra output/psm_data.csv output/spectra --keep-temp-files
 
 # Test with first 10 rows
-uv run download-raw-spectra data/psm_data.csv raw_spectra_test.parquet --limit 10 --keep-temp-files
+uv run download-raw-spectra output/psm_data.csv output/spectra_test --limit 10 --keep-temp-files
 
 # Use custom temp directory on large storage mount
-uv run download-raw-spectra data/psm_data.csv raw_spectra.parquet --temp-dir /large_storage/downloads
+uv run download-raw-spectra output/psm_data.csv output/spectra --temp-dir /large_storage/downloads
+
+# Also export per-run MGF files alongside the Parquet output (written to output/mgf_output/)
+uv run download-raw-spectra output/psm_data.csv output/spectra --convert-to-mgf
 ```
 
 #### What This Does
@@ -139,7 +143,7 @@ The output contains metadata and spectrum data extracted from raw files. Among o
 
 ### 4. Optional MGF Export (Enriched Parquet → MGF)
 
-The `parquet_to_mgf.py` tool converts enriched Parquet files to MGF format for tools that require MGF input. This is optional since the Parquet file contains all the data.
+The `parquet_to_mgf.py` tool converts enriched Parquet files to MGF format for tools that require MGF input. This is optional since the Parquet file contains all the data. Also, we recommend using the `--convert-to-mgf` option in `download_raw_spectra.py` to export MGF files on a per-run basis.
 
 #### Usage
 
@@ -161,25 +165,15 @@ uv run export-mgf <enriched.parquet> <output.mgf> [options]
 
 ```bash
 # Convert all spectra to MGF
-uv run export-mgf output/enriched_psm_data.parquet output/spectra.mgf
+uv run export-mgf output/spectra.parquet output/spectra.mgf
 
 # Convert first 5000 spectra
-uv run export-mgf output/enriched_psm_data.parquet output/spectra.mgf -n 5000
+uv run export-mgf output/spectra.parquet output/spectra.mgf -n 5000
 ```
 
 ## Running on a SLURM Cluster
 
-If you have access to a SLURM-based HPC cluster, ready-to-use batch scripts are provided in [`slurm/spectrum-toolkit/`](../../slurm/spectrum-toolkit/).
-
-### `download_spectra.sh` — enriched Parquet download
-
-Uses the `download-spectra` command to download spectra based on an existing `psm_data.parquet` and write enriched output.
-
-```bash
-sbatch slurm/spectrum-toolkit/download_spectra.sh
-```
-
-Default resources: 4 CPUs, 8 GB RAM, 12 h wall time.
+If you have access to a SLURM-based HPC cluster, a ready-to-use batch script is provided in [`slurm/spectrum-toolkit/`](../../slurm/spectrum-toolkit/).
 
 ### `download-raw-spectra.sh` — raw spectra download via ThermoRawFileParser
 
@@ -199,16 +193,13 @@ Before submitting either script, open it and update:
 
 ## Example End-to-End Workflows
 
-The example below uses the phosphorylation query from `queries/` as an illustration. Substitute any SQL file that selects PSMs you care about.
+The example below uses the example query from `queries/` as an illustration. Substitute any SQL file that selects PSMs you care about.
 
 ```bash
 # Step 1: Export PSM data from database to both CSV and Parquet
 # (use your own SQL file or one of the examples in src/spectrum_toolkit/queries/)
-uv run fetch-psms src/spectrum_toolkit/queries/psms_with_phospho_mod.sql -o data/psm_data
+uv run fetch-psms src/spectrum_toolkit/queries/psms_example.sql -o output/psm_data
 
 # Step 2: Download raw files and extract spectra directly
-uv run download-raw-spectra data/psm_data.csv data/raw_spectra.parquet
-
-# Step 3 (Optional): Export to MGF if needed
-uv run export-mgf data/raw_spectra.parquet data/spectra.mgf
+uv run download-raw-spectra output/psm_data.csv output --convert-to-mgf
 ```

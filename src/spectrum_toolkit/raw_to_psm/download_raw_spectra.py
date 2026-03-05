@@ -400,10 +400,9 @@ def parse_args() -> argparse.Namespace:
     if not args.input_file.exists():
         raise FileNotFoundError(f"Input file not found: '{args.input_file}'")
 
-    if not args.output_dir.exists():
-        raise FileNotFoundError(f"Output directory not found: '{args.output_dir}'")
-
     # Create directories
+    args.output_dir.mkdir(parents=True, exist_ok=True)
+
     if args.temp_dir:
         args.temp_dir.mkdir(parents=True, exist_ok=True)
 
