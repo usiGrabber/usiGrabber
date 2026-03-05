@@ -16,7 +16,6 @@ from usigrabber.file_parser.errors import MsRunNameValidationError
 from usigrabber.file_parser.models import (
     ImportStats,
     ParsedMzidData,
-    ParsedMztabData,
     ParsedTxtZipData,
 )
 from usigrabber.utils.checksum import md5_checksum
@@ -67,7 +66,7 @@ class BaseFileParser(ABC):
     @abstractmethod
     def parse_file(
         self, path: Path | tuple[Path, Path, Path], project_accession: str
-    ) -> ParsedTxtZipData | ParsedMzidData | ParsedMztabData:
+    ) -> ParsedTxtZipData | ParsedMzidData:
         """
         Parse the given file and return the parsed data structure.
         """
@@ -82,7 +81,7 @@ class BaseFileParser(ABC):
 
     def validate_ms_run_names(
         self,
-        parsed_data: ParsedTxtZipData | ParsedMzidData | ParsedMztabData,
+        parsed_data: ParsedTxtZipData | ParsedMzidData,
         raw_files: list[FileMetadata],
     ) -> bool:
         """

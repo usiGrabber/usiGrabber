@@ -86,8 +86,6 @@ def get_filetype_allowlist() -> set[str]:
         type = type.replace(".", "").replace(" ", "")
         if type.lower() == "mzid":
             allowlist.add(".mzid")
-        elif type.lower() == "mztab":
-            allowlist.add(".mzTab")
         elif type.lower() == "txt":
             allowlist.add(".txt")
             allowlist.add("")

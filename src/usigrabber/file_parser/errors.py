@@ -42,19 +42,6 @@ class MzidImportError(FileImportError):
     pass
 
 
-# mzTab-specific errors
-class MztabParseError(FileParserError):
-    """Failed to parse mzTab file."""
-
-    pass
-
-
-class MztabImportError(FileImportError):
-    """Failed to import mzTab data to database."""
-
-    pass
-
-
 # evidence.txt-specific errors
 class TxtZipParseError(FileParserError):
     """Failed to parse evidence.txt file."""

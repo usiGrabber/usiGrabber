@@ -110,13 +110,6 @@ class ParsedMzidData(NamedTuple):
     search_modifications: list[SearchModificationDict]
 
 
-class ParsedMztabData(NamedTuple):
-    """Container for all parsed data from an mzTab file."""
-
-    modified_peptides: list[ModifiedPeptideDict]
-    psms: list[PeptideSpectrumMatchDict]
-
-
 class ParsedTxtZipData(NamedTuple):
     """Container for all parsed data from an evidence.txt file."""
 
