@@ -38,7 +38,7 @@ DB_URL=sqlite:///./database.db
 
 ## Commands for building the usigrabber database
 
-Use the following command to start building the usigrabber with ten sample projects:
+Use the following command to start building the usigrabber with ten sample projects (with a decent network connection, this should finish in under an hour on a local machine):
 
 ```bash
 uv run usigrabber build --projects-file ./sample_projects.json
@@ -51,6 +51,8 @@ Check out the help message for more options like resetting the database before b
 ```bash
 uv run usigrabber build --help
 ```
+
+After successfully building the database, you can head to the [spectrum_toolkit](../spectrum_toolkit/README.md) to use the data in usiGrabber for downstream analysis!
 
 ### Other useful commands
 
