@@ -76,6 +76,17 @@ uv run usigrabber db drop --force
 uv run pyinstrument -o db_build_profile.html $(which usigrabber) build
 ```
 
+## Running on a SLURM Cluster
+
+If you have access to a SLURM-based HPC cluster, you can use the provided batch script to run large builds that would time out locally.
+
+The script is at [`slurm/usigrabber.sh`](../../slurm/usigrabber.sh). Before submitting, adjust the `--account` and `--partition` directives to match your cluster's configuration.
+
+```bash
+# Submit the build job
+sbatch slurm/usigrabber.sh
+```
+
 ## Miscellaneous
 
 ### Obtaining example mzIdentML files

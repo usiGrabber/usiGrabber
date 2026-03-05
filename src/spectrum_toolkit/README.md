@@ -85,7 +85,6 @@ unzip ThermoRawFileParser-v.X.X.X-linux.zip -d thermo/
 
 The executable should be at `./thermo/ThermoRawFileParser` (relative to the project root).
 
-
 #### Usage
 
 ```bash
@@ -174,28 +173,35 @@ uv run export-mgf output/enriched_psm_data.parquet output/spectra.mgf
 uv run export-mgf output/enriched_psm_data.parquet output/spectra.mgf -n 5000
 ```
 
-## Running on SLURM Cluster
+## Running on a SLURM Cluster
 
-We recommend using the SLURM batch system to run the spectrum download and enrichment pipeline, which includes time-intensive downloads from PRIDE.
+If you have access to a SLURM-based HPC cluster, ready-to-use batch scripts are provided in [`slurm/spectrum-toolkit/`](../../slurm/spectrum-toolkit/).
 
-1. Copy the example SLURM script:
+### `download_spectra.sh` — enriched Parquet download
 
-   ```bash
-   cp download_spectra.slurm.example download_spectra.slurm
-   ```
+Uses the `download-spectra` command to download spectra based on an existing `psm_data.parquet` and write enriched output.
 
-2. Edit `download_spectra.slurm` to customize:
+```bash
+sbatch slurm/spectrum-toolkit/download_spectra.sh
+```
 
-   - Job parameters (`--time`, `--mem`, `--cpus-per-task`)
-   - Input Parquet path (from db_fetcher.py)
-   - Output enriched Parquet path
-   - Number of workers (`-w` flag) to match `--cpus-per-task`
-   - Account and partition settings for your cluster
+Default resources: 4 CPUs, 8 GB RAM, 12 h wall time.
 
-3. Submit the job:
-   ```bash
-   sbatch download_spectra.slurm
-   ```
+### `download-raw-spectra.sh` — raw spectra download via ThermoRawFileParser
+
+Uses the `download-raw-spectra` command to pull raw files from PRIDE and extract spectra with ThermoRawFileParser.
+
+```bash
+sbatch slurm/spectrum-toolkit/download-raw-spectra.sh
+```
+
+Default resources: 8 CPUs, 32 GB RAM, 24 h wall time.
+
+Before submitting either script, open it and update:
+
+- `--account` and `--partition` to match your cluster's configuration
+- Input/output paths to point to your actual data
+- `-w` / `--workers` flag to match `--cpus-per-task`
 
 ## Example End-to-End Workflows
 
