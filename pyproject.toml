@@ -1,7 +1,9 @@
 [project]
 name = "usigrabber"
+license = "MIT"
+license-files = ["LICENSE"]
 version = "0.1.0"
-description = "Add your description here"
+description = "Scalable framework for assembling large and diverse proteomics machine learning datasets"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
@@ -30,21 +32,20 @@ dependencies = [
     "tenacity>=9.1.2",
     "pyarrow>=23.0.0",
     "numpy>=2.3.4",
-    "duckdb>=1.4.4",
 ]
 
 [project.scripts]
 usigrabber = "usigrabber.main:main"
 
+# spectrum-toolkit scripts
+fetch-psms = "spectrum_toolkit.db_fetcher:main"
+export-mgf = "spectrum_toolkit.parquet_to_mgf:main"
+download-raw-spectra = "spectrum_toolkit.raw_to_psm.download_raw_spectra:main"
+
+# parquet export scripts
 import-db = "usigrabber.db_export.import:main"
 export-db = "usigrabber.db_export.export:main"
 bundle-exports = "usigrabber.db_export.export:bundle_exports"
-
-# mod-prediction scripts
-fetch-psms = "mod_prediction.db_fetcher:main"
-download-spectra = "mod_prediction.psm_to_parquet:main"
-export-mgf = "mod_prediction.parquet_to_mgf:main"
-download-raw-spectra = "mod_prediction.raw_to_psm.download_raw_spectra:main"
 
 [build-system]
 requires = ["uv_build>=0.8.19,<0.9.0"]

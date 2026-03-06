@@ -23,7 +23,6 @@ from usigrabber.file_parser.models import ImportStats
 
 # Import to register parsers
 from usigrabber.file_parser.mzid.parser import MzidFileParser  # noqa: F401
-from usigrabber.file_parser.mztab.parser import MztabFileParser  # noqa: F401
 from usigrabber.file_parser.txt_zip.parser import TxtZipFileParser  # noqa: F401
 from usigrabber.utils.checksum import md5_checksum
 from usigrabber.utils.context import context_file_id

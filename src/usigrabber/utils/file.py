@@ -232,7 +232,6 @@ def get_prioritized_files(
 
     Preference order:
     1. .mzid files
-    2. .mzTab files
     2. txt.zip and .txt files
 
     Args:
@@ -245,11 +244,7 @@ def get_prioritized_files(
     if all_files.get(".mzid", []):
         return all_files[".mzid"], ".mzid"
 
-    # 2. Next prefer .mzTab files
-    elif all_files.get(".mzTab", []):
-        return all_files[".mzTab"], ".mzTab"
-
-    # 3. Next prefer txt.zip/.txt files
+    # 2. Next prefer txt.zip/.txt files
     else:
         txt_zip_files = [f for f in all_files.get("", []) if f["filepath"].lower().endswith(".zip")]
         txt_files = all_files.get(".txt", [])

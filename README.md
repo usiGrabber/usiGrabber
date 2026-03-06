@@ -1,33 +1,34 @@
-# usi grabber
+# usiGrabber
 
-This project provides the tools to build the usigrabber database which stores proteomics data from PRIDE and allows to query for USIs.
+usiGrabber is a tool for building large-scale mass spectrometry-based proteomics datasets from publicly available data. It parses peptide spectrum matches (PSMs) and associated metadata from mzIdentML files from [PRIDE](https://www.ebi.ac.uk/pride/), stores them in a queryable database, and provides tools to download and export the corresponding raw spectra for downstream machine learning use.
 
-## Setup
+## Repository Overview
+
+This repository contains two packages that together implement the full dataset construction pipeline:
+
+| Package              | Description                                                                      | Documentation                                                      |
+| -------------------- | -------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
+| **usiGrabber**       | Extracts PSMs and metadata from PRIDE into a PostgreSQL database                 | [src/usigrabber/README.md](./src/usigrabber/README.md)             |
+| **Spectrum Toolkit** | Queries the database and downloads raw spectra for use in machine learning tasks | [src/spectrum_toolkit/README.md](./src/spectrum_toolkit/README.md) |
+
+## Proof-of-Concept: Curating a dataset for retraining a binary phosphorylation classifier
+
+As a proof of concept, we used usiGrabber to curate a dataset for retraining a binary phosphorylation classifier based on the AHLF model architecture. Adjustments to the original code and the weights of our retrained model are available in the [AHLF-fork](https://github.com/usiGrabber/AHLF-fork) repository.
+
+## General Setup
 
 1. Install prerequisites
+   - [uv](https://docs.astral.sh/uv/getting-started/installation/)
+   - [Docker](https://docs.docker.com/get-docker/) (optional, recommended for PostgreSQL)
 
-- uv: https://docs.astral.sh/uv/getting-started/installation/
-- Install recommended VS Code extensions (see `.vscode/extensions.json`)
-- Install Docker: https://docs.docker.com/get-docker/ (optional, but recommended)
+2. Install dependencies and set up pre-commit hooks
 
-2. Install dependencies and setup pre-commit hooks
-
-```bash
-uv sync
-
-uv run pre-commit install
-```
+   ```bash
+   uv sync
+   uv run pre-commit install
+   ```
 
 3. Configure environment variables
-- Copy `.env.sample` to `.env` and modify as needed or described in the sections below.
+   - Copy `.env.sample` to `.env` and adjust as needed (database URL, credentials).
 
-## Packages
-The project is organized into two packages. Together they can be used to construct machine learning datasets from proteomics data.
-
-### [usigrabber](./src/usigrabber)
-This is the main package that builds the PSM database.
-
-### [modification-prediction](./src/mod_prediction)
-This package provides tools to
-- export PSMs as csv files, which can be used to
-- download raw spectra files from PRIDE and store them as mgf or parquet output
+For detailed database setup and build commands see [src/usigrabber/README.md](./src/usigrabber/README.md).
