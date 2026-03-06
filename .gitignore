@@ -43,4 +43,9 @@ thermo/*
 queries/*.csv
 queries/*.parquet
 pride_raw_files/*
+
 output/*
+
+# parquet exports
+parquet_exports/*
+src/usigrabber/db_export/logs/*
