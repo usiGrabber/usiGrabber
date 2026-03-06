@@ -2,7 +2,7 @@ import argparse
 import logging
 from pathlib import Path
 
-from mod_prediction.logging_config import setup_logging
+from spectrum_toolkit.logging_config import setup_logging
 from usigrabber.db_export.export import OUTPUT_DIR, duckdb_con
 
 logger = logging.getLogger("validate_db_export")

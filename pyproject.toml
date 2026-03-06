@@ -32,6 +32,7 @@ dependencies = [
     "tenacity>=9.1.2",
     "pyarrow>=23.0.0",
     "numpy>=2.3.4",
+    "duckdb>=1.4.4",
 ]
 
 [project.scripts]

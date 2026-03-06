@@ -5,7 +5,7 @@ from pathlib import Path
 import duckdb
 from rich.progress import track
 
-from mod_prediction.logging_config import setup_logging
+from spectrum_toolkit.logging_config import setup_logging
 from usigrabber.db_export.export import OUTPUT_DIR, duckdb_con
 
 # --- UPDATE WITH YOUR RESTORE DB CREDENTIALS ---

@@ -7,8 +7,9 @@ from urllib.parse import urlparse
 
 import duckdb
 from dotenv import load_dotenv
-from mod_prediction.logging_config import setup_logging
 from rich.progress import track
+
+from spectrum_toolkit.logging_config import setup_logging
 
 # Load environment variables from .env file
 load_dotenv()
