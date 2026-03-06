@@ -52,7 +52,13 @@ Check out the help message for more options like resetting the database before b
 uv run usigrabber build --help
 ```
 
-After successfully building the database, you can head to the [spectrum_toolkit](../spectrum_toolkit/README.md) to use the data in usiGrabber for downstream analysis!
+After successfully building the database, it is recommend to add some indices for faster querying. Enter your databse using `psql` and run [indices.sql](./build_index/indices.sql) via:
+
+```psql
+\i build_index/indices.sql
+```
+
+You can now head to the [spectrum_toolkit](../spectrum_toolkit/README.md) to use the data in usiGrabber for downstream analysis!
 
 ### Other useful commands
 
@@ -80,13 +86,15 @@ uv run pyinstrument -o db_build_profile.html $(which usigrabber) build
 
 ## Monitoring with Grafana
 
-`docker compose up -d` also starts **Grafana** (port `3000`) and **Loki** (port `3100`) alongside the database. Data sources and dashboards are provisioned automatically — no manual setup needed.
+`docker compose up -d` also starts **Grafana** (port `3000`) and **Loki** (port `3100`) alongside the database. Data sources and dashboards are provisioned automatically.
+
+In order to to monitor the size of the PSM table automatically and efficiently, we added a [simple script](./grafana/db_snapshot.sh) that should be run periodically (e.g. once per hour using cron) to insert the current row count into a separate table (`psm_growth_stats`) that the Grafana dashboard queries. You may have to adjust the database credentials in the script.
 
 Open [http://localhost:3000](http://localhost:3000) and log in with `admin` / `admin`. The two dashboards under **Dashboards** will already be available:
 
-| Dashboard | Description |
-|---|---|
-| `dashboard-db.json` | Database statistics and pipeline run overview |
+| Dashboard              | Description                                             |
+| ---------------------- | ------------------------------------------------------- |
+| `dashboard-db.json`    | Database statistics and pipeline run overview           |
 | `error-dashboard.json` | Failed files per project with drill-down into Loki logs |
 
 > Provisioning config lives in [`grafana/provisioning/`](../../grafana/provisioning/). Data source credentials are read from the same environment variables as the database (`POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`).
