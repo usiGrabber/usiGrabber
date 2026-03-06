@@ -7,9 +7,8 @@ from urllib.parse import urlparse
 
 import duckdb
 from dotenv import load_dotenv
-from rich.progress import track
-
 from mod_prediction.logging_config import setup_logging
+from rich.progress import track
 
 # Load environment variables from .env file
 load_dotenv()
@@ -133,14 +132,8 @@ def _create_tarball(folder_list, output_file):
     logger.info(f"✅ Created {output_file}")
 
 
-def bundle_exports(source_dir: os.PathLike, output_dir: os.PathLike) -> None:
-    """
-    Groups small folders into one archive and large folders into individual ones.
-
-    Example usage
-    ---
-    >>> bundle_exports("./my_db_export", "./archives")
-    """
+def bundle_exports() -> None:
+    """Groups small folders into one archive and large folders into individual ones."""
     setup_logging(Path(__file__).parent / "logs")
 
     parser = argparse.ArgumentParser(
@@ -148,17 +141,24 @@ def bundle_exports(source_dir: os.PathLike, output_dir: os.PathLike) -> None:
         "Large tables are archived individually, while small tables are grouped together."
     )
     parser.add_argument(
-        "source-dir",
+        "source_dir",
         type=Path,
         default=OUTPUT_DIR,
         help=f"Directory where the exported Parquet files are stored (default: {OUTPUT_DIR})",
     )
 
     parser.add_argument(
-        "dest-dir",
+        "dest_dir",
         type=Path,
         default=OUTPUT_DIR.parent / "bundled-export",
         help=f"Directory where the bundled archives are stored (default: {OUTPUT_DIR.parent / 'bundled-export'})",
+    )
+
+    parser.add_argument(
+        "--size-threshold",
+        type=int,
+        default=20,
+        help="Size threshold in GB to determine if a folder is considered 'large' (default: 20GB). Adjust based on your needs.",
     )
 
     args = parser.parse_args()
@@ -171,7 +171,7 @@ def bundle_exports(source_dir: os.PathLike, output_dir: os.PathLike) -> None:
     dest_path = Path(args.dest_dir)
     dest_path.mkdir(parents=True, exist_ok=True)
 
-    GB_LIMIT = 10 * (2**30)  # 10GB in bytes
+    GB_LIMIT = args.size_threshold * (2**30)  # User-defined threshold in bytes
     small_folders: list[Path] = []
 
     # 1. Analyze folders
