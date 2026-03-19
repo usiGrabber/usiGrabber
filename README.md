@@ -1,3 +1,5 @@
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.18853258.svg)](https://doi.org/10.5281/zenodo.18853258)
+
 # usiGrabber
 
 usiGrabber is a tool for building large-scale mass spectrometry-based proteomics datasets from publicly available data. It parses peptide spectrum matches (PSMs) and associated metadata from mzIdentML files from [PRIDE](https://www.ebi.ac.uk/pride/), stores them in a queryable database, and provides tools to download and export the corresponding raw spectra for downstream machine learning use.
@@ -32,3 +34,9 @@ As a proof of concept, we used usiGrabber to curate a dataset for retraining a b
    - Copy `.env.sample` to `.env` and adjust as needed (database URL, credentials).
 
 For detailed database setup and build commands see [src/usigrabber/README.md](./src/usigrabber/README.md).
+
+## Citation
+
+**usiGrabber: Automating the curation of proteomics spectra data at scale, making large datasets ready for use in machine learning systems**
+Georg Auge, Matthis Clausen, Konstantin Ketterer, Jacob Schaefer, Nils Schmitt, Tom Altenburg, Yannick Hartmaring, Hendrik Raetz, Christoph N. Schlaffner,  Bernhard Y. Renard
+doi: https://doi.org/10.64898/2026.03.15.711873 
