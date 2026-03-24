@@ -49,6 +49,6 @@ Refer to our [database import/export guide](https://github.com/usiGrabber/usiGra
 
 ## Citation
 
-**usiGrabber: Automating the curation of proteomics spectra data at scale, making large datasets ready for use in machine learning systems**
-Georg Auge, Matthis Clausen, Konstantin Ketterer, Jacob Schaefer, Nils Schmitt, Tom Altenburg, Yannick Hartmaring, Hendrik Raetz, Christoph N. Schlaffner,  Bernhard Y. Renard
+**usiGrabber: Automating the curation of proteomics spectra data at scale, making large datasets ready for use in machine learning systems**  
+Georg Auge, Matthis Clausen, Konstantin Ketterer, Jacob Schaefer, Nils Schmitt, Tom Altenburg, Yannick Hartmaring, Hendrik Raetz, Christoph N. Schlaffner,  Bernhard Y. Renard  
 doi: https://doi.org/10.64898/2026.03.15.711873 
