@@ -33,7 +33,19 @@ As a proof of concept, we used usiGrabber to curate a dataset for retraining a b
 3. Configure environment variables
    - Copy `.env.sample` to `.env` and adjust as needed (database URL, credentials).
 
-For detailed database setup and build commands see [src/usigrabber/README.md](./src/usigrabber/README.md).
+For detailed database setup and build commands, see [src/usigrabber/README.md](./src/usigrabber/README.md).
+
+## Data Availability
+
+The data is available on Zenodo:
+
+- Main record containing the training dataset and model weights for trained [AHLF](https://github.com/usiGrabber/AHLF-fork) model: [https://zenodo.org/records/18853258](https://zenodo.org/records/18853258)
+- The usiGrabber database tables are split across multiple records: 
+  - peptide_spectrum_matches table: [https://zenodo.org/records/18890370](https://zenodo.org/records/18890370)
+  - psm_peptide_evidence table: [https://zenodo.org/records/18864164](https://zenodo.org/records/18864164)
+  - Other, smaller tables: [https://zenodo.org/records/18873214](https://zenodo.org/records/18873214)
+ 
+Refer to our [database import/export guide](https://github.com/usiGrabber/usiGrabber/tree/main/src/usigrabber/db_export) on how to reassemble the database from these records.
 
 ## Citation
 
