@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<MzIdentML xmlns="http://psidev.info/psi/pi/mzIdentML/1.1" id="broken-inputs" version="1.1.0">
+  <DataCollection>
+    <Inputs>
+      <SourceFile location="file:/D:/Local%20Projects/Fredrik%20Forsberg/230524%20Fredrik%20Forsberg%20DB%20Search/" id="PROJECT_1">
+        <FileFormat>
+          <cvParam accession="MS:1001107" cvRef="PSI-MS" name="data stored in database"/>
+        </FileFormat>
+      </SourceFile>
+      <SearchDatabase numDatabaseSequences="1458" location="file:/D:/Local%20Projects/Fredrik%20Forsberg/Pig%20DB%202023-05-11%20SwissProt%20Altered%20FIBA%20&%20FIBB/Uniprot%20Pig%20SwissProt%20Altered%20FIBA&FIBB%202023-05-11.fasta" id="SEARCHDATABASE_1" name="Uniprot Pig SwissProt Altered FIBA&FIBB 2023-05-11">
+        <FileFormat>
+          <cvParam accession="MS:1001348" cvRef="PSI-MS" name="FASTA format"/>
+        </FileFormat>
+        <DatabaseName>
+          <userParam name="Uniprot Pig SwissProt Altered FIBA&FIBB 2023-05-11"/>
+        </DatabaseName>
+      </SearchDatabase>
+      <SpectraData location="file:/D:/Local%20Projects/Fredrik%20Forsberg/ProteomeXchange%20upload%20files/Result%20+%20/Pig%20WF/pig_sample_34_day_1.mgf" id="SPECTRADATA_5">
+        <FileFormat>
+          <cvParam accession="MS:1001062" cvRef="PSI-MS" name="Mascot MGF file"/>
+        </FileFormat>
+        <SpectrumIDFormat>
+          <cvParam accession="MS:1000774" cvRef="PSI-MS" name="multiple peak list nativeID format"/>
+        </SpectrumIDFormat>
+      </SpectraData>
+    </Inputs>
+  </DataCollection>
+</MzIdentML>
