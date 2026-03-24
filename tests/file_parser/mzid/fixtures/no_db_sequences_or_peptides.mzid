@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<MzIdentML
+  id="minimal"
+  version="1.1.0"
+  xmlns="http://psidev.info/psi/pi/mzIdentML/1.1"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://psidev.info/psi/pi/mzIdentML/1.1 mzIdentML1.1.0.xsd"
+>
+  <AnalysisSoftwareList>
+    <AnalysisSoftware id="AS_1" name="TestSoftware" version="1.0">
+      <SoftwareName>
+        <cvParam accession="MS:1001456" name="analysis software" cvRef="PSI-MS" />
+      </SoftwareName>
+    </AnalysisSoftware>
+  </AnalysisSoftwareList>
+
+  <AnalysisProtocolCollection>
+    <SpectrumIdentificationProtocol id="SIP_1">
+      <Threshold>
+        <cvParam accession="MS:1001494" name="no threshold" cvRef="PSI-MS" />
+      </Threshold>
+      <ModificationParams />
+    </SpectrumIdentificationProtocol>
+  </AnalysisProtocolCollection>
+
+  <DataCollection>
+    <Inputs>
+      <SpectraData id="SD_1" location="file:///dummy_run.mgf">
+        <SpectrumIDFormat>
+          <cvParam accession="MS:1000774" name="multiple peak list nativeID format" cvRef="PSI-MS" />
+        </SpectrumIDFormat>
+      </SpectraData>
+    </Inputs>
+    <AnalysisData>
+      <SpectrumIdentificationList id="SIL_1" />
+    </AnalysisData>
+  </DataCollection>
+</MzIdentML>

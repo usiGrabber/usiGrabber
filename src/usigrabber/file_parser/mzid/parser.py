@@ -70,22 +70,32 @@ class MzidFileParser(BaseFileParser):
             if len(spectra_data_map) == 0:
                 raise MzidParseError(f"No SpectraData found in mzID file {path.name}")
 
+            # NOTE:
+            # pyteomics may fall back to a non-indexed forward stream for iterfind calls
+            # where no byte-offset index exists (e.g. empty DBSequence/Peptide sections).
+            # In those cases, one pass can exhaust the underlying stream and subsequent
+            # passes can fail with `XMLSyntaxError: no element found (line 0)`.
+            # We avoid that by resetting the reader between parsing phases.
             with mzid.MzIdentML(str(path), retrieve_refs=False) as reader:
                 logger.debug("Phase 0: Parsing file metadata...")
                 mzid_file = parse_mzid_metadata(reader, path, project_accession)
 
                 logger.debug("Phase 1: Parsing database sequences...")
+                reader.reset()
                 db_seq_map = parse_db_sequences(reader)
 
                 logger.debug("Phase 2: Parsing peptides and modifications...")
+                reader.reset()
                 peptide_id_map, peptides_batch, mod_batch, mod_junction_batch = (
                     parse_peptides_and_modifications(reader)
                 )
 
                 logger.debug("Phase 3: Parsing peptide evidence...")
+                reader.reset()
                 pe_id_map, peptide_evidence_batch = parse_peptide_evidence(reader, db_seq_map)
 
                 logger.debug("Phase 4: Parsing spectrum identification results (PSMs)...")
+                reader.reset()
                 psm_batch, junction_batch, search_mod_batch = parse_psms(
                     reader,
                     project_accession,
@@ -95,19 +105,19 @@ class MzidFileParser(BaseFileParser):
                     spectra_data_map,
                 )
 
-                parsed_data = ParsedMzidData(
-                    mzid_file=mzid_file,
-                    modified_peptides=peptides_batch,
-                    modifications=mod_batch,
-                    modified_peptide_modification_junctions=mod_junction_batch,
-                    peptide_evidence=peptide_evidence_batch,
-                    psms=psm_batch,
-                    psm_peptide_evidence_junctions=junction_batch,
-                    search_modifications=search_mod_batch,
-                )
+            parsed_data = ParsedMzidData(
+                mzid_file=mzid_file,
+                modified_peptides=peptides_batch,
+                modifications=mod_batch,
+                modified_peptide_modification_junctions=mod_junction_batch,
+                peptide_evidence=peptide_evidence_batch,
+                psms=psm_batch,
+                psm_peptide_evidence_junctions=junction_batch,
+                search_modifications=search_mod_batch,
+            )
 
-                logger.debug(f"Successfully parsed '{path.name}'")
-                return parsed_data
+            logger.debug(f"Successfully parsed '{path.name}'")
+            return parsed_data
 
         except PyteomicsError as e:
             error_msg = f"Failed to parse mzID file: {e}"
