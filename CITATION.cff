@@ -1,4 +1,4 @@
-@article {Auge2026.03.15.711873,
+@article{Auge2026.03.15.711873,
     author = {Auge, Georg and Clausen, Matthis and Ketterer, Konstantin and Schaefer, Jacob and Schmitt, Nils and Altenburg, Tom and Hartmaring, Yannick and Raetz, Hendrik and Schlaffner, Christoph N. and Renard, Bernhard Y.},
     title = {usiGrabber: Automating the curation of proteomics spectra data at scale, making large datasets ready for use in machine learning systems},
     elocation-id = {2026.03.15.711873},
